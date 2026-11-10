@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports | PaliTrento Admin</title>
+<meta name="description" content="LGU economic reports and analytics.">
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:1000px;padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Reports</h1>
+      <p class="muted">Economic observatory and platform analytics</p>
+    </div>
+    <a href="admin.html" class="btn alt">← Dashboard</a>
+  </div>
+
+  <!-- Stats Overview -->
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:32px">
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--primary)" id="r-total-stores">—</div>
+      <div class="muted">Total Registered Stores</div>
+    </div>
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--ok)" id="r-verified-stores">—</div>
+      <div class="muted">Verified Stores</div>
+    </div>
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--info)" id="r-total-products">—</div>
+      <div class="muted">Total Products Listed</div>
+    </div>
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--amber)" id="r-total-orders">—</div>
+      <div class="muted">Total Pickup Orders</div>
+    </div>
+  </div>
+
+  <!-- Category Breakdown -->
+  <div class="card" style="padding:20px;margin-bottom:24px">
+    <h2 style="margin:0 0 16px">Stores by Category</h2>
+    <div id="category-breakdown" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"></div>
+  </div>
+
+  <!-- Barangay Breakdown -->
+  <div class="card" style="padding:20px;margin-bottom:24px">
+    <h2 style="margin:0 0 16px">Stores by Barangay</h2>
+    <div id="barangay-breakdown" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px"></div>
+  </div>
+
+  <!-- Price Cap Compliance -->
+  <div class="card" style="padding:20px">
+    <h2 style="margin:0 0 16px">Price Cap Compliance</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+      <div class="card" style="padding:20px;text-align:center">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--ok)" id="r-within-cap">—</div>
+        <div class="muted">Products Within Cap</div>
+      </div>
+      <div class="card" style="padding:20px;text-align:center">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--bad)" id="r-over-cap">—</div>
+        <div class="muted">Products Over Cap</div>
+      </div>
+      <div class="card" style="padding:20px;text-align:center">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--muted)" id="r-no-cap">—</div>
+        <div class="muted">No Cap Set</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</main>
+<div id="chrome-foot"></div>
+<script type="module" src="js/admin-reports.js"></script>
+</body>
+</html>

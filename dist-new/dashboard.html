@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard | PaliTrento</title>
+<meta name="description" content="Manage your store, products, and orders.">
+<link rel="icon" type="image/png" href="./assets/logo-DrGexIuc.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/dashboard-CLc5MkJM.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-DfEvemSo.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-99iViicz.js">
+  <link rel="modulepreload" crossorigin href="./assets/storage-DUXBr4LO.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-DRDDeQHD.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:1000px;padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Dashboard</h1>
+      <p class="muted" id="store-status">Loading...</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <a href="standee.html?storeId={{STORE_ID}}" class="btn" id="standee-btn" style="display:none">Generate Standee</a>
+      <button class="btn" id="edit-store-btn">Edit store</button>
+    </div>
+  </div>
+
+  <!-- Store info card -->
+  <div id="store-card" class="card" style="display:none;padding:20px;margin-bottom:24px">
+    <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start">
+      <div>
+        <h2 id="dash-business-name" style="margin:0 0 8px"></h2>
+        <p class="muted" id="dash-category"></p>
+        <p class="muted" id="dash-location"></p>
+        <p class="muted" id="dash-hours"></p>
+        <div id="dash-badges" style="margin-top:8px"></div>
+      </div>
+      <img id="dash-storefront" src="" alt="Storefront" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-lg);display:none">
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px" role="tablist">
+    <button class="tab-btn" role="tab" aria-selected="true" data-tab="products">Products</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">Orders</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="analytics">Analytics</button>
+  </div>
+
+  <!-- Products tab -->
+  <div id="tab-products" role="tabpanel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <h3 style="margin:0">Your Products</h3>
+      <button class="btn" id="add-product-btn">Add product</button>
+    </div>
+    <div id="products-list" class="grid" style="display:none"></div>
+    <p class="muted" id="no-products" style="display:none;text-align:center;padding:32px">No products yet. Add your first product!</p>
+  </div>
+
+  <!-- Orders tab -->
+  <div id="tab-orders" role="tabpanel" style="display:none">
+    <h3 style="margin-bottom:16px">Pickup Orders</h3>
+    <div id="orders-list"></div>
+    <p class="muted" id="no-orders" style="display:none;text-align:center;padding:32px">No orders yet.</p>
+  </div>
+
+  <!-- Analytics tab -->
+  <div id="tab-analytics" role="tabpanel" style="display:none">
+    <h3 style="margin-bottom:16px">Analytics</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
+      <div class="card" style="padding:20px;text-align:center">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--primary)" id="stat-products">0</div>
+        <div class="muted">Total Products</div>
+      </div>
+      <div class="card" style="padding:20px;text-align:center">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--primary)" id="stat-orders">0</div>
+        <div class="muted">Total Orders</div>
+      </div>
+      <div class="card" style="padding:20px;text-align:center">
+        <div style="font-size:2.5rem;font-weight:800;color:var(--primary)" id="stat-revenue">₱0</div>
+        <div class="muted">Revenue</div>
+      </div>
+    </div>
+    <p class="muted">Detailed analytics coming soon.</p>
+  </div>
+
+</div>
+</main>
+<div id="chrome-foot"></div>
+
+<!-- Add/Edit Product Modal -->
+<div id="product-modal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:24px">
+  <div class="card" style="width:100%;max-width:560px;max-height:90vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
+      <h3 id="modal-title" style="margin:0">Add Product</h3>
+      <button type="button" class="btn alt" id="modal-close" style="padding:8px;line-height:1">&times;</button>
+    </div>
+    <form id="product-form" novalidate style="padding:20px;display:grid;gap:16px">
+      <input type="hidden" id="product-id" name="id">
+      <div>
+        <label for="p-name">Name <span class="bad">*</span></label>
+        <input id="p-name" name="name" type="text" required autocomplete="off" placeholder="Premium Rice 25kg">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="p-category">Category <span class="bad">*</span></label>
+          <select id="p-category" name="category" required>
+            <option value="">Choose</option>
+            <option value="Rice">Rice</option>
+            <option value="Meat">Meat</option>
+            <option value="Seafood">Seafood</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Fruits">Fruits</option>
+            <option value="Canned">Canned Goods</option>
+            <option value="Noodles">Noodles</option>
+            <option value="Condiments">Condiments</option>
+            <option value="Snacks">Snacks</option>
+            <option value="Beverages">Beverages</option>
+            <option value="Personal Care">Personal Care</option>
+            <option value="Household">Household</option>
+            <option value="Medicine">Medicine</option>
+            <option value="Agricultural">Agricultural</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="p-unit">Unit <span class="bad">*</span></label>
+          <select id="p-unit" name="unit" required>
+            <option value="">Choose</option>
+            <option value="KG">kg</option>
+            <option value="PC">pc</option>
+            <option value="POUCH">pouch</option>
+            <option value="BOTTLE">bottle</option>
+            <option value="SACK_25KG">25-kg sack</option>
+            <option value="TIE">tie</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="p-price">Price (₱) <span class="bad">*</span></label>
+          <input id="p-price" name="current_price" type="number" step="0.01" min="0" required placeholder="55.00">
+        </div>
+        <div>
+          <label for="p-srp">LGU Price Cap (₱) <span class="muted">(optional)</span></label>
+          <input id="p-srp" name="lgu_srp_ceiling" type="number" step="0.01" min="0" placeholder="60.00">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="p-stock">In stock <span class="bad">*</span></label>
+          <select id="p-stock" name="in_stock" required>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <div>
+          <label for="p-quantity">Quantity (optional)</label>
+          <input id="p-quantity" name="quantity" type="number" min="0" step="1" placeholder="100">
+        </div>
+      </div>
+      <div>
+        <label for="p-image">Product Image (optional)</label>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <label class="btn alt" style="cursor:pointer">
+            Choose image
+            <input id="p-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" style="display:none">
+          </label>
+          <span id="p-image-filename" class="muted" style="font-size:.85rem"></span>
+        </div>
+        <div id="p-image-preview" style="display:none;margin-top:8px">
+          <img id="p-image-preview-img" src="" alt="Preview" style="max-width:200px;max-height:200px;border-radius:var(--r-md);border:1px solid var(--line)">
+          <button type="button" class="btn alt" id="p-image-remove" style="margin-top:8px;padding:4px 12px;font-size:.8rem">Remove</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:8px">
+        <button type="button" class="btn alt" id="modal-cancel">Cancel</button>
+        <button type="submit" class="btn" id="modal-save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+</body>
+</html>
