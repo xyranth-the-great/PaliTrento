@@ -15,6 +15,9 @@ The anon key is safe to expose. Security comes from the row-level security rules
 ## Deploy to GitHub Pages
 `BASE_PATH=/PaliTrento/ npm run build`, then publish `dist/`. Add the two VITE_ values as repository secrets.
 
+## Preview through ngrok
+For a site served from the ngrok domain root, run `npm run build:ngrok`, then `npm run preview -- --host 0.0.0.0 --port 4173` and start the tunnel with `ngrok http 4173`. This builds with relative asset paths, unlike the GitHub Pages subpath build above.
+
 ## Pages
 index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail)
 
