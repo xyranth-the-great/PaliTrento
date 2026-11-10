@@ -27,8 +27,8 @@ section{padding:48px 0}
 .logo-word{display:inline-flex;align-items:center;gap:0;white-space:nowrap;letter-spacing:-0.04em}
 .logo-pali{color:#fef3e2}
 .logo-rento{color:#fef3e2}
-.logo-inline-mark{display:inline-flex;align-items:center;justify-content:center;transform:translateY(-1px);margin:0 1px}
-.logo-mark{width:24px;height:24px;display:block;object-fit:contain;filter:drop-shadow(0 2px 0 rgba(0,0,0,.12));}
+.logo-inline-mark{display:inline-flex;align-items:center;justify-content:center;transform:translateY(2px);margin:0 1px}
+.logo-mark{width:20px;height:20px;display:block;object-fit:contain;filter:drop-shadow(0 2px 0 rgba(0,0,0,.12));}
 .top nav{display:flex;gap:4px;flex-wrap:wrap}
 .top nav a{color:#e9f2ec;text-decoration:none;padding:8px 12px;border-radius:var(--r-md);font-weight:600;font-size:.95rem}
 .home-page .top nav a{color:var(--primary-dark)}
