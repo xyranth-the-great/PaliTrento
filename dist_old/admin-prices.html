@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Price Broadcasts | PaliTrento Admin</title>
+<meta name="description" content="Create and manage LGU price advisories.">
+<link rel="icon" type="image/png" href="./assets/logo-DrGexIuc.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/admin-prices-nlSSicGH.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-bHZsbR4I.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-CsyNj_yp.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-CpBroE9i.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:900px;padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Price Broadcasts</h1>
+      <p class="muted">Send LGU price advisories to all barangays or specific ones</p>
+    </div>
+    <a href="admin.html" class="btn alt">← Dashboard</a>
+  </div>
+
+  <!-- Create Broadcast Card -->
+  <div class="card" style="padding:24px;margin-bottom:32px">
+    <h2 style="margin:0 0 16px">Create New Broadcast</h2>
+    <form id="broadcast-form" novalidate style="display:grid;gap:16px">
+      <div>
+        <label for="b-title">Title <span class="bad">*</span></label>
+        <input id="b-title" name="title" type="text" required placeholder="e.g., New Rice Price Cap Effective Monday">
+      </div>
+
+      <div>
+        <label for="b-body">Message <span class="bad">*</span></label>
+        <textarea id="b-body" name="body" rows="4" required placeholder="The LGU has issued a new price ceiling for well-milled rice at ₱52/kg effective March 15. All retailers must comply."></textarea>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="b-category">Category <span class="bad">*</span></label>
+          <select id="b-category" name="category" required>
+            <option value="PRICE_CAP">Price Cap</option>
+            <option value="ANNOUNCEMENT">Announcement</option>
+            <option value="EMERGENCY">Emergency</option>
+            <option value="GENERAL">General</option>
+          </select>
+        </div>
+        <div>
+          <label for="b-priority">Priority <span class="bad">*</span></label>
+          <select id="b-priority" name="priority" required>
+            <option value="low">Low</option>
+            <option value="normal" selected>Normal</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label for="b-barangay">Target Barangay (optional)</label>
+        <select id="b-barangay" name="barangay">
+          <option value="">All barangays</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="b-expires">Expires at (optional)</label>
+        <input id="b-expires" name="expires_at" type="datetime-local">
+        <p class="muted" style="font-size:.8rem;margin-top:4px">Leave blank for no expiration</p>
+      </div>
+
+      <button type="submit" class="btn" style="width:fit-content">Send Broadcast</button>
+    </form>
+
+    <p id="broadcast-msg" class="muted" style="margin-top:12px;min-height:1.5em"></p>
+  </div>
+
+  <!-- Broadcasts List -->
+  <div class="card" style="padding:20px">
+    <h2 style="margin:0 0 16px">Previous Broadcasts</h2>
+    <div id="broadcasts-list" class="grid" style="display:none"></div>
+    <p class="muted" id="no-broadcasts" style="display:none;text-align:center;padding:32px">No broadcasts yet.</p>
+  </div>
+
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

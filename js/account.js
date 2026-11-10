@@ -18,7 +18,6 @@ const avatarMsg = $('#avatar-msg');
 
 let currentProfile = null;
 let currentSession = null;
-let currentOrders = [];
 
 async function loadAccount() {
   if (!isSupabaseConfigured()) {
@@ -34,120 +33,29 @@ async function loadAccount() {
 
   currentSession = session;
 
-  // Check for tab parameter
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialTab = urlParams.get('tab') || 'profile';
-
-  // Update nav with session and cached profile
-  const cachedProfile = await getCachedProfile(session.user.id);
-  renderChrome('account.html', session, cachedProfile);
+  const profile = await getCachedProfile(session.user.id);
+  renderChrome('account.html', session, profile);
 
   // Fetch fresh profile for the form
-  const profile = await getCachedProfile(session.user.id);
-  currentProfile = profile;
-
-  // Set active tab
-  $$('.tab-btn').forEach(btn => {
-    const isActive = btn.dataset.tab === initialTab;
-    btn.setAttribute('aria-selected', isActive);
-  });
-  $$('[role="tabpanel"]').forEach(p => {
-    p.style.display = p.id === `tab-${initialTab}` ? 'block' : 'none';
-  });
+  currentProfile = await getCachedProfile(session.user.id);
 
   // Populate barangay dropdown
   const brgySelect = $('#acc-barangay');
   brgySelect.innerHTML = '<option value="">Choose your barangay</option>' +
-    BARANGAYS.map(b => `<option value="${esc(b)}"${profile?.barangay === b ? ' selected' : ''}>${esc(b)}</option>`).join('');
+    BARANGAYS.map(b => `<option value="${esc(b)}"${currentProfile?.barangay === b ? ' selected' : ''}>${esc(b)}</option>`).join('');
 
   // Fill form fields
-  $('#acc-name').value = profile?.full_name ?? session.user.user_metadata?.full_name ?? '';
-  $('#acc-email').value = profile?.email ?? session.user.email ?? '';
-  const role = profile?.role ?? session.user.user_metadata?.role ?? 'customer';
+  $('#acc-name').value = currentProfile?.full_name ?? session.user.user_metadata?.full_name ?? '';
+  $('#acc-email').value = currentProfile?.email ?? session.user.email ?? '';
+  const role = currentProfile?.role ?? session.user.user_metadata?.role ?? 'customer';
   $('#acc-role').value = role.replace('_', ' ');
   $('#account-role-badge').textContent = role.replace('_', ' ');
-  if (profile?.barangay) brgySelect.value = profile.barangay;
+  if (currentProfile?.barangay) brgySelect.value = currentProfile.barangay;
 
   // Show avatar
-  updateAvatarPreview(profile?.avatar_url ?? null);
-
-  // Load orders
-  await loadOrders();
+  updateAvatarPreview(currentProfile?.avatar_url ?? null);
 
   contentEl.style.display = 'block';
-}
-
-async function loadOrders() {
-  try {
-    // Load orders with products and stores
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        products (name, unit, current_price),
-        stores (business_name, trn_code, barangay)
-      `)
-      .eq('buyer_id', currentSession.user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    console.log('Customer orders loaded:', orders?.length);
-    currentOrders = orders || [];
-    renderOrders();
-  } catch (err) {
-    console.error('Load orders error:', err);
-  }
-}
-
-function renderOrders() {
-  const container = $('#orders-history');
-  if (!container) return;
-
-  if (currentOrders.length === 0) {
-    container.innerHTML = '<p class="muted" style="text-align:center;padding:24px">No orders yet. <a href="products.html">Start shopping</a></p>';
-    return;
-  }
-
-  const statusColors = {
-    PENDING: 'warn',
-    CONFIRMED: 'info',
-    READY_FOR_PICKUP: 'ok',
-    COMPLETED: 'ok',
-    CANCELLED: 'bad'
-  };
-  const statusLabels = {
-    PENDING: 'Pending',
-    CONFIRMED: 'Confirmed',
-    READY_FOR_PICKUP: 'Ready for pickup',
-    COMPLETED: 'Completed',
-    CANCELLED: 'Cancelled'
-  };
-
-  container.innerHTML = currentOrders.map(o => {
-    const product = o.products;
-    const store = o.stores;
-    const color = statusColors[o.status] || 'warn';
-    const label = statusLabels[o.status] || o.status;
-
-    return `
-      <div class="card" style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-          <div>
-            <h3 style="margin:0 0 4px;font-size:1rem">${esc(product?.name || 'Product')}</h3>
-            <p class="muted" style="margin:0;font-size:.85rem">${esc(store?.business_name || 'Store')} • ${esc(store?.barangay || '')}</p>
-            <p class="muted" style="margin:4px 0 0;font-size:.8rem">${o.quantity} × ${peso(product?.current_price || 0)} = <strong>${peso(o.total_price)}</strong></p>
-          </div>
-          <span class="pill ${color}" style="font-size:.75rem;white-space:nowrap">${label}</span>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
-          <a href="chat.html?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
-        </div>
-        <p class="muted" style="margin:8px 0 0;font-size:.75rem">Ordered: ${new Date(o.created_at).toLocaleString('en-PH')}</p>
-        ${o.notes ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Notes: ${esc(o.notes)}</p>` : ''}
-      </div>
-    `;
-  }).join('');
 }
 
 function updateAvatarPreview(url) {
@@ -264,16 +172,6 @@ avatarRemove.addEventListener('click', async () => {
     avatarRemove.disabled = false;
     avatarInput.disabled = false;
   }
-});
-
-// Tab switching
-$$('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    $$('.tab-btn').forEach(b => b.setAttribute('aria-selected', 'false'));
-    btn.setAttribute('aria-selected', 'true');
-    $$('[role="tabpanel"]').forEach(p => p.style.display = 'none');
-    $(`#tab-${btn.dataset.tab}`).style.display = 'block';
-  });
 });
 
 // Save profile (name, barangay)

@@ -207,7 +207,7 @@ reserveForm.addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Reserved';
 
-    setTimeout(() => window.location.href = 'account.html', 2000);
+    setTimeout(() => window.location.href = 'orders.html', 2000);
   } catch (err) {
     console.error('Reserve error:', err);
     showMsg('Failed to reserve. Please try again.', 'bad');

@@ -58,7 +58,7 @@ const PERSON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
 
 export function renderChrome(active, session = null, profile = null) {
-  const links = [['index.html', 'Home'], ['explore.html', 'Explore'], ['map.html', 'Map'], ['products.html', 'Products']];
+  const links = [['index.html', 'Home'], ['explore.html', 'Explore'], ['map.html', 'Map'], ['products.html', 'Products'], ['orders.html', 'My Orders']];
   let authLinks;
   if (session) {
     const avatarHtml = profile?.avatar_url
@@ -77,8 +77,8 @@ export function renderChrome(active, session = null, profile = null) {
       extraLinks = `<a href="admin.html" class="avatar-dropdown-item" role="menuitem">Admin Dashboard</a>`;
     }
 
-    // My Orders for all logged-in users
-    const ordersLink = `<a href="account.html?tab=orders" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
+    // My Orders for all logged-in users (links to separate orders page)
+    const ordersLink = `<a href="orders.html" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 
     // Get cached unread count
     const unreadCounts = getCachedUnreadCounts();

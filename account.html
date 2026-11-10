@@ -19,12 +19,6 @@
     <span class="pill info" id="account-role-badge" style="font-size:.8rem"></span>
   </div>
 
-  <!-- Tabs -->
-  <div style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px" role="tablist">
-    <button class="tab-btn" role="tab" aria-selected="true" data-tab="profile">Profile</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">My Orders</button>
-  </div>
-
   <div id="account-content" style="margin-top:24px;display:none">
     <!-- PROFILE TAB -->
     <div id="tab-profile" role="tabpanel" style="display:block">
@@ -72,13 +66,6 @@
 
       <button id="logout-btn" class="btn alt" style="margin-top:24px;width:100%">Log out</button>
     </div>
-
-    <!-- ORDERS TAB -->
-    <div id="tab-orders" role="tabpanel" style="display:none">
-      <h3 style="margin:0 0 16px">Order History</h3>
-      <div id="orders-history"></div>
-    </div>
-  </div>
 
   <p id="account-message" class="muted" style="margin-top:16px;min-height:1.5em;display:none"></p>
 </div>
