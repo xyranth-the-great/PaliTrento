@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Register | PaliTrento</title>
+<meta name="description" content="Create your PaliTrento account to save favorites and manage your store.">
+<link rel="icon" type="image/png" href="./assets/logo-DrGexIuc.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/register-Cm8JiOvS.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-BJIzV8-u.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-6LbWuQJe.js">
+  <link rel="modulepreload" crossorigin href="./assets/email-otp-D5P-rWfA.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-DPgJ6Qa5.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:480px;padding-top:48px;padding-bottom:48px">
+  <h1>Create an account</h1>
+  <p class="muted">Join PaliTrento to save stores, track prices, and manage your business.</p>
+
+  <form id="register-form" novalidate style="margin-top:24px;display:grid;gap:16px">
+    <div>
+      <label for="full_name">Full name</label>
+      <input id="full_name" name="full_name" type="text" required autocomplete="name" placeholder="Juan Dela Cruz">
+    </div>
+
+    <div>
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" required autocomplete="email" placeholder="juan@example.com">
+    </div>
+
+    <div>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" required autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
+      <p class="muted" style="margin-top:4px">Minimum 8 characters</p>
+    </div>
+
+    <div>
+      <label for="confirm_password">Confirm password</label>
+      <input id="confirm_password" name="confirm_password" type="password" required autocomplete="new-password" placeholder="Re-enter password">
+    </div>
+
+    <fieldset>
+      <legend>I am a</legend>
+      <div class="checks">
+        <label><input type="radio" name="role" value="customer" required checked> Customer</label>
+        <label><input type="radio" name="role" value="business_owner"> Business owner</label>
+      </div>
+    </fieldset>
+
+    <div>
+      <label for="barangay">Barangay <span class="muted" style="font-weight:400">(optional)</span></label>
+      <select id="barangay" name="barangay">
+        <option value="">Choose your barangay</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn" style="width:100%">Create account</button>
+  </form>
+
+  <p id="register-message" class="muted" style="margin-top:16px;min-height:1.5em"></p>
+
+  <p class="muted" style="margin-top:24px">
+    Already have an account? <a href="login.html">Log in</a>
+  </p>
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

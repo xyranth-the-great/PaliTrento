@@ -4,8 +4,8 @@ tags: [project, marketplace, municipality, trento, agusan-del-sur, supabase, vit
 status: active
 priority: high
 created: 2026-11-10
-updated: 2026-11-10
-github: https://github.com/username/palitrento
+updated: 2026-11-11
+github: https://github.com/xyranth-the-great/PaliTrento
 supabase-project: xcbkpknsieawtzyfwrff
 ---
 
@@ -41,7 +41,7 @@ supabase-project: xcbkpknsieawtzyfwrff
 ### Authentication & Accounts
 - [x] **Email OTP registration** (Resend, 6-digit code, 10-min expiry)
 - [x] **Email/password login** (Supabase Auth, Confirm email OFF)
-- [x] **Account page** — Profile (name, barangay, avatar), My Orders tab
+- [x] **Account page** — Profile (name, barangay, avatar)
 - [x] **Avatar upload** — JPG/PNG/WebP, 2MB max, crop to 256x256, stored in `avatars` bucket
 - [x] **Avatar dropdown** — Role-based (Dashboard/My Orders/Account/Settings/Logout), hover desktop / click mobile
 
@@ -55,6 +55,7 @@ supabase-project: xcbkpknsieawtzyfwrff
 - [x] **Pickup orders** — PENDING → CONFIRMED → READY_FOR_PICKUP → COMPLETED
 - [x] **Buyer-Seller chat** (Supabase Realtime, per-order, optimistic UI, read receipts)
 - [x] **Unread message badge** — Real-time, cross-page, clears on chat open
+- [x] **My Orders page** (`orders.html`) — Separate page for order history, accessible via nav
 
 ### LGU Admin
 - [x] **Admin dashboard** — Stats cards, quick actions
@@ -70,7 +71,7 @@ supabase-project: xcbkpknsieawtzyfwrff
 palitrento2/
 ├── index.html, explore.html, map.html, products.html, business.html
 ├── register.html, login.html, account.html, verify.html
-├── register-business.html, store-setup.html, dashboard.html, chat.html
+├── register-business.html, store-setup.html, dashboard.html, chat.html, orders.html
 ├── admin.html, admin-verification.html, admin-prices.html, admin-reports.html
 ├── css/styles.css              # Design tokens + all components
 ├── js/
@@ -82,7 +83,7 @@ palitrento2/
 │   ├── storage.js              # Supabase Storage upload helpers
 │   ├── home.js, explore.js, products.js, business.js, map.js
 │   ├── register.js, login.js, account.js, verify.js
-│   ├── register-business.js, store-setup.js, dashboard.js, chat.js
+│   ├── register-business.js, store-setup.js, dashboard.js, chat.js, orders.js
 │   ├── admin.js, admin-verification.js, admin-prices.js, admin-reports.js
 ├── supabase/
 │   ├── schema.sql              # Core tables + RLS
@@ -93,6 +94,7 @@ palitrento2/
 │   ├── chat.sql                # Messages table + RLS + Realtime
 │   ├── admin.sql               # Advisories + admin RLS
 │   ├── admin-notes.sql         # admin_notes, verified_at, verified_by
+│   ├── product-images.sql      # Product images bucket + RLS (NEW)
 ├── .env                        # Real keys (gitignored)
 ├── .env.example                # Placeholders only
 ├── vite.config.js              # Multi-page, target es2022
@@ -110,7 +112,7 @@ palitrento2/
 | Table | Key Columns |
 |-------|-------------|
 | `stores` | `id`, `trn_code`, `business_name`, `trade_category`, `proprietor_name`, `contact_number`, `barangay`, `purok`, `landmark_reference`, `lat`, `lng`, `bmbe_registered`, `dti_registered`, `srp_compliant`, `verification_status`, `open_time`, `close_time`, `accepted_payments`, `storefront_image_url`, `permits_image_url`, `admin_notes`, `verified_at`, `verified_by`, `user_id`, `created_at` |
-| `products` | `id`, `store_id`, `name`, `category`, `unit`, `current_price`, `lgu_srp_ceiling`, `in_stock`, `quantity`, `created_at` |
+| `products` | `id`, `store_id`, `name`, `category`, `unit`, `current_price`, `lgu_srp_ceiling`, `in_stock`, `quantity`, `image_url`, `created_at` |
 | `profiles` | `id` (FK auth.users), `full_name`, `role` (customer\|business_owner\|admin), `barangay`, `avatar_url`, `created_at` |
 | `orders` | `id`, `buyer_id`, `store_id`, `product_id`, `quantity`, `total_price`, `status`, `payment_method`, `notes`, `confirmed_at`, `ready_at`, `completed_at`, `created_at` |
 | `messages` | `id`, `order_id`, `sender_id`, `content`, `read_at`, `created_at` |
@@ -214,8 +216,8 @@ npm run preview
 
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/xcbkpknsieawtzyfwrff
 - **Resend Dashboard:** https://resend.com
-- **GitHub Repo:** [Add your repo URL]
-- **Live Site (GitHub Pages):** [Add your URL]
+- **GitHub Repo:** https://github.com/xyranth-the-great/PaliTrento
+- **Live Site (GitHub Pages):** https://xyranth-the-great.github.io/PaliTrento/
 - **Obsidian Vault:** This file
 
 ---
@@ -233,6 +235,13 @@ npm run preview
 7. ✅ Pickup Orders (Reserve → Confirm → Ready → Complete)
 8. ✅ Buyer-Seller Chat (Realtime, optimistic UI, read receipts)
 9. ✅ Unread Message Badge (Real-time, cross-page, clears on chat open)
+10. ✅ **My Orders page** (`orders.html`) — Separate page, accessible via nav
+11. ✅ **Account page fix** — Removed Orders tab, now Profile only
+12. ✅ **Profile save bug fix** — Removed `email` from profiles select
+13. ✅ **Product detail redirect** → `orders.html` after reserve
+
+### In Progress
+- 🔄 **Product image upload** — Frontend ready, needs Supabase migration for `product-images` bucket
 
 ### Known Issues (Resolved)
 1. ❌ Explore showed 8 fake stores → Fixed `.env` vs `.env.example`
@@ -240,17 +249,19 @@ npm run preview
 3. ❌ Account page nav wrong / read-only / no barangay → Fixed via Claude Code
 4. ❌ Profile save shows error → Removed `email` from profiles select (doesn't exist)
 5. ❌ Chat badge not showing → Fixed badge always renders + query fix + realtime listener
+6. ❌ **Dashboard orders 400 error** → Removed `email` from profiles select in dashboard.js
+7. ❌ Product detail redirect → Now goes to `orders.html`
 
 ---
 
 ## 🎯 Next Up (Priority Order)
 
-1. **QR Standee PDF** — Generate A5/A4 PDF for physical store signage
-2. **Product Images** — Upload product photos to storage
-3. **Price Broadcast Push** — Notify users when LGU posts new price caps
-4. **SMS OTP** — PhilSMS/Semaphore via Edge Function
-5. **Push Notifications** — Browser push for order updates
-6. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
+1. **Product Images** — Run Supabase migration for `product-images` bucket + test upload
+2. **QR Standee PDF** — Generate A5/A4 PDF for physical store signage
+2. **Price Broadcast Push** — Notify users when LGU posts new price caps
+3. **SMS OTP** — PhilSMS/Semaphore via Edge Function
+4. **Push Notifications** — Browser push for order updates
+5. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
 
 ---
 
@@ -268,6 +279,6 @@ npm run preview
 
 ---
 
-> **Last updated:** 2026-11-10
-> **Current phase:** Testing chat badge flow → Next: QR Standee PDF
+> **Last updated:** 2026-11-11
+> **Current phase:** Product image upload (needs Supabase migration) → Next: QR Standee PDF
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the 'Where we stopped' section."

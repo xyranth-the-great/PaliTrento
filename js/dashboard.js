@@ -10,6 +10,7 @@ let currentStore = null;
 let currentProducts = [];
 let currentOrders = [];
 let editingProductId = null;
+let currentSession = null;
 
 async function init() {
   if (!isSupabaseConfigured()) return;
@@ -19,6 +20,7 @@ async function init() {
     window.location.href = 'login.html';
     return;
   }
+  currentSession = session;
 
   let profile = await getCachedProfile(session.user.id);
   renderChrome('dashboard.html', session, profile);
@@ -140,7 +142,7 @@ async function loadOrders(storeId) {
   if (buyerIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, full_name, email')
+      .select('id, full_name')
       .in('id', buyerIds);
 
     if (profiles) {
@@ -255,7 +257,7 @@ function renderOrders() {
           <div>
             <h3 style="margin:0 0 4px;font-size:1rem">${esc(product?.name || 'Product')}</h3>
             <p class="muted" style="margin:0;font-size:.85rem">${o.quantity} × ${peso(product?.current_price || 0)} = <strong>${peso(o.total_price)}</strong></p>
-            <p class="muted" style="margin:4px 0 0;font-size:.8rem">Buyer: ${esc(buyer?.full_name || 'Customer')} (${esc(buyer?.email || '')})</p>
+            <p class="muted" style="margin:4px 0 0;font-size:.8rem">Buyer: ${esc(buyer?.full_name || 'Customer')}</p>
           </div>
           <span class="pill ${color}" style="font-size:.75rem;white-space:nowrap">${label}</span>
         </div>
@@ -456,7 +458,7 @@ async function saveProduct(e) {
 
   if (!currentStore) return;
 
-  const imageFile = $('#p-image')[0]?.files[0];
+  const imageFile = $('#p-image')?.files?.[0] ?? null;
 
   const productData = {
     store_id: currentStore.id,
@@ -484,7 +486,6 @@ async function saveProduct(e) {
 
     // For editing existing product: upload image first, then update
     if (editingProductId) {
-      const imageFile = $('#p-image')[0]?.files[0];
       if (imageFile) {
         const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, editingProductId, imageFile);
         if (uploadError) throw uploadError;
@@ -559,9 +560,8 @@ async function saveProduct(e) {
       const newProductId = newProduct.id;
 
       // Handle image upload for new product
-      const imageFile = $('#p-image')[0]?.files[0];
       if (imageFile) {
-        const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, newProduct.id, $('#p-image')[0].files[0]);
+        const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, newProductId, imageFile);
         if (uploadError) throw uploadError;
 
         // Update product with image URL
@@ -577,7 +577,7 @@ async function saveProduct(e) {
     await loadProducts(currentStore.id);
   } catch (err) {
     console.error('Save product error:', err);
-    alert('Failed to save. Please try again.');
+    alert(err?.message ? `Failed to save: ${err.message}` : 'Failed to save. Please try again.');
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save';

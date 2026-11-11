@@ -27,7 +27,7 @@
 | Stack | Vite + vanilla JS (ES modules), no framework |
 | Colors / style | Forest green `#1f4d2e`, harvest amber `#e59834`, ivory `#fcf9f2`, font Plus Jakarta Sans |
 | Features | Price-cap (SRP) pills, verification badges, barangay filter, open-now, map |
-| Backend | Supabase (Postgres + Auth + Storage) |
+| Backend | Supabase (Postgres + Auth + Storage + Realtime) |
 | Login | Planned SMS OTP; **currently email/password** (SMS later) |
 | Scope so far | Public pages + login/account + merchant onboarding/dashboard + pickup orders + chat |
 
@@ -40,7 +40,7 @@
 ```
 index.html  explore.html  map.html  products.html  business.html
 register.html  login.html  account.html  verify.html
-register-business.html  store-setup.html  dashboard.html  chat.html
+register-business.html  store-setup.html  dashboard.html  chat.html  orders.html
 admin.html  admin-verification.html  admin-prices.html  admin-reports.html
 css/styles.css          (design tokens + components)
 js/supabase.js          (client; null if env keys missing -> pages use seed data)
@@ -48,11 +48,11 @@ js/data.js              (getStores/getProducts/getStore; falls back to js/seed.j
 js/seed.js              (8 FAKE sample stores; used only if Supabase is empty/unreachable)
 js/ui.js                (renderChrome nav/footer, cards, helpers, CATS/UNITS/PAY/BARANGAYS)
 js/auth.js              (getSession, getProfile, signOut, onAuthStateChange, email OTP, unread badge listener)
-js/home.js explore.js products.js business.js map.js
-js/register.js login.js account.js verify.js register-business.js store-setup.js dashboard.js chat.js
-js/admin.js admin-verification.js admin-prices.js admin-reports.js
 js/storage.js           (Supabase Storage upload for store images)
-supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql
+js/home.js explore.js products.js business.js map.js
+js/register.js login.js account.js verify.js register-business.js store-setup.js dashboard.js chat.js orders.js
+js/admin.js admin-verification.js admin-prices.js admin-reports.js
+supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql  supabase/product-images.sql
 vite.config.js  (multi-page, target es2022)  .env  .env.example  CLAUDE.md  README.md
 ```
 
@@ -68,7 +68,7 @@ vite.config.js  (multi-page, target es2022)  .env  .env.example  CLAUDE.md  READ
 
 **stores columns:** id, trn_code (unique, TRN-YYYY-NNN), business_name, trade_category (SARI_SARI|CARINDERIA|FRESH_PRODUCE|PHARMACY|SERVICES|AGRI), proprietor_name, contact_number (+63...), barangay, purok, landmark_reference, lat, lng, bmbe_registered, dti_registered, srp_compliant, verification_status (PENDING|VERIFIED|REJECTED|CLARIFICATION_REQUIRED), open_time, close_time, accepted_payments text[] (CASH|GCASH|TRIKE_COD), storefront_image_url, permits_image_url, admin_notes, verified_at, verified_by, user_id (FK to auth.users), created_at.
 
-**products columns:** id, store_id, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price, lgu_srp_ceiling (null = no cap), in_stock, quantity, created_at.
+**products columns:** id, store_id, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price, lgu_srp_ceiling (null = no cap), in_stock, quantity, image_url, created_at.
 
 **profiles columns (NO email column; email lives in Supabase Auth):** id (= auth user id), full_name, role (customer|business_owner|admin), barangay, created_at, avatar_url.
 
@@ -130,9 +130,10 @@ create policy "own avatar update" on storage.objects for update to authenticated
 create policy "own avatar delete" on storage.objects for delete to authenticated
   using (bucket_id='avatars' and (storage.foldername(name))[1]=auth.uid()::text);
 ```
+
 (The avatars bucket is public: anyone with a photo link can view it. That's normal for profile pictures.)
 
-**Supabase settings:** Email provider ON; **Confirm email ON** (kept on deliberately); Site URL `http://localhost:5173`; Redirect URL `http://localhost:5173/**`. The built-in email sender allows only a few emails per hour (testing only). Use a Gmail address for tests, because my school `.edu.ph` address may delay or block automated email. Before launch, set up a proper SMTP email service.
+**Supabase settings:** Email provider ON; **Confirm email OFF**; Site URL `http://localhost:5173`; Redirect URL `http://localhost:5173/**`. The built-in email sender allows only a few emails per hour (testing only). Use a Gmail address for tests, because my school `.edu.ph` address may delay or block automated email. Before launch, set up a proper SMTP email service.
 
 ---
 
@@ -219,28 +220,73 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
     - Badge increments instantly when new message arrives, clears when chat opened
     - Badge always renders (hidden when 0) so realtime can find it
 
+13. **My Orders page** (`orders.html`)
+    - Separate page for order history, accessible via main nav "My Orders"
+    - Avatar dropdown also links to `orders.html`
+    - Product detail redirects to `orders.html` after reserve
+
+14. **Account page fix** — Removed Orders tab, now Profile only
+    - `account.html` no longer has tabs; `account.js` only handles profile/avatar
+
+15. **Profile save bug fix** — Removed `email` from profiles select
+    - Fixed 400 error in `js/auth.js` and `js/dashboard.js`
+
+16. **Product detail redirect** → `orders.html` after reserve
+
 ---
 
 ## 6. Next steps after the bug is fixed
 
-1. **Test the full flow:**
-   - Buyer: browse products → reserve for pickup → see order in "My Orders" → click "Chat"
-   - Seller: dashboard → orders tab → click "Chat" on same order → real-time chat
-   - Badge appears on avatar when unread, clears when chat opened
+**Current blocker: Product image upload**
 
-2. **Delete the 4 fake stores** (run in Supabase SQL Editor):
-   ```sql
-   delete from stores where trn_code in ('TRN-2024-089','TRN-2024-012','TRN-2024-031','TRN-2024-057');
-   ```
+The frontend is ready (`js/dashboard.js`, `js/storage.js` handle upload), but the **Supabase migration for `product-images` bucket has not been run**. Run this in Supabase SQL Editor:
 
-3. **Verify BEKIK store status** (if not actually LGU-verified yet):
-   ```sql
-   update stores set verification_status='PENDING', srp_compliant=false where trn_code='TRN-2026-090';
-   ```
+```sql
+-- 1. Add image_url column to products table
+alter table products add column if not exists image_url text;
 
-4. **Add 10-20 real businesses** (with owner permission, status PENDING)
+-- 2. Create product-images storage bucket
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-images', 'product-images', true, 5242880, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do update set 
+  public = true, 
+  file_size_limit = 5242880, 
+  allowed_mime_types = array['image/jpeg','image/png','image/webp'];
 
-5. **Verify the 16 barangay names** in `js/ui.js` against the official PSGC list for Trento
+-- 3. Drop existing policies (if any)
+drop policy if exists "owner upload product image" on storage.objects;
+drop policy if exists "owner update product image" on storage.objects;
+drop policy if exists "owner delete product image" on storage.objects;
+drop policy if exists "public read product images" on storage.objects;
+
+-- 4. Create fresh policies
+create policy "owner upload product image" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'product-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "owner update product image" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "owner delete product image" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "public read product images" on storage.objects
+  for select to anon, authenticated
+  using (bucket_id = 'product-images');
+```
+
+**After running migration:** test Dashboard → Edit product → Upload image → Save → Check Console for success.
 
 ---
 
@@ -293,8 +339,10 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
 | `js/ui.js` | renderChrome, avatar dropdown, badge rendering |
 | `js/chat.js` | Realtime chat, optimistic UI, badge integration |
 | `js/dashboard.js` | Seller dashboard (products, orders, analytics) |
-| `js/account.js` | Account page (profile, avatar, My Orders tab) |
+| `js/account.js` | Account page (profile, avatar) |
+| `js/orders.js` | My Orders page (order history) |
 | `js/store-setup.js` | 3-step store onboarding wizard |
+| `js/storage.js` | Supabase Storage upload helpers |
 | `supabase/*.sql` | All migrations (run in SQL Editor) |
 
 ---
