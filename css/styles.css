@@ -1,4 +1,4 @@
-top:root{
+:root{
   --primary:#1f4d2e;--primary-dark:#14351f;--amber:#e59834;--amber-light:#fef3e2;
   --bg:#fcf9f2;--card:#fff;--muted-bg:#f6f3ec;--line:#dcdad3;--ink:#1c2a20;--muted:#5b675f;
   --ok:#15803d;--ok-bg:#dcfce7;--warn:#b45309;--warn-bg:#fef3c7;--bad:#b91c1c;--bad-bg:#fee2e2;--info:#0369a1;--info-bg:#e0f2fe;
@@ -22,10 +22,10 @@ section{padding:48px 0}
 .home-page main>section .sec-head h2{color:var(--amber-light)}
 .home-page main>section .sec-head>a{color:var(--amber-light)}
 .top{position:sticky;top:0;z-index:2000;background:var(--primary);color:#fff}
-.home-page .top{background:var(--amber-light);color:var(--primary-dark);border-bottom:4px solid var(--primary)}
+.home-page .top{background:var(--primary);color:var(--amber-light);border-bottom:4px solid var(--primary-dark)}
 .top .wrap{display:flex;align-items:center;gap:24px;min-height:60px;flex-wrap:wrap}
 .logo{font-weight:800;font-size:1.7rem;color:#fff;text-decoration:none;margin-right:auto;display:inline-flex;align-items:center;gap:0;line-height:1}
-.home-page .logo,.home-page .logo-pali,.home-page .logo-rento{color:var(--primary-dark)}
+.home-page .logo,.home-page .logo-pali,.home-page .logo-rento{color:var(--amber-light)}
 .logo-word{display:inline-flex;align-items:center;gap:0;white-space:nowrap;letter-spacing:-0.04em}
 .logo-pali{color:#fef3e2}
 .logo-rento{color:#fef3e2}
@@ -33,16 +33,17 @@ section{padding:48px 0}
 .logo-mark{width:20px;height:20px;display:block;object-fit:contain;filter:drop-shadow(0 2px 0 rgba(0,0,0,.12));}
 .top nav{display:flex;gap:4px;flex-wrap:wrap}
 .top nav a{color:#e9f2ec;text-decoration:none;padding:8px 12px;border-radius:var(--r-md);font-weight:600;font-size:.95rem}
-.home-page .top nav a{color:var(--primary-dark)}
+.home-page .top nav a{color:var(--amber-light)}
 .top nav a:hover{background:var(--primary-dark)}
-.home-page .top nav a:hover{background:var(--muted-bg)}
+.home-page .top nav a:hover{background:var(--primary-dark)}
 .top nav a[aria-current]{background:var(--amber);color:var(--primary-dark)}
+.home-page .top nav a[aria-current]:hover{background:var(--primary-dark);color:var(--amber-light)}
 .avatar-btn{display:flex;align-items:center;justify-content:center;gap:4px;width:36px;height:36px;border-radius:50%;background:var(--primary-dark);color:var(--amber);text-decoration:none;flex-shrink:0;white-space:nowrap}
 .avatar-btn:hover{background:rgba(255,255,255,.15)}
-.home-page .avatar-btn{background:var(--primary);color:var(--amber-light)}
-.home-page .avatar-btn:hover{background:var(--primary-dark)}
+.home-page .avatar-btn{background:var(--primary-dark);color:var(--amber-light)}
+.home-page .avatar-btn:hover{background:var(--amber);color:var(--primary-dark)}
 .avatar-btn:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
-.home-page .top :focus-visible{outline-color:var(--primary)}
+.home-page .top :focus-visible{outline-color:var(--amber-light)}
 .avatar-btn img{border-radius:50%}
 .avatar-chevron{display:none;font-size:.7rem;transition:transform .18s var(--ease)}
 @media(max-width:760px){
@@ -223,9 +224,15 @@ html.dark body{background:var(--bg);color:var(--ink)}
 html.dark .top{background:var(--primary-dark)}
 html.dark .top nav a{color:#dcebe1}
 html.dark .top nav a:hover{background:var(--muted-bg)}
-html.dark .home-page .top{background:var(--amber-light);color:var(--primary-dark)}
-html.dark .home-page .top nav a{color:var(--primary-dark)}
-html.dark .home-page .top nav a:hover{background:var(--muted-bg)}
+html.dark .home-page .top{background:#1f4d2e;color:#fef3e2;border-color:#14351f}
+html.dark .home-page .logo,html.dark .home-page .logo-pali,html.dark .home-page .logo-rento{color:#fef3e2}
+html.dark .home-page .top nav a{color:#fef3e2}
+html.dark .home-page .top nav a:hover{background:#14351f}
+html.dark .home-page .top nav a[aria-current]{background:#e59834;color:#14351f}
+html.dark .home-page .top nav a[aria-current]:hover{background:#14351f;color:#fef3e2}
+html.dark .home-page .avatar-btn{background:#14351f;color:#fef3e2}
+html.dark .home-page .avatar-btn:hover{background:#e59834;color:#14351f}
+html.dark .home-page .top :focus-visible{outline-color:#fef3e2}
 html.dark .card{background:var(--card);border-color:var(--line)}
 html.dark a.card:hover{border-color:var(--primary)}
 html.dark input,html.dark select{background:var(--card);border-color:var(--line);color:var(--ink)}
