@@ -50,6 +50,8 @@ custom-domain: palitrento.online
 - [x] **Business owner registration** → Email OTP → Store setup wizard
 - [x] **3-step store setup** — Details + GPS pin (Leaflet) + Photos (storefront/permits)
 - [x] **Business owner dashboard** — Products CRUD, Orders workflow (Confirm→Ready→Complete), Analytics
+- [x] **Product image upload** — Dashboard edit product → upload → stored in `product-images` bucket
+- [x] **QR Standee PDF** — Generate A5/A4 printable PDF for store signage (via `standee.html`)
 
 ### Orders & Chat
 - [x] **Product detail page** — Reserve for pickup, quantity, payment method
@@ -205,8 +207,8 @@ npm run preview
 - [ ] Add 10-20 real businesses (with owner permission, status PENDING)
 - [ ] Verify 16 barangay names in `js/ui.js` against official PSGC list
 - [ ] Set up real SMTP for emails (Supabase → Auth → SMTP Settings)
-- [ ] Verify Resend domain at `resend.com/domains` (for `palitrento.online`)
-- [ ] Update `from:` address in `send-email-otp` Edge Function
+- [x] Verify Resend domain at `resend.com/domains` (for `palitrento.online`)
+- [x] Update `from:` address in `send-email-otp` Edge Function
 - [ ] Set real Site URL & Redirect URLs in Supabase Auth (`https://palitrento.online`)
 - [x] Configure GitHub Pages custom domain: `palitrento.online` + Enforce HTTPS
 - [ ] Add repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
@@ -246,9 +248,16 @@ export default defineConfig({
 - **Site URL:** `https://palitrento.online`
 - **Redirect URLs:** `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev)
 
-### Resend Domain (Pending)
-- Add `palitrento.online` at `resend.com/domains`
-- Verify DNS, update `from:` in `send-email-otp` Edge Function
+### Resend Domain (✅ Verified 2026-11-12)
+- Added `palitrento.online` at `resend.com/domains`
+- DNS records added at Z.com:
+  - TXT `resend._domainkey` (DKIM)
+  - CNAME `rsend` → `rsend-apne1.forge.rmta.net`
+  - CNAME `send` → `send.forge.rmta.net`
+  - TXT `_dmarc` → `v=DMARC1; p=none;`
+- **Verified in Resend Dashboard**
+- Updated `send-email-otp` Edge Function: `from: 'PaliTrento <no-reply@palitrento.online>'`
+- Edge Function deployed to Supabase production (version 6)
 
 ---
 
@@ -281,10 +290,13 @@ export default defineConfig({
 12. ✅ **Profile save bug fix** — Removed `email` from profiles select
 13. ✅ **Product detail redirect** → `orders.html` after reserve
 14. ✅ **Custom domain** `palitrento.online` configured (2026-11-12)
+15. ✅ **GitHub Actions automated deployment** with Supabase secrets (2026-11-12)
+16. ✅ **Resend domain** `palitrento.online` verified, production sender configured (2026-11-12)
+17. ✅ **Product image upload** — Supabase migration run, Dashboard upload working (2026-11-12)
+18. ✅ **QR Standee PDF** — A5/A4 printable store signage via `standee.html` (2026-11-12)
 
 ### In Progress
-- 🔄 **Product image upload** — Frontend ready, needs Supabase migration for `product-images` bucket
-- 🔄 **GitHub Pages deployment** — Need to ensure `gh-pages` branch gets latest build with `base: './'`
+- (none — all current blockers resolved)
 
 ### Known Issues (Resolved)
 1. ❌ Explore showed 8 fake stores → Fixed `.env` vs `.env.example`
@@ -299,12 +311,10 @@ export default defineConfig({
 
 ## 🎯 Next Up (Priority Order)
 
-1. **Product Images** — Run Supabase migration for `product-images` bucket + test upload
-2. **QR Standee PDF** — Generate A5/A4 PDF for physical store signage
-3. **Price Broadcast Push** — Notify users when LGU posts new price caps
-4. **SMS OTP** — PhilSMS/Semaphore via Edge Function
-5. **Push Notifications** — Browser push for order updates
-6. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
+1. **Price Broadcast Push** — Notify users when LGU posts new price caps
+2. **SMS OTP** — PhilSMS/Semaphore via Edge Function
+3. **Push Notifications** — Browser push for order updates
+4. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
 
 ---
 
@@ -323,5 +333,5 @@ export default defineConfig({
 ---
 
 > **Last updated:** 2026-11-12
-> **Current phase:** Product image upload (needs Supabase migration) → Next: QR Standee PDF
+> **Current phase:** Core features complete — Product images ✅, QR Standee ✅, Resend verified ✅. Next: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the 'Where we stopped' section."

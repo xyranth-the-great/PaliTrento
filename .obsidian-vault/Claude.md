@@ -158,7 +158,8 @@ Supabase keys not yet connected; pages currently run on seed data.
 business.html links use trn_code in the query string (?trn=), not a pretty path.
 Accessibility and the old "Impeccable detector" quality gate from Doc 1 have not been run.
 Doc 1 used base path /PaliTrento/ for GitHub Pages; this build uses `base: './'` in vite.config.js for custom domain `palitrento.online`.
-Product images bucket needs migration before upload works.
+Product images bucket migration completed — upload working in Dashboard.
+QR Standee PDF implemented in `standee.html` — A5/A4 printable store signage.
 Custom domain configured: DNS at Z.com (4 A records + 1 CNAME + Resend records), GitHub Pages custom domain enabled with Enforce HTTPS (GitHub Actions deployment), Supabase Auth URLs updated.
 Resend domain `palitrento.online` verified (DKIM, CNAME rsend/send, DMARC at Z.com). Edge Function `send-email-otp` sender updated to `no-reply@palitrento.online` (deployed v6).
 GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` secrets, outputs to `dist-fix`, deploys to gh-pages.
@@ -166,14 +167,15 @@ GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SU
 9. Suggested next steps (in order)
 
 Run npm install && npm run dev; browser-test all pages (desktop + mobile width).
-Run the product-images Supabase migration (see HANDOFF_README.md).
-Test product image upload: Dashboard → Edit product → Upload image → Save.
 Create the Supabase project, run schema.sql then seed.sql, fill .env, confirm pages show DB data.
 Decide the SMS provider, then build login: OTP screen, barangay onboarding, profiles table + trigger, role-based nav.
 Merchant flow: onboarding (screens 16-18), dashboard (19), product add/edit with live cap check (20-21). Needs owner RLS policies.
 Product detail page + reserve-for-pickup orders; buyer ↔ seller chat via Supabase Realtime.
 Admin/LGU: verification queue, price broadcast composer, reports.
-Offline field-inspector tool (IndexedDB queue + idempotent batch sync), QR standee PDFs.
+Offline field-inspector tool (IndexedDB queue + idempotent batch sync).
+Price Broadcast Push — Notify users when LGU posts new price caps.
+SMS OTP — PhilSMS/Semaphore via Edge Function.
+Push Notifications — Browser push for order updates.
 
 10. Working conventions for Claude Code
 
@@ -198,4 +200,6 @@ User requested this handoff document for Claude Code.
 Subsequent sessions: built email OTP auth, avatar upload, merchant onboarding, dashboard, admin, orders, chat, unread badge, orders page, account page fixes, product image upload frontend.
 2026-11-12: Purchased `palitrento.online` domain, configured DNS at Z.com, updated `vite.config.js` to `base: './'`, deployed to GitHub Pages with custom domain.
 2026-11-12 (later): Added GitHub Actions workflow for automated Pages deployment with Supabase secrets. Added Resend DNS records at Z.com, verified `palitrento.online` domain, updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` and deployed to Supabase.
-Current focus: Product image upload Supabase migration, then QR standee PDF.
+2026-11-12 (later): Ran Supabase migration for `product-images` bucket — product image upload working.
+2026-11-12 (later): Implemented QR Standee PDF in `standee.html` — A5/A4 printable store signage.
+Current focus: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.

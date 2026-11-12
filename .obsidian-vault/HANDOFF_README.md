@@ -239,60 +239,39 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
     - `vite.config.js` updated: `base: './'` (for custom domain, no subpath)
     - Supabase Auth URLs updated to `https://palitrento.online`
 
+18. **GitHub Actions automated deployment** (2026-11-12)
+    - Created `.github/workflows/deploy.yml` for automated Pages deployment
+    - Builds with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` repo secrets
+    - Outputs to `dist-fix`, deploys to `gh-pages` branch
+
+19. **Resend domain `palitrento.online` verified** (2026-11-12)
+    - DNS records added at Z.com (DKIM, CNAME rsend/send, DMARC)
+    - Verified in Resend Dashboard
+    - Updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` (deployed v6)
+
+20. **Product image upload** (2026-11-12)
+    - Ran Supabase migration for `product-images` bucket (schema + RLS policies)
+    - Dashboard → Edit product → Upload image → Save working
+
+21. **QR Standee PDF** (2026-11-12)
+    - `standee.html` generates A5/A4 printable PDF for store signage
+    - Includes store name, TRN code, QR code for business profile link
+    - DNS records added at Z.com (4 A records + 1 CNAME)
+    - GitHub Pages custom domain enabled with Enforce HTTPS
+    - `vite.config.js` updated: `base: './'` (for custom domain, no subpath)
+    - Supabase Auth URLs updated to `https://palitrento.online`
+
 ---
 
 ## 6. Next steps after the bug is fixed
 
-**Current blocker: Product image upload**
+**Product image upload — ✅ COMPLETED (2026-11-12)**
 
-The frontend is ready (`js/dashboard.js`, `js/storage.js` handle upload), but the **Supabase migration for `product-images` bucket has not been run**. Run this in Supabase SQL Editor:
+Supabase migration for `product-images` bucket has been run. Dashboard → Edit product → Upload image → Save is working.
 
-```sql
--- 1. Add image_url column to products table
-alter table products add column if not exists image_url text;
+**QR Standee PDF — ✅ COMPLETED (2026-11-12)**
 
--- 2. Create product-images storage bucket
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('product-images', 'product-images', true, 5242880, array['image/jpeg','image/png','image/webp'])
-on conflict (id) do update set 
-  public = true, 
-  file_size_limit = 5242880, 
-  allowed_mime_types = array['image/jpeg','image/png','image/webp'];
-
--- 3. Drop existing policies (if any)
-drop policy if exists "owner upload product image" on storage.objects;
-drop policy if exists "owner update product image" on storage.objects;
-drop policy if exists "owner delete product image" on storage.objects;
-drop policy if exists "public read product images" on storage.objects;
-
--- 4. Create fresh policies
-create policy "owner upload product image" on storage.objects
-  for insert to authenticated
-  with check (
-    bucket_id = 'product-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "owner update product image" on storage.objects
-  for update to authenticated
-  using (
-    bucket_id = 'product-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "owner delete product image" on storage.objects
-  for delete to authenticated
-  using (
-    bucket_id = 'product-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-create policy "public read product images" on storage.objects
-  for select to anon, authenticated
-  using (bucket_id = 'product-images');
-```
-
-**After running migration:** test Dashboard → Edit product → Upload image → Save → Check Console for success.
+`standee.html` generates A5/A4 printable PDF for store signage with store name, TRN code, and QR code linking to business profile.
 
 ---
 
@@ -352,6 +331,8 @@ export default defineConfig({
 6. I asked for this README to continue in another account.
 7. **2026-11-12:** Purchased `palitrento.online` domain, configured DNS at Z.com, updated vite.config.js for custom domain, deployed to GitHub Pages.
 8. **2026-11-12 (later):** Added GitHub Actions workflow (`.github/workflows/deploy.yml`) for automated deployment to GitHub Pages with Supabase secrets. Fixed deploy path to `dist-fix`. Added Resend DNS records at Z.com (DKIM, CNAME rsend/send, DMARC). Verified `palitrento.online` in Resend. Updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` and deployed to Supabase.
+9. **2026-11-12 (later):** Ran Supabase migration for `product-images` bucket. Product image upload working in Dashboard.
+10. **2026-11-12 (later):** Implemented QR Standee PDF generation in `standee.html` — A5/A4 printable store signage with QR code.
 
 ---
 
@@ -371,7 +352,7 @@ export default defineConfig({
 
 ## 10. Resend domain
 
-**Test mode:** Only `kenteyy2@gmail.com` can receive emails (verified sender). For production, verify a domain at `resend.com/domains`, then update `from:` address in `send-email-otp` Edge Function (line 77) to use your domain.
+**Production verified:** `palitrento.online` verified at `resend.com/domains`. Edge Function `send-email-otp` uses `from: 'PaliTrento <no-reply@palitrento.online>'` (deployed v6). DNS records at Z.com: DKIM, CNAME rsend/send, DMARC.
 
 ---
 
@@ -414,9 +395,10 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ## 14. Deploy notes
 
-- GitHub Pages: Custom domain `palitrento.online` enabled, `npm run build` publishes to `gh-pages` branch
-- Repo secrets for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-- Before launch: real SMTP for emails, verify Resend domain (`palitrento.online`), set real Site URL/redirects in Supabase
+- GitHub Pages: Custom domain `palitrento.online` enabled, GitHub Actions (`.github/workflows/deploy.yml`) builds `dist-fix` and deploys to `gh-pages` branch
+- Repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` ✅ Added
+- Resend domain `palitrento.online` verified ✅, production sender configured
+- Before launch: real SMTP for emails (Supabase → Auth → SMTP Settings), set real Site URL/redirects in Supabase
 
 ---
 

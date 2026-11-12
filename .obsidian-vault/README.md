@@ -37,6 +37,12 @@ The anon key is safe to expose. Security comes from the row-level security rules
 index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail)
 
 ## Not built yet
-SMS OTP login (see note below), merchant and admin screens, orders, chat.
+SMS OTP login (see note below), price broadcast push, push notifications, offline field inspector.
 Supabase phone login supports Twilio, MessageBird, Vonage and Textlocal. For a Philippine gateway like Semaphore you need an Auth "Send SMS" hook (Edge Function).
 Verify the barangay list in `js/ui.js` against the official PSGC list.
+
+## ✅ Recently Completed (2026-11-12)
+- Product image upload (Supabase migration + Dashboard integration)
+- QR Standee PDF (`standee.html` — A5/A4 printable store signage)
+- Resend domain `palitrento.online` verified (production sender configured)
+- GitHub Actions automated deployment with Supabase secrets
