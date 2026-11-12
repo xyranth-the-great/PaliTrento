@@ -1,6 +1,6 @@
 import { $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession } from './auth.js';
 
 const form = $('#reset-form');
 const msgEl = $('#reset-message');
