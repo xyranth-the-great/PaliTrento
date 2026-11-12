@@ -227,9 +227,11 @@ npm run preview
 | CNAME | `www` | `xyranth-the-great.github.io.` | 3600 |
 
 ### GitHub Pages Settings
-- **Source:** Deploy from branch → `gh-pages` / `(root)`
+- **Source:** GitHub Actions (workflow: `.github/workflows/deploy.yml`)
 - **Custom domain:** `palitrento.online`
 - **Enforce HTTPS:** ✅ Enabled
+- **Build output:** `dist-fix` (matches `vite.config.js` `outDir`)
+- **Repo secrets:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` ✅ Added
 
 ### Vite Config
 ```js

@@ -310,9 +310,11 @@ create policy "public read product images" on storage.objects
 | CNAME | `www` | `xyranth-the-great.github.io.` | 3600 |
 
 ### GitHub Pages Settings
-- **Source:** Deploy from branch → `gh-pages` / `(root)`
+- **Source:** GitHub Actions (workflow: `.github/workflows/deploy.yml`)
 - **Custom domain:** `palitrento.online`
 - **Enforce HTTPS:** ✅ Enabled
+- **Build output:** `dist-fix` (matches `vite.config.js` `outDir`)
+- **Repo secrets:** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` ✅ Added
 
 ### Vite Config
 ```js
@@ -327,9 +329,16 @@ export default defineConfig({
 - **Site URL:** `https://palitrento.online`
 - **Redirect URLs:** `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev)
 
-### Resend Domain (Pending)
-- Add `palitrento.online` at `resend.com/domains`
-- Verify DNS, update `from:` in `send-email-otp` Edge Function
+### Resend Domain (✅ Verified 2026-11-12)
+- Added `palitrento.online` at `resend.com/domains`
+- DNS records added at Z.com:
+  - TXT `resend._domainkey` (DKIM)
+  - CNAME `rsend` → `rsend-apne1.forge.rmta.net`
+  - CNAME `send` → `send.forge.rmta.net`
+  - TXT `_dmarc` → `v=DMARC1; p=none;`
+- **Verified in Resend Dashboard**
+- Updated `send-email-otp` Edge Function: `from: 'PaliTrento <no-reply@palitrento.online>'`
+- Edge Function deployed to Supabase production (version 6)
 
 ---
 
@@ -342,6 +351,7 @@ export default defineConfig({
 5. Built email/password login with Claude Code; fixed the URL crash on register; hit the account-page issues; requested avatar upload; hit the `email` column 400 error (current open bug).
 6. I asked for this README to continue in another account.
 7. **2026-11-12:** Purchased `palitrento.online` domain, configured DNS at Z.com, updated vite.config.js for custom domain, deployed to GitHub Pages.
+8. **2026-11-12 (later):** Added GitHub Actions workflow (`.github/workflows/deploy.yml`) for automated deployment to GitHub Pages with Supabase secrets. Fixed deploy path to `dist-fix`. Added Resend DNS records at Z.com (DKIM, CNAME rsend/send, DMARC). Verified `palitrento.online` in Resend. Updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` and deployed to Supabase.
 
 ---
 
