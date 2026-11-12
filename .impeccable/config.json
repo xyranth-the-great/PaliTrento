@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "public/styles.css"
+        ],
+        "createdAt": "2026-11-12T04:34:52.312Z",
+        "reason": "Intentional design: .board has border-top accent on straight edge with only top corners rounded (common header pattern)"
+      },
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "css/styles.css"
+        ],
+        "createdAt": "2026-11-12T04:34:57.618Z",
+        "reason": "Intentional design: .board has border-top accent on straight edge with only top corners rounded (common header pattern)"
+      }
+    ]
+  }
+}
