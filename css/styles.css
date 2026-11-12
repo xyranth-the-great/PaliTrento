@@ -61,8 +61,8 @@ section{padding:48px 0}
 .top nav #avatar-menu .avatar-dropdown-item{display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:.9rem;font-weight:600;background:var(--primary);border:none;border-radius:0;width:100%;margin:0;text-align:left;cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease)}
 .top nav #avatar-menu .avatar-dropdown-item:hover{background:var(--card);color:var(--primary)}
 .top nav #avatar-menu .avatar-dropdown-item:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
-.top nav #avatar-menu .avatar-dropdown-logout{color:#fff;background:var(--primary)}
-.top nav #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad-bg);color:var(--bad)}
+.top nav #avatar-menu .avatar-dropdown-logout{color:var(--bad);background:var(--card)}
+.top nav #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad);color:#fff}
 
 /* Unread message badge on avatar */
 .avatar-btn{position:relative}

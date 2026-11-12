@@ -1,4 +1,4 @@
-import{$ as l,r as f,e as a,a as c}from"./ui-6LbWuQJe.js";import{i as y,a as h,b as C,f as b,g as x}from"./auth-BJIzV8-u.js";const n=l("#orders-history"),o=l("#orders-message");let p=null,i=[];async function w(){if(!y()){m(x(),"warn");return}const t=await h();if(!t){window.location.href="login.html";return}p=t;const s=await C(t.user.id);f("orders.html",t,s);try{const{data:e,error:r}=await b.from("orders").select(`
+import{$ as l,r as f,e as a,a as c}from"./ui-C7Le0FRc.js";import{i as y,a as h,b as C,f as b,g as x}from"./auth-CUXxddii.js";const n=l("#orders-history"),o=l("#orders-message");let p=null,i=[];async function w(){if(!y()){m(x(),"warn");return}const t=await h();if(!t){window.location.href="login.html";return}p=t;const s=await C(t.user.id);f("orders.html",t,s);try{const{data:e,error:r}=await b.from("orders").select(`
         *,
         products (name, unit, current_price),
         stores (business_name, trn_code, barangay)

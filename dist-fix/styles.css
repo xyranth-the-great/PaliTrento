@@ -58,11 +58,11 @@ section{padding:48px 0}
 .avatar-dropdown-header{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--muted-bg)}
 .avatar-dropdown-name{display:block;font-weight:600;font-size:.9rem;color:var(--ink)}
 .avatar-dropdown-email{display:block;font-size:.75rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.avatar-dropdown-item{display:block;padding:10px 16px;color:#111;text-decoration:none;font-size:.9rem;font-weight:600;background:none;border:none;width:100%;text-align:left;cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease)}
-.avatar-dropdown-item:hover{background:var(--primary);color:#fff}
-.avatar-dropdown-item:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
-.avatar-dropdown-logout{color:var(--bad)}
-.avatar-dropdown-logout:hover{background:var(--bad-bg)}
+.top nav #avatar-menu .avatar-dropdown-item{display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:.9rem;font-weight:600;background:var(--primary);border:none;border-radius:0;width:100%;margin:0;text-align:left;cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease)}
+.top nav #avatar-menu .avatar-dropdown-item:hover{background:var(--card);color:var(--primary)}
+.top nav #avatar-menu .avatar-dropdown-item:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
+.top nav #avatar-menu .avatar-dropdown-logout{color:var(--bad);background:var(--card)}
+.top nav #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad);color:#fff}
 
 /* Unread message badge on avatar */
 .avatar-btn{position:relative}
