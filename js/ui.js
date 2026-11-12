@@ -58,7 +58,14 @@ const PERSON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
 
 export function renderChrome(active, session = null, profile = null) {
-  const links = [['index.html', 'Home'], ['explore.html', 'Explore'], ['map.html', 'Map'], ['products.html', 'Products'], ['orders.html', 'My Orders']];
+  const role = profile?.role ?? session?.user?.user_metadata?.role;
+  const isLoggedInBuyer = !!session && role !== 'admin';
+  const isCustomerOrBusinessOwner = !!session && ['customer', 'business_owner'].includes(role);
+  const showOrdersLink = !['login.html', 'register.html'].includes(active)
+    && (isCustomerOrBusinessOwner
+      || (!['explore.html', 'map.html', 'products.html'].includes(active)
+        && (active !== 'index.html' || isLoggedInBuyer)));
+  const links = [['index.html', 'Home'], ['explore.html', 'Explore'], ['map.html', 'Map'], ['products.html', 'Products'], ...(showOrdersLink ? [['orders.html', 'My Orders']] : [])];
   let authLinks;
   if (session) {
     const avatarHtml = profile?.avatar_url
