@@ -8,6 +8,7 @@
 *{box-sizing:border-box}
 html{scroll-padding-top:72px}
 body{margin:0;font:400 16px/1.6 var(--font);color:var(--ink);background:var(--bg)}
+body.settings-page{--primary:#1f4d2e;--primary-dark:#14351f;--amber:#e59834;--amber-light:#fef3e2;--bg:#fcf9f2;--card:#fff;--muted-bg:#f6f3ec;--line:#dcdad3;--ink:#1c2a20;--muted:#5b675f;--ok:#15803d;--ok-bg:#dcfce7;--warn:#b45309;--warn-bg:#fef3c7;--bad:#b91c1c;--bad-bg:#fee2e2;--info:#0369a1;--info-bg:#e0f2fe}
 h1,h2,h3{line-height:1.15;margin:0;color:var(--primary-dark);font-weight:800}
 h1{font-size:clamp(2.4rem,6vw,4.2rem);letter-spacing:-.02em}
 h2{font-size:clamp(1.5rem,3vw,2rem)}h3{font-size:1.05rem;font-weight:700}
@@ -138,6 +139,20 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
 .tab-btn{background:none;border:none;padding:12px 20px;font:600 .95rem var(--font);color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .18s var(--ease)}
 .tab-btn:hover{color:var(--ink)}
 .tab-btn[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--primary)}
+
+/* Settings */
+.settings-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.settings-tabs .tab-btn{padding:10px 16px;border-radius:var(--r-sm) var(--r-sm) 0 0}
+.settings-tabs .tab-btn:hover{background:var(--muted-bg)}
+.settings-tabs .tab-btn[aria-selected="true"]{background:transparent}
+@media(max-width:480px){.settings-tabs .tab-btn{padding:8px 10px;font-size:.8rem}}
+
+.setting-row{display:flex;align-items:center;gap:16px;padding:14px 16px;margin:0;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;transition:border-color .18s var(--ease)}
+.setting-row:hover{border-color:var(--primary)}
+.setting-row .setting-info{flex:1;min-width:0}
+.setting-row .setting-info strong{display:block;font-weight:600;font-size:.95rem;color:var(--ink);margin-bottom:2px}
+.setting-row .setting-info .muted{font-size:.85rem;line-height:1.4}
+.setting-row input[type="checkbox"]{width:20px;height:20px;accent-color:var(--primary);flex-shrink:0;margin:0}
 
 /* Modal */
 .modal{animation:fadeIn .15s var(--ease)}
