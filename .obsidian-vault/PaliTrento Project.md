@@ -4,7 +4,7 @@ tags: [project, marketplace, municipality, trento, agusan-del-sur, supabase, vit
 status: active
 priority: high
 created: 2026-11-10
-updated: 2026-11-12
+updated: 2026-11-13
 github: https://github.com/xyranth-the-great/PaliTrento
 supabase-project: xcbkpknsieawtzyfwrff
 custom-domain: palitrento.online
@@ -41,10 +41,12 @@ custom-domain: palitrento.online
 
 ### Authentication & Accounts
 - [x] **Email OTP registration** (Resend, 6-digit code, 10-min expiry)
-- [x] **Email/password login** (Supabase Auth, Confirm email OFF)
+- [x] **Email/password login** (Supabase Auth, Confirm email ON)
+- [x] **Forgot password / Password reset** (Supabase SMTP via Resend)
 - [x] **Account page** — Profile (name, barangay, avatar)
 - [x] **Avatar upload** — JPG/PNG/WebP, 2MB max, crop to 256x256, stored in `avatars` bucket
 - [x] **Avatar dropdown** — Role-based (Dashboard/My Orders/Account/Settings/Logout), hover desktop / click mobile
+- [x] **Settings page** — Profile, Notifications, Privacy, Security, Preferences, Danger Zone (`settings.html`)
 
 ### Merchant Features
 - [x] **Business owner registration** → Email OTP → Store setup wizard
@@ -76,6 +78,7 @@ palitrento2/
 ├── register.html, login.html, account.html, verify.html
 ├── register-business.html, store-setup.html, dashboard.html, chat.html, orders.html
 ├── admin.html, admin-verification.html, admin-prices.html, admin-reports.html
+├── settings.html, forgot-password.html, reset-password.html
 ├── css/styles.css              # Design tokens + all components
 ├── js/
 │   ├── supabase.js             # Supabase client (null if no env keys)
@@ -88,6 +91,7 @@ palitrento2/
 │   ├── register.js, login.js, account.js, verify.js
 │   ├── register-business.js, store-setup.js, dashboard.js, chat.js, orders.js
 │   ├── admin.js, admin-verification.js, admin-prices.js, admin-reports.js
+│   ├── settings.js, forgot-password.js, reset-password.js
 ├── supabase/
 │   ├── schema.sql              # Core tables + RLS
 │   ├── seed.sql                # 4 fake stores + products
@@ -135,9 +139,20 @@ palitrento2/
 |---------|-------|
 | **Project URL** | `https://xcbkpknsieawtzyfwrff.supabase.co` |
 | **Project Ref** | `xcbkpknsieawtzyfwrff` |
-| **Auth Providers** | Email (ON), Confirm email (OFF) |
+| **Auth Providers** | Email (ON), Confirm email (ON) |
 | **Site URL** | `https://palitrento.online` |
 | **Redirect URLs** | `https://palitrento.online/**`, `http://localhost:5173/**` |
+
+### SMTP Settings (Resend)
+| Setting | Value |
+|---------|-------|
+| **Host** | `smtp.resend.com` |
+| **Port** | `587` |
+| **Username** | `resend` |
+| **Password** | `re_...` (Resend API key) |
+| **Sender email** | `no-reply@palitrento.online` |
+| **Sender name** | `PaliTrento` |
+| **TLS** | ✅ Enabled |
 
 ### Edge Functions Deployed
 | Function | Purpose | Secrets Required |
@@ -146,8 +161,10 @@ palitrento2/
 | `verify-email-otp` | Verifies code, marks used | `SUPABASE_URL`, `SERVICE_ROLE_KEY` |
 
 ### Resend Email
-- **Test mode**: Only `kenteyy2@gmail.com` can receive
-- **Production**: Verify domain at `resend.com/domains`, update `from:` in `send-email-otp`
+- **Domain**: `palitrento.online` ✅ Verified at `resend.com/domains`
+- **Production sender**: `PaliTrento <no-reply@palitrento.online>`
+- **Edge Function `send-email-otp`**: v6, uses production sender
+- **SMTP**: Used by Supabase for email confirmations, password resets, magic links
 
 ---
 
@@ -206,10 +223,10 @@ npm run preview
 - [ ] Verify BEKIK status: `update stores set verification_status='PENDING', srp_compliant=false where trn_code='TRN-2026-090';`
 - [ ] Add 10-20 real businesses (with owner permission, status PENDING)
 - [ ] Verify 16 barangay names in `js/ui.js` against official PSGC list
-- [ ] Set up real SMTP for emails (Supabase → Auth → SMTP Settings)
+- [x] Set up SMTP for emails (Supabase → Auth → Configuration → SMTP: `smtp.resend.com:587`, user `resend`)
 - [x] Verify Resend domain at `resend.com/domains` (for `palitrento.online`)
 - [x] Update `from:` address in `send-email-otp` Edge Function
-- [ ] Set real Site URL & Redirect URLs in Supabase Auth (`https://palitrento.online`)
+- [x] Set real Site URL & Redirect URLs in Supabase Auth (`https://palitrento.online`)
 - [x] Configure GitHub Pages custom domain: `palitrento.online` + Enforce HTTPS
 - [ ] Add repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
@@ -294,6 +311,9 @@ export default defineConfig({
 16. ✅ **Resend domain** `palitrento.online` verified, production sender configured (2026-11-12)
 17. ✅ **Product image upload** — Supabase migration run, Dashboard upload working (2026-11-12)
 18. ✅ **QR Standee PDF** — A5/A4 printable store signage via `standee.html` (2026-11-12)
+19. ✅ **Settings page** — Profile, Notifications, Privacy, Security, Preferences, Danger Zone (`settings.html`, `js/settings.js`) (2026-11-13)
+20. ✅ **SMTP + Confirm email** — Supabase SMTP via Resend (`smtp.resend.com:587`), Confirm email ON, password reset enabled (2026-11-13)
+21. ✅ **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser` (2026-11-13)
 
 ### In Progress
 - (none — all current blockers resolved)
@@ -332,6 +352,6 @@ export default defineConfig({
 
 ---
 
-> **Last updated:** 2026-11-12
-> **Current phase:** Core features complete — Product images ✅, QR Standee ✅, Resend verified ✅. Next: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector
+> **Last updated:** 2026-11-13
+> **Current phase:** Core features complete — Product images ✅, QR Standee ✅, Resend verified ✅, Settings page ✅, SMTP/Confirm email ✅, Forgot password ✅. Next: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the 'Where we stopped' section."

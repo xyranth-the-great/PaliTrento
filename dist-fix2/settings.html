@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Settings | PaliTrento</title>
+<meta name="description" content="Manage your PaliTrento account settings, notifications, privacy, and security.">
+<link rel="icon" type="image/png" href="./assets/logo-DrGexIuc.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/settings-Cbm2m851.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-Dmhd617G.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-DwUyflMc.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-fsHHyEkk.css">
+</head>
+<body class="settings-page">
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:800px;padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Settings</h1>
+      <p class="muted">Manage your account, notifications, privacy, and security preferences.</p>
+    </div>
+  </div>
+
+  <div id="settings-content" style="display:none">
+    <!-- Settings tabs -->
+    <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+      <button class="tab-btn" role="tab" aria-selected="true" data-tab="profile" aria-controls="tab-profile">Profile</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="notifications" aria-controls="tab-notifications">Notifications</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="privacy" aria-controls="tab-privacy">Privacy</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="security" aria-controls="tab-security">Security</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="preferences" aria-controls="tab-preferences">Preferences</button>
+      <button class="tab-btn" role="tab" aria-selected="false" data-tab="danger" aria-controls="tab-danger">Danger Zone</button>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div id="tab-profile" role="tabpanel" aria-labelledby="profile-tab" style="display:block;margin-top:24px">
+      <div class="card" style="padding:24px">
+        <h2 style="margin:0 0 4px">Profile</h2>
+        <p class="muted" style="margin:0 0 24px">Your public profile information. Changes are visible to other users when you chat or place orders.</p>
+
+        <!-- Avatar -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:24px">
+          <div id="avatar-preview" style="width:96px;height:96px;border-radius:50%;background:var(--primary-dark);color:var(--amber);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative">
+            <svg id="avatar-placeholder" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:block"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <img id="avatar-img" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+            <label class="btn" style="font-size:.9rem;padding:8px 14px;cursor:pointer">
+              Change photo
+              <input id="avatar-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none">
+            </label>
+            <button id="avatar-remove" type="button" class="btn alt" style="font-size:.9rem;padding:8px 14px;display:none">Remove photo</button>
+          </div>
+          <p id="avatar-msg" class="muted" style="font-size:.85rem;text-align:center;min-height:1.2em"></p>
+        </div>
+
+        <form id="profile-form" novalidate style="display:grid;gap:16px;max-width:480px">
+          <div>
+            <label for="set-name">Full name</label>
+            <input id="set-name" name="full_name" type="text" autocomplete="name" required>
+          </div>
+
+          <div>
+            <label for="set-email">Email</label>
+            <input id="set-email" name="email" type="email" readonly style="background:var(--muted-bg);cursor:not-allowed">
+          </div>
+
+          <div>
+            <label for="set-role">Role</label>
+            <input id="set-role" name="role" type="text" readonly style="background:var(--muted-bg);cursor:not-allowed">
+          </div>
+
+          <div>
+            <label for="set-barangay">Barangay</label>
+            <select id="set-barangay" name="barangay">
+              <option value="">Choose your barangay</option>
+            </select>
+          </div>
+
+          <button type="submit" id="save-profile-btn" class="btn" style="width:100%">Save profile</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- NOTIFICATIONS TAB -->
+    <div id="tab-notifications" role="tabpanel" aria-labelledby="notifications-tab" style="display:none;margin-top:24px">
+      <div class="card" style="padding:24px">
+        <h2 style="margin:0 0 4px">Notifications</h2>
+        <p class="muted" style="margin:0 0 24px">Choose how you want to be notified about activity on your orders and price updates.</p>
+
+        <div style="display:grid;gap:12px">
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Order status updates</strong>
+              <span class="muted">Get notified when your order is confirmed, ready for pickup, or completed.</span>
+            </div>
+            <input type="checkbox" id="notif-orders" checked>
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>New messages</strong>
+              <span class="muted">Get notified when a buyer or seller sends you a message.</span>
+            </div>
+            <input type="checkbox" id="notif-messages" checked>
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Price cap changes</strong>
+              <span class="muted">Receive email when LGU posts new price caps for products you follow.</span>
+            </div>
+            <input type="checkbox" id="notif-price-caps">
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Store announcements</strong>
+              <span class="muted">Get notified when your favorite stores post updates or promotions.</span>
+            </div>
+            <input type="checkbox" id="notif-store-announcements">
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Email digests</strong>
+              <span class="muted">Receive a weekly summary of your orders and new products.</span>
+            </div>
+            <input type="checkbox" id="notif-digest">
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Push notifications</strong>
+              <span class="muted">Allow browser push notifications for real-time updates (requires browser permission).</span>
+            </div>
+            <input type="checkbox" id="notif-push">
+          </label>
+        </div>
+
+        <button type="button" id="save-notif-btn" class="btn" style="margin-top:16px">Save notification preferences</button>
+      </div>
+    </div>
+
+    <!-- PRIVACY TAB -->
+    <div id="tab-privacy" role="tabpanel" aria-labelledby="privacy-tab" style="display:none;margin-top:24px">
+      <div class="card" style="padding:24px">
+        <h2 style="margin:0 0 4px">Privacy</h2>
+        <p class="muted" style="margin:0 0 24px">Control who can see your information and how your data is used.</p>
+
+        <div style="display:grid;gap:12px">
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Show my name in chat</strong>
+              <span class="muted">Display your full name to buyers/sellers in chat. If off, shows only first name.</span>
+            </div>
+            <input type="checkbox" id="privacy-show-name" checked>
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Show my barangay</strong>
+              <span class="muted">Let other users see your barangay on your profile and in chat.</span>
+            </div>
+            <input type="checkbox" id="privacy-show-barangay" checked>
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Allow stores to contact me</strong>
+              <span class="muted">Enable stores to message you about order updates and promotions.</span>
+            </div>
+            <input type="checkbox" id="privacy-store-contact" checked>
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Analytics tracking</strong>
+              <span class="muted">Help improve PaliTrento by allowing anonymous usage analytics.</span>
+            </div>
+            <input type="checkbox" id="privacy-analytics" checked>
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Data sharing with LGU</strong>
+              <span class="muted">Share anonymized order data with the Municipal Government for price monitoring.</span>
+            </div>
+            <input type="checkbox" id="privacy-lgu-data">
+          </label>
+        </div>
+
+        <button type="button" id="save-privacy-btn" class="btn" style="margin-top:16px">Save privacy settings</button>
+      </div>
+
+      <div class="card" style="padding:24px;margin-top:16px">
+        <h2 style="margin:0 0 4px">Your Data</h2>
+        <p class="muted" style="margin:0 0 16px">Access or download your personal data.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button type="button" class="btn alt" id="export-data-btn">Export my data</button>
+          <button type="button" class="btn alt" id="download-data-btn">Download chat history</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECURITY TAB -->
+    <div id="tab-security" role="tabpanel" aria-labelledby="security-tab" style="display:none;margin-top:24px">
+      <div class="card" style="padding:24px">
+        <h2 style="margin:0 0 4px">Security</h2>
+        <p class="muted" style="margin:0 0 24px">Manage your password and login security.</p>
+
+        <div style="display:grid;gap:16px;max-width:480px">
+          <div>
+            <label for="set-current-password">Current password</label>
+            <input id="set-current-password" name="current_password" type="password" autocomplete="current-password">
+          </div>
+          <div>
+            <label for="set-new-password">New password</label>
+            <input id="set-new-password" name="new_password" type="password" autocomplete="new-password" minlength="8">
+          </div>
+          <div>
+            <label for="set-confirm-password">Confirm new password</label>
+            <input id="set-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8">
+          </div>
+        </div>
+
+        <button type="button" id="save-password-btn" class="btn" style="width:100%;max-width:300px">Change password</button>
+        <p id="security-msg" class="muted" style="margin-top:12px;min-height:1.5em;display:none"></p>
+      </div>
+
+      <div class="card" style="padding:24px;margin-top:16px">
+        <h2 style="margin:0 0 4px">Active Sessions</h2>
+        <p class="muted" style="margin:0 0 16px">Devices currently logged into your account.</p>
+        <div id="sessions-list" class="muted">Loading...</div>
+        <button type="button" class="btn alt" id="revoke-all-btn" style="margin-top:16px">Log out of all other devices</button>
+      </div>
+    </div>
+
+    <!-- PREFERENCES TAB -->
+    <div id="tab-preferences" role="tabpanel" aria-labelledby="preferences-tab" style="display:none;margin-top:24px">
+      <div class="card" style="padding:24px">
+        <h2 style="margin:0 0 4px">Preferences</h2>
+        <p class="muted" style="margin:0 0 24px">Customize your PaliTrento experience.</p>
+
+        <div style="display:grid;gap:16px;max-width:480px">
+          <div>
+            <label for="pref-language">Language</label>
+            <select id="pref-language">
+              <option value="en">English</option>
+              <option value="tl">Tagalog</option>
+              <option value="ceb">Cebuano</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="pref-currency">Currency display</label>
+            <select id="pref-currency">
+              <option value="PHP" selected>₱ Philippine Peso (PHP)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="pref-theme">Theme</label>
+            <select id="pref-theme">
+              <option value="system">System default</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Auto-play media</strong>
+              <span class="muted">Automatically play videos and animations in product listings.</span>
+            </div>
+            <input type="checkbox" id="pref-autoplay">
+          </label>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <strong>Reduce motion</strong>
+              <span class="muted">Minimize animations and transitions (follows system accessibility setting).</span>
+            </div>
+            <input type="checkbox" id="pref-reduce-motion">
+          </label>
+        </div>
+
+        <button type="button" id="save-preferences-btn" class="btn" style="margin-top:16px">Save preferences</button>
+      </div>
+    </div>
+
+    <!-- DANGER ZONE TAB -->
+    <div id="tab-danger" role="tabpanel" aria-labelledby="danger-tab" style="display:none;margin-top:24px">
+      <div class="card" style="padding:24px;border:1px solid var(--bad);background:var(--bad-bg)">
+        <h2 style="margin:0 0 4px;color:var(--bad)">Danger Zone</h2>
+        <p class="muted" style="margin:0 0 24px;color:var(--muted)">Irreversible actions. Please read carefully before proceeding.</p>
+
+        <div style="display:grid;gap:24px">
+          <div style="padding-bottom:24px;border-bottom:1px solid var(--bad)">
+            <h3 style="margin:0 0 8px;color:var(--bad);font-size:1rem">Delete Account</h3>
+            <p class="muted" style="margin:0 0 8px">Permanently delete your account and all associated data. This cannot be undone.</p>
+            <p class="muted" style="margin:0 0 12px;font-size:.85rem">This will delete: your profile, order history, chat messages, store listings (if you're a business owner), and all uploaded images.</p>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="confirm-delete" required> I understand this is permanent
+              </label>
+              <button type="button" class="btn" id="delete-account-btn" style="background:var(--bad);color:#fff" disabled>Delete my account</button>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="margin:0 0 8px;color:var(--bad);font-size:1rem">Delete Store (Business Owners Only)</h3>
+            <p class="muted" style="margin:0 0 12px">Permanently delete your store listing and all products. Orders and chat history will remain for buyers.</p>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="confirm-delete-store" required> I understand this is permanent
+              </label>
+              <button type="button" class="btn" id="delete-store-btn" style="background:var(--bad);color:#fff" disabled>Delete my store</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p id="settings-message" class="muted" style="margin-top:24px;min-height:1.5em;display:none"></p>
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

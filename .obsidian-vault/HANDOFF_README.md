@@ -1,6 +1,6 @@
 # PaliTrento: Handoff README
 
-> Date written: 2026-11-10. Updated: 2026-11-12. Paste this whole file into a new chat and say:
+> Date written: 2026-11-10. Updated: 2026-11-13. Paste this whole file into a new chat and say:
 > "Read this and continue from the 'Where we stopped' section."
 
 ---
@@ -42,6 +42,7 @@ index.html  explore.html  map.html  products.html  business.html
 register.html  login.html  account.html  verify.html
 register-business.html  store-setup.html  dashboard.html  chat.html  orders.html
 admin.html  admin-verification.html  admin-prices.html  admin-reports.html
+settings.html  forgot-password.html  reset-password.html
 css/styles.css          (design tokens + components)
 js/supabase.js          (client; null if env keys missing -> pages use seed data)
 js/data.js              (getStores/getProducts/getStore; falls back to js/seed.js)
@@ -52,6 +53,9 @@ js/storage.js           (Supabase Storage upload for store images)
 js/home.js explore.js products.js business.js map.js
 js/register.js login.js account.js verify.js register-business.js store-setup.js dashboard.js chat.js orders.js
 js/admin.js admin-verification.js admin-prices.js admin-reports.js
+js/settings.js          # Settings page logic
+js/forgot-password.js   # Forgot password flow
+js/reset-password.js    # Reset password flow
 supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql  supabase/product-images.sql
 vite.config.js  (multi-page, target es2022, base: './')  .env  .env.example  CLAUDE.md  README.md
 ```
@@ -133,7 +137,7 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
 
 (The avatars bucket is public: anyone with a photo link can view it. That's normal for profile pictures.)
 
-**Supabase settings:** Email provider ON; **Confirm email OFF**; Site URL `https://palitrento.online`; Redirect URL `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev). The built-in email sender allows only a few emails per hour (testing only). Use a Gmail address for tests, because my school `.edu.ph` address may delay or block automated email. Before launch, set up a proper SMTP email service.
+**Supabase settings:** Email provider ON; **Confirm email ON**; Site URL `https://palitrento.online`; Redirect URL `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev). SMTP configured via Resend: `smtp.resend.com:587`, user `resend`, pass `re_...`. Sender: `no-reply@palitrento.online` (PaliTrento). The built-in email sender allows only a few emails per hour (testing only). Use a Gmail address for tests, because my school `.edu.ph` address may delay or block automated email. Before launch, set up a proper SMTP email service.
 
 ---
 
@@ -261,6 +265,14 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
     - `vite.config.js` updated: `base: './'` (for custom domain, no subpath)
     - Supabase Auth URLs updated to `https://palitrento.online`
 
+22. **Forgot Password / Reset Password** (2026-11-13)
+    - `forgot-password.html` + `js/forgot-password.js` — Request password reset link via email
+    - `reset-password.html` + `js/reset-password.js` — Set new password using Supabase recovery tokens
+    - Uses Supabase `resetPasswordForEmail` with redirect to `reset-password.html`
+    - Uses Supabase `updateUser({ password })` to save new password
+    - "Forgot password?" link added to login page
+    - SMTP via Resend already configured for delivery
+
 ---
 
 ## 6. Next steps after the bug is fixed
@@ -333,6 +345,8 @@ export default defineConfig({
 8. **2026-11-12 (later):** Added GitHub Actions workflow (`.github/workflows/deploy.yml`) for automated deployment to GitHub Pages with Supabase secrets. Fixed deploy path to `dist-fix`. Added Resend DNS records at Z.com (DKIM, CNAME rsend/send, DMARC). Verified `palitrento.online` in Resend. Updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` and deployed to Supabase.
 9. **2026-11-12 (later):** Ran Supabase migration for `product-images` bucket. Product image upload working in Dashboard.
 10. **2026-11-12 (later):** Implemented QR Standee PDF generation in `standee.html` — A5/A4 printable store signage with QR code.
+11. **2026-11-13:** Created Settings page (`settings.html`, `js/settings.js`) with 6 tabs: Profile (avatar, name, barangay), Notifications (6 toggles), Privacy (5 toggles + data export), Security (password change, active sessions), Preferences (language, theme, reduce motion), Danger Zone (delete account, delete store).
+12. **2026-11-13:** Configured Supabase SMTP via Resend (`smtp.resend.com:587`, user `resend`, pass `re_...`). Enabled Confirm email in Supabase Auth. Password reset and email confirmations now work via Supabase SMTP. Updated Edge Function `send-email-otp` to v6 with production sender.
 
 ---
 
@@ -398,7 +412,9 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - GitHub Pages: Custom domain `palitrento.online` enabled, GitHub Actions (`.github/workflows/deploy.yml`) builds `dist-fix` and deploys to `gh-pages` branch
 - Repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` ✅ Added
 - Resend domain `palitrento.online` verified ✅, production sender configured
-- Before launch: real SMTP for emails (Supabase → Auth → SMTP Settings), set real Site URL/redirects in Supabase
+- SMTP: Supabase → Auth → Configuration: `smtp.resend.com:587`, user `resend`, pass `re_...`, sender `no-reply@palitrento.online`
+- Confirm email: ON (enables email confirmations, password resets, magic links)
+- Before launch: set real Site URL/redirects in Supabase
 
 ---
 

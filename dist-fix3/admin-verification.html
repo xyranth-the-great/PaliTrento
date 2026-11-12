@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verification Queue | PaliTrento Admin</title>
+<meta name="description" content="Review and verify store applications.">
+<link rel="icon" type="image/png" href="./assets/logo-DrGexIuc.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/admin-verification-DG_Nk4tB.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-Dmhd617G.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-DwUyflMc.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-fsHHyEkk.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:1200px;padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Verification Queue</h1>
+      <p class="muted">Review store applications</p>
+    </div>
+    <a href="admin.html" class="btn alt">← Dashboard</a>
+  </div>
+
+  <!-- Filters -->
+  <div class="card" style="padding:16px;margin-bottom:24px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+      <div style="flex:1;min-width:200px">
+        <label for="filter-status">Status</label>
+        <select id="filter-status">
+          <option value="PENDING">Pending</option>
+          <option value="VERIFIED">Verified</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="CLARIFICATION_REQUIRED">Clarification Needed</option>
+          <option value="ALL">All</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <label for="filter-barangay">Barangay</label>
+        <select id="filter-barangay">
+          <option value="">All barangays</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <label for="filter-search">Search</label>
+        <input id="filter-search" type="search" placeholder="Business name, proprietor, TRN...">
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px" id="verification-stats"></div>
+
+  <!-- Stores list -->
+  <div id="stores-list" class="grid" style="display:none"></div>
+  <p class="muted" id="no-stores" style="display:none;text-align:center;padding:32px">No stores found.</p>
+
+  <!-- Store Detail Modal -->
+  <div id="store-modal" class="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;padding:24px">
+    <div class="card" style="width:100%;max-width:900px;max-height:90vh;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
+        <h3 id="modal-title" style="margin:0">Store Details</h3>
+        <button type="button" class="btn alt" id="modal-close" style="padding:8px;line-height:1">&times;</button>
+      </div>
+      <div id="modal-content" style="padding:20px"></div>
+    </div>
+  </div>
+
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

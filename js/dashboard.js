@@ -444,6 +444,9 @@ function openProductModal(productId = null) {
     $('#modal-title').textContent = 'Add Product';
   }
 
+  // New products must include a photo. Existing products can keep their current image.
+  $('#p-image').required = !productId;
+
   modal.style.display = 'flex';
   $('#p-name').focus();
 }
@@ -459,6 +462,12 @@ async function saveProduct(e) {
   if (!currentStore) return;
 
   const imageFile = $('#p-image')?.files?.[0] ?? null;
+
+  if (!editingProductId && !imageFile) {
+    alert('Please add a product picture before saving.');
+    $('#p-image').focus();
+    return;
+  }
 
   const productData = {
     store_id: currentStore.id,
