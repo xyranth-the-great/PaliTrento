@@ -1,4 +1,4 @@
-:root{
+top:root{
   --primary:#1f4d2e;--primary-dark:#14351f;--amber:#e59834;--amber-light:#fef3e2;
   --bg:#fcf9f2;--card:#fff;--muted-bg:#f6f3ec;--line:#dcdad3;--ink:#1c2a20;--muted:#5b675f;
   --ok:#15803d;--ok-bg:#dcfce7;--warn:#b45309;--warn-bg:#fef3c7;--bad:#b91c1c;--bad-bg:#fee2e2;--info:#0369a1;--info-bg:#e0f2fe;
