@@ -6,11 +6,35 @@ import { sendEmailOTP } from './email-otp.js';
 const form = $('#register-form');
 const msgEl = $('#register-message');
 const showPasswordCheckbox = $('#show-password');
+const emailInput = $('#email');
+const emailWarning = $('#email-warning');
 
 showPasswordCheckbox.addEventListener('change', () => {
   const inputType = showPasswordCheckbox.checked ? 'text' : 'password';
   form.password.type = inputType;
   form.confirm_password.type = inputType;
+});
+
+// Show helpful hint when user enters an email and leaves the field
+let lastWarnedEmail = '';
+
+emailInput.addEventListener('blur', () => {
+  const email = emailInput.value.trim().toLowerCase();
+  if (!email || !email.includes('@') || email === lastWarnedEmail) return;
+
+  lastWarnedEmail = email;
+  // Show a subtle hint that they might already have an account
+  emailWarning.textContent = 'Already have an account? <a href="login.html">Log in instead</a>';
+  emailWarning.className = 'email-warning is-hint';
+});
+
+// Clear warning when user starts typing again
+emailInput.addEventListener('input', () => {
+  if (emailWarning.textContent) {
+    emailWarning.textContent = '';
+    emailWarning.className = 'email-warning';
+    lastWarnedEmail = '';
+  }
 });
 
 async function init() {
