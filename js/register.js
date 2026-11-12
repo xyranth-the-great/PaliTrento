@@ -43,6 +43,11 @@ form.addEventListener('submit', async (e) => {
   const role = form.role.value;
   const barangay = form.barangay.value;
 
+  if (!form.accept_terms.checked) {
+    showMsg('Please agree to the Terms and Agreement before creating an account', 'bad');
+    return;
+  }
+
   if (!fullName || !email || !password) {
     showMsg('Please fill in all required fields', 'bad');
     return;
