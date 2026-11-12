@@ -7,7 +7,8 @@
 }
 *{box-sizing:border-box}
 html{scroll-padding-top:72px}
-body{margin:0;font:400 16px/1.6 var(--font);color:var(--ink);background:var(--bg)}
+body{margin:0;font:400 16px/1.6 var(--font);color:var(--ink);background:var(--bg);min-height:100vh;display:flex;flex-direction:column}
+main{flex:1}
 body.settings-page{--primary:#1f4d2e;--primary-dark:#14351f;--amber:#e59834;--amber-light:#fef3e2;--bg:#fcf9f2;--card:#fff;--muted-bg:#f6f3ec;--line:#dcdad3;--ink:#1c2a20;--muted:#5b675f;--ok:#15803d;--ok-bg:#dcfce7;--warn:#b45309;--warn-bg:#fef3c7;--bad:#b91c1c;--bad-bg:#fee2e2;--info:#0369a1;--info-bg:#e0f2fe}
 h1,h2,h3{line-height:1.15;margin:0;color:var(--primary-dark);font-weight:800}
 h1{font-size:clamp(2.4rem,6vw,4.2rem);letter-spacing:-.02em}

@@ -40,8 +40,15 @@ form.addEventListener('submit', async (e) => {
   submitBtn.textContent = 'Sending...';
 
   try {
-    // Use the production URL for the redirect - Supabase will append the token as hash params
-    const redirectTo = `${window.location.origin}${window.location.pathname.replace('forgot-password.html', 'reset-password.html')}`;
+    // Supabase only redirects to URLs on its allowlist; use the canonical HTTPS production URL.
+    const redirectUrl = new URL('reset-password.html', window.location.href);
+    if (['palitrento.online', 'www.palitrento.online'].includes(redirectUrl.hostname)) {
+      redirectUrl.href = 'https://palitrento.online/reset-password.html';
+    }
+    const redirectTo = redirectUrl.href;
+
+    console.log('[ForgotPassword] Requesting reset for:', email);
+    console.log('[ForgotPassword] redirectTo:', redirectTo);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo
@@ -51,17 +58,18 @@ form.addEventListener('submit', async (e) => {
     submitBtn.textContent = 'Send reset link';
 
     if (error) {
-      console.error('Forgot password error:', error.message, error.status, error);
+      console.error('[ForgotPassword] Forgot password error:', error.message, error.status, error);
       showMsg(getAuthErrorMessage(error), 'bad');
       return;
     }
 
+    console.log('[ForgotPassword] Reset email sent successfully');
     // Don't reveal if email exists or not (security best practice)
     showMsg('If an account exists for that email, a reset link has been sent.', 'ok');
   } catch (err) {
     submitBtn.disabled = false;
     submitBtn.textContent = 'Send reset link';
-    console.error('Forgot password exception:', err);
+    console.error('[ForgotPassword] Forgot password exception:', err);
     showMsg('Something went wrong. Please try again.', 'bad');
   }
 });
