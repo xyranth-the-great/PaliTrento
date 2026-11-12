@@ -5,6 +5,13 @@ import { sendEmailOTP } from './email-otp.js';
 
 const form = $('#register-form');
 const msgEl = $('#register-message');
+const showPasswordCheckbox = $('#show-password');
+
+showPasswordCheckbox.addEventListener('change', () => {
+  const inputType = showPasswordCheckbox.checked ? 'text' : 'password';
+  form.password.type = inputType;
+  form.confirm_password.type = inputType;
+});
 
 async function init() {
   const session = await getSession();
@@ -36,12 +43,21 @@ form.addEventListener('submit', async (e) => {
   const role = form.role.value;
   const barangay = form.barangay.value;
 
+  if (!form.accept_terms.checked) {
+    showMsg('Please agree to the Terms and Agreement before creating an account', 'bad');
+    return;
+  }
+
   if (!fullName || !email || !password) {
     showMsg('Please fill in all required fields', 'bad');
     return;
   }
   if (password.length < 8) {
     showMsg('Password must be at least 8 characters', 'bad');
+    return;
+  }
+  if (!/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+    showMsg('Password must include at least one number and one special character', 'bad');
     return;
   }
   if (password !== confirmPassword) {

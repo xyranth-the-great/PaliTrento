@@ -30,14 +30,19 @@
 
     <div>
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" required autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
-      <p class="muted" style="margin-top:4px">Minimum 8 characters</p>
+      <input id="password" name="password" type="password" required autocomplete="new-password" minlength="8" pattern="(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}" title="Use at least 8 characters, including a number and a special character." placeholder="8+ characters, a number & a symbol">
+      <p class="muted" style="margin-top:4px">Use at least 8 characters, including a number and a special character (such as ! or #).</p>
     </div>
 
     <div>
       <label for="confirm_password">Confirm password</label>
       <input id="confirm_password" name="confirm_password" type="password" required autocomplete="new-password" placeholder="Re-enter password">
     </div>
+
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+      <input id="show-password" type="checkbox" style="width:auto;margin:0">
+      Show password
+    </label>
 
     <input type="hidden" name="role" value="business_owner">
 
@@ -48,7 +53,12 @@
       </select>
     </div>
 
-    <button type="submit" class="btn" style="width:100%">Create account & continue</button>
+    <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
+      <input id="accept-terms" name="accept_terms" type="checkbox" required style="width:auto;margin:4px 0 0">
+      <span>I have read and agree to the <a href="terms-and-agreement.html" target="_blank" rel="noopener">Terms and Agreement</a>.</span>
+    </label>
+
+    <button type="submit" class="btn" style="width:100%">Create account &amp; continue</button>
   </form>
 
   <p id="register-message" class="muted" style="margin-top:16px;min-height:1.5em"></p>
