@@ -1,6 +1,8 @@
 PaliTrento: Project Context for Claude Code
 
-Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-11.
+Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-12.
+
+**Custom Domain:** `palitrento.online` (configured 2026-11-12)
 
 1. What this project is
 
@@ -37,7 +39,7 @@ Language	Vanilla JS ES modules, no framework
 Data/Auth	Supabase (@supabase/supabase-js), keys via VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 Map	Leaflet 1.9 + OpenStreetMap tiles (installed via npm, circleMarker pins so no icon images are needed)
 Fonts	Plus Jakarta Sans (Google Fonts)
-Deploy	GitHub Pages: BASE_PATH=/PaliTrento/ npm run build, publish dist/
+Deploy	GitHub Pages: Custom domain `palitrento.online`, `npm run build` (base: './'), publish to gh-pages branch
 
 Note: Vite is only a build/dev tool. Supabase works in any JS; Vite just injects the .env values.
 
@@ -155,8 +157,9 @@ No images yet. Doc 2 referenced 3 image assets as unresolved placeholders ({{DAT
 Supabase keys not yet connected; pages currently run on seed data.
 business.html links use trn_code in the query string (?trn=), not a pretty path.
 Accessibility and the old "Impeccable detector" quality gate from Doc 1 have not been run.
-Doc 1 used base path /PaliTrento/ for GitHub Pages; this build uses BASE_PATH env var (default ./).
+Doc 1 used base path /PaliTrento/ for GitHub Pages; this build uses `base: './'` in vite.config.js for custom domain `palitrento.online`.
 Product images bucket needs migration before upload works.
+Custom domain configured: DNS at Z.com (4 A records + 1 CNAME), GitHub Pages custom domain enabled with Enforce HTTPS, Supabase Auth URLs updated.
 
 9. Suggested next steps (in order)
 
@@ -191,4 +194,5 @@ User decided: Vite, Doc 1 stack, Doc 2 colors, Doc 2 features, Doc 2 login (SMS 
 Claude built the five public pages, the Supabase schema/seed, and a README; fixed two build issues (template argument order, es2022 target for top-level await); the production build passes; delivered palitrento.zip.
 User requested this handoff document for Claude Code.
 Subsequent sessions: built email OTP auth, avatar upload, merchant onboarding, dashboard, admin, orders, chat, unread badge, orders page, account page fixes, product image upload frontend.
+2026-11-12: Purchased `palitrento.online` domain, configured DNS at Z.com, updated `vite.config.js` to `base: './'`, deployed to GitHub Pages with custom domain.
 Current focus: Product image upload Supabase migration, then QR standee PDF.

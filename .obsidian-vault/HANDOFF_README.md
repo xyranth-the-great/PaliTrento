@@ -1,6 +1,6 @@
 # PaliTrento: Handoff README
 
-> Date written: 2026-11-10. Paste this whole file into a new chat and say:
+> Date written: 2026-11-10. Updated: 2026-11-12. Paste this whole file into a new chat and say:
 > "Read this and continue from the 'Where we stopped' section."
 
 ---
@@ -53,7 +53,7 @@ js/home.js explore.js products.js business.js map.js
 js/register.js login.js account.js verify.js register-business.js store-setup.js dashboard.js chat.js orders.js
 js/admin.js admin-verification.js admin-prices.js admin-reports.js
 supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql  supabase/product-images.sql
-vite.config.js  (multi-page, target es2022)  .env  .env.example  CLAUDE.md  README.md
+vite.config.js  (multi-page, target es2022, base: './')  .env  .env.example  CLAUDE.md  README.md
 ```
 
 - `.env` (real values, gitignored) lives next to `package.json`. `.env.example` has placeholders only.
@@ -133,7 +133,7 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
 
 (The avatars bucket is public: anyone with a photo link can view it. That's normal for profile pictures.)
 
-**Supabase settings:** Email provider ON; **Confirm email OFF**; Site URL `http://localhost:5173`; Redirect URL `http://localhost:5173/**`. The built-in email sender allows only a few emails per hour (testing only). Use a Gmail address for tests, because my school `.edu.ph` address may delay or block automated email. Before launch, set up a proper SMTP email service.
+**Supabase settings:** Email provider ON; **Confirm email OFF**; Site URL `https://palitrento.online`; Redirect URL `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev). The built-in email sender allows only a few emails per hour (testing only). Use a Gmail address for tests, because my school `.edu.ph` address may delay or block automated email. Before launch, set up a proper SMTP email service.
 
 ---
 
@@ -233,6 +233,12 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
 
 16. **Product detail redirect** → `orders.html` after reserve
 
+17. **Custom domain `palitrento.online` configured** (2026-11-12)
+    - DNS records added at Z.com (4 A records + 1 CNAME)
+    - GitHub Pages custom domain enabled with Enforce HTTPS
+    - `vite.config.js` updated: `base: './'` (for custom domain, no subpath)
+    - Supabase Auth URLs updated to `https://palitrento.online`
+
 ---
 
 ## 6. Next steps after the bug is fixed
@@ -290,7 +296,44 @@ create policy "public read product images" on storage.objects
 
 ---
 
-## 7. Conversation log (condensed)
+## 7. Custom Domain Setup (Completed 2026-11-12)
+
+**Domain:** `palitrento.online` (registered at Z.com)
+
+### DNS Records at Z.com
+| Type | Host | Value | TTL |
+|------|------|-------|-----|
+| A | `@` | `185.199.108.153` | 3600 |
+| A | `@` | `185.199.109.153` | 3600 |
+| A | `@` | `185.199.110.153` | 3600 |
+| A | `@` | `185.199.111.153` | 3600 |
+| CNAME | `www` | `xyranth-the-great.github.io.` | 3600 |
+
+### GitHub Pages Settings
+- **Source:** Deploy from branch → `gh-pages` / `(root)`
+- **Custom domain:** `palitrento.online`
+- **Enforce HTTPS:** ✅ Enabled
+
+### Vite Config
+```js
+// vite.config.js
+export default defineConfig({
+  base: './',  // for custom domain (no subpath)
+  // ...
+})
+```
+
+### Supabase Auth URLs Updated
+- **Site URL:** `https://palitrento.online`
+- **Redirect URLs:** `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev)
+
+### Resend Domain (Pending)
+- Add `palitrento.online` at `resend.com/domains`
+- Verify DNS, update `from:` in `send-email-otp` Edge Function
+
+---
+
+## 8. Conversation log (condensed)
 
 1. I pasted two specs and asked Claude to ask questions first. Claude flagged the conflicts; I chose Vite + Doc 1 stack, Doc 2 colors/features/login, public pages first, Supabase.
 2. Claude built the first pass (5 public pages + Supabase schema/seed) and delivered `palitrento.zip`; later wrote `CLAUDE.md` for Claude Code.
@@ -298,10 +341,11 @@ create policy "public read product images" on storage.objects
 4. I ran the project, connected Supabase (fixed `.env` vs `.env.example` problem), added my first real store via Claude Code-generated SQL.
 5. Built email/password login with Claude Code; fixed the URL crash on register; hit the account-page issues; requested avatar upload; hit the `email` column 400 error (current open bug).
 6. I asked for this README to continue in another account.
+7. **2026-11-12:** Purchased `palitrento.online` domain, configured DNS at Z.com, updated vite.config.js for custom domain, deployed to GitHub Pages.
 
 ---
 
-## 8. Supabase Edge Functions deployed
+## 9. Supabase Edge Functions deployed
 
 | Function | Purpose |
 |---|---|
@@ -315,13 +359,13 @@ create policy "public read product images" on storage.objects
 
 ---
 
-## 9. Resend domain
+## 10. Resend domain
 
 **Test mode:** Only `kenteyy2@gmail.com` can receive emails (verified sender). For production, verify a domain at `resend.com/domains`, then update `from:` address in `send-email-otp` Edge Function (line 77) to use your domain.
 
 ---
 
-## 10. What to do in a new chat
+## 11. What to do in a new chat
 
 1. **Paste this README** and say: "Read this and continue from the 'Where we stopped' section."
 2. I'll tell you where I am (likely testing the chat badge flow).
@@ -330,7 +374,7 @@ create policy "public read product images" on storage.objects
 
 ---
 
-## 11. Key files to know
+## 12. Key files to know
 
 | File | Purpose |
 |---|---|
@@ -347,7 +391,7 @@ create policy "public read product images" on storage.objects
 
 ---
 
-## 11. Environment variables (`.env`)
+## 13. Environment variables (`.env`)
 
 ```env
 VITE_SUPABASE_URL=https://xcbkpknsieawtzyfwrff.supabase.co
@@ -358,11 +402,11 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-## 12. Deploy notes (for later)
+## 14. Deploy notes
 
-- GitHub Pages: `BASE_PATH=/PaliTrento/ npm run build`, publish `dist/`
+- GitHub Pages: Custom domain `palitrento.online` enabled, `npm run build` publishes to `gh-pages` branch
 - Repo secrets for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
-- Before launch: real SMTP for emails, verify Resend domain, set real Site URL/redirects in Supabase
+- Before launch: real SMTP for emails, verify Resend domain (`palitrento.online`), set real Site URL/redirects in Supabase
 
 ---
 

@@ -27,7 +27,7 @@ export default defineConfig({
     target: 'es2022' },
   build: {
     target: 'es2022',
-    outDir: 'dist-fix',
+    outDir: 'dist',
     rollupOptions: {
       input: Object.fromEntries(pages.map(p => [p, resolve(__dirname, `${p}.html`)]))
     }

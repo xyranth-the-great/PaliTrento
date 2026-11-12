@@ -13,7 +13,7 @@ Tara, Palit Ta sa Trento! Vite + vanilla JS + Supabase + Leaflet.
 The anon key is safe to expose. Security comes from the row-level security rules in `schema.sql`.
 
 ## Deploy to GitHub Pages
-`BASE_PATH=/PaliTrento/ npm run build`, then publish `dist/`. Add the two VITE_ values as repository secrets.
+The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
 
 ## Preview through ngrok
 For a site served from the ngrok domain root, run `npm run build:ngrok`, then `npm run preview -- --host 0.0.0.0 --port 4173` and start the tunnel with `ngrok http 4173`. This builds with relative asset paths, unlike the GitHub Pages subpath build above.
