@@ -4,9 +4,10 @@ tags: [project, marketplace, municipality, trento, agusan-del-sur, supabase, vit
 status: active
 priority: high
 created: 2026-11-10
-updated: 2026-11-11
+updated: 2026-11-12
 github: https://github.com/xyranth-the-great/PaliTrento
 supabase-project: xcbkpknsieawtzyfwrff
+custom-domain: palitrento.online
 ---
 
 # 🏪 PaliTrento — "Tara, Palit Ta sa Trento!"
@@ -24,8 +25,8 @@ supabase-project: xcbkpknsieawtzyfwrff
 | **Mission** | Make it easy for Trento residents to find, support, and transact with local businesses; give micro-entrepreneurs a zero-friction digital presence |
 | **Scope** | Municipality of Trento, Agusan del Sur, Philippines |
 | **Stack** | Vite + Vanilla JS (ES modules) + Supabase (Postgres + Auth + Storage + Realtime) |
-| **Deploy** | GitHub Pages (`BASE_PATH=/PaliTrento/ npm run build`) |
-| **Status** | ✅ Active development — core features complete |
+| **Deploy** | GitHub Pages (custom domain: `palitrento.online`) |
+| **Status** | ✅ Active development — core features complete; custom domain configured |
 
 ---
 
@@ -97,7 +98,7 @@ palitrento2/
 │   ├── product-images.sql      # Product images bucket + RLS (NEW)
 ├── .env                        # Real keys (gitignored)
 ├── .env.example                # Placeholders only
-├── vite.config.js              # Multi-page, target es2022
+├── vite.config.js              # Multi-page, target es2022, base: './'
 ├── CLAUDE.md                   # Context for Claude Code
 ├── HANDOFF_README.md           # Full handoff documentation
 └── package.json
@@ -133,8 +134,8 @@ palitrento2/
 | **Project URL** | `https://xcbkpknsieawtzyfwrff.supabase.co` |
 | **Project Ref** | `xcbkpknsieawtzyfwrff` |
 | **Auth Providers** | Email (ON), Confirm email (OFF) |
-| **Site URL** | `http://localhost:5173` |
-| **Redirect URLs** | `http://localhost:5173/**` |
+| **Site URL** | `https://palitrento.online` |
+| **Redirect URLs** | `https://palitrento.online/**`, `http://localhost:5173/**` |
 
 ### Edge Functions Deployed
 | Function | Purpose | Secrets Required |
@@ -186,8 +187,8 @@ npm install
 # Dev server (with hot reload)
 npm run dev
 
-# Production build (for GitHub Pages)
-BASE_PATH=/PaliTrento/ npm run build
+# Production build (for GitHub Pages custom domain)
+npm run build
 
 # Preview production build
 npm run preview
@@ -204,11 +205,48 @@ npm run preview
 - [ ] Add 10-20 real businesses (with owner permission, status PENDING)
 - [ ] Verify 16 barangay names in `js/ui.js` against official PSGC list
 - [ ] Set up real SMTP for emails (Supabase → Auth → SMTP Settings)
-- [ ] Verify Resend domain at `resend.com/domains`
+- [ ] Verify Resend domain at `resend.com/domains` (for `palitrento.online`)
 - [ ] Update `from:` address in `send-email-otp` Edge Function
-- [ ] Set real Site URL & Redirect URLs in Supabase Auth
-- [ ] Configure GitHub Pages: `BASE_PATH=/PaliTrento/ npm run build`, publish `dist/`
+- [ ] Set real Site URL & Redirect URLs in Supabase Auth (`https://palitrento.online`)
+- [x] Configure GitHub Pages custom domain: `palitrento.online` + Enforce HTTPS
 - [ ] Add repo secrets: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+
+---
+
+## 🌐 Custom Domain Setup (Completed 2026-11-12)
+
+**Domain:** `palitrento.online` (registered at Z.com)
+
+### DNS Records at Z.com
+| Type | Host | Value | TTL |
+|------|------|-------|-----|
+| A | `@` | `185.199.108.153` | 3600 |
+| A | `@` | `185.199.109.153` | 3600 |
+| A | `@` | `185.199.110.153` | 3600 |
+| A | `@` | `185.199.111.153` | 3600 |
+| CNAME | `www` | `xyranth-the-great.github.io.` | 3600 |
+
+### GitHub Pages Settings
+- **Source:** Deploy from branch → `gh-pages` / `(root)`
+- **Custom domain:** `palitrento.online`
+- **Enforce HTTPS:** ✅ Enabled
+
+### Vite Config
+```js
+// vite.config.js
+export default defineConfig({
+  base: './',  // for custom domain (no subpath)
+  // ...
+})
+```
+
+### Supabase Auth URLs Updated
+- **Site URL:** `https://palitrento.online`
+- **Redirect URLs:** `https://palitrento.online/**` (keep `http://localhost:5173/**` for dev)
+
+### Resend Domain (Pending)
+- Add `palitrento.online` at `resend.com/domains`
+- Verify DNS, update `from:` in `send-email-otp` Edge Function
 
 ---
 
@@ -217,7 +255,8 @@ npm run preview
 - **Supabase Dashboard:** https://supabase.com/dashboard/project/xcbkpknsieawtzyfwrff
 - **Resend Dashboard:** https://resend.com
 - **GitHub Repo:** https://github.com/xyranth-the-great/PaliTrento
-- **Live Site (GitHub Pages):** https://xyranth-the-great.github.io/PaliTrento/
+- **Live Site (Custom Domain):** https://palitrento.online
+- **Live Site (GitHub Pages fallback):** https://xyranth-the-great.github.io/PaliTrento/
 - **Obsidian Vault:** This file
 
 ---
@@ -239,9 +278,11 @@ npm run preview
 11. ✅ **Account page fix** — Removed Orders tab, now Profile only
 12. ✅ **Profile save bug fix** — Removed `email` from profiles select
 13. ✅ **Product detail redirect** → `orders.html` after reserve
+14. ✅ **Custom domain** `palitrento.online` configured (2026-11-12)
 
 ### In Progress
 - 🔄 **Product image upload** — Frontend ready, needs Supabase migration for `product-images` bucket
+- 🔄 **GitHub Pages deployment** — Need to ensure `gh-pages` branch gets latest build with `base: './'`
 
 ### Known Issues (Resolved)
 1. ❌ Explore showed 8 fake stores → Fixed `.env` vs `.env.example`
@@ -258,16 +299,16 @@ npm run preview
 
 1. **Product Images** — Run Supabase migration for `product-images` bucket + test upload
 2. **QR Standee PDF** — Generate A5/A4 PDF for physical store signage
-2. **Price Broadcast Push** — Notify users when LGU posts new price caps
-3. **SMS OTP** — PhilSMS/Semaphore via Edge Function
-4. **Push Notifications** — Browser push for order updates
-5. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
+3. **Price Broadcast Push** — Notify users when LGU posts new price caps
+4. **SMS OTP** — PhilSMS/Semaphore via Edge Function
+5. **Push Notifications** — Browser push for order updates
+6. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
 
 ---
 
 ## 🏷️ Tags for Obsidian
 
-#project/palitrento #marketplace #municipality #trento #agusan-del-sur #supabase #vite #vanilla-js #realtime #chat #orders #merchant-onboarding #lgu-admin #pwa #mobile-first
+#project/palitrento #marketplace #municipality #trento #agusan-del-sur #supabase #vite #vanilla-js #realtime #chat #orders #merchant-onboarding #lgu-admin #pwa #mobile-first #custom-domain
 
 ---
 
@@ -279,6 +320,6 @@ npm run preview
 
 ---
 
-> **Last updated:** 2026-11-11
+> **Last updated:** 2026-11-12
 > **Current phase:** Product image upload (needs Supabase migration) → Next: QR Standee PDF
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the 'Where we stopped' section."
