@@ -101,7 +101,7 @@ A local directory for the Municipality of Trento, Agusan del Sur
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'PaliTrento <onboarding@resend.dev>', // Change to your verified domain later
+        from: 'PaliTrento <no-reply@palitrento.online>',
         to: [email],
         subject: 'Your PaliTrento verification code',
         html: emailHtml,

@@ -280,7 +280,7 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
 | `send-email-otp` | Sends 6-digit code via Resend |
 | `verify-email-otp` | Verifies code, marks used |
 
-**Secrets set in Supabase Dashboard → Edge Functions:**
+**Required secrets in Supabase Dashboard → Edge Functions → Secrets:**
 - `RESEND_API_KEY` (starts with `re_`)
 - `SUPABASE_URL` = `https://xcbkpknsieawtzyfwrff.supabase.co`
 - `SERVICE_ROLE_KEY` (the `sb_secret_...` key from Settings → API)
@@ -289,7 +289,7 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
 
 ## 9. Resend domain
 
-**Test mode:** Only `kenteyy2@gmail.com` can receive emails (verified sender). For production, verify a domain at `resend.com/domains`, then update `from:` address in `send-email-otp` Edge Function (line 77) to use your domain.
+The production sender is `PaliTrento <no-reply@palitrento.online>`. The `palitrento.online` domain must show as verified in Resend. Store the Resend API key as the `RESEND_API_KEY` Supabase Edge Function secret; never put it in frontend environment variables or commit it to the repository. Deploy the `send-email-otp` function after changing its sender.
 
 ---
 
