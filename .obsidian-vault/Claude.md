@@ -1,6 +1,6 @@
 PaliTrento: Project Context for Claude Code
 
-Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-12.
+Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-13.
 
 **Custom Domain:** `palitrento.online` (configured 2026-11-12)
 
@@ -68,6 +68,7 @@ palitrento/
 ├── account.html    Profile (name, barangay, avatar) — no Orders tab
 ├── verify.html     6-digit email OTP verification
 ├── orders.html     My Orders page (order history)
+├── settings.html   Settings page (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
 ├── register-business.html  Business owner registration
 ├── store-setup.html  3-step store setup (details, GPS pin, photos)
 ├── dashboard.html  Business owner dashboard (Products CRUD, Orders, Analytics)
@@ -88,6 +89,7 @@ palitrento/
 │   ├── register.js  login.js  account.js  verify.js
 │   ├── register-business.js  store-setup.js  dashboard.js  chat.js  orders.js
 │   ├── admin.js  admin-verification.js  admin-prices.js  admin-reports.js
+│   ├── settings.js  Settings page logic (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
 ├── supabase/
 │   ├── schema.sql   Tables + indexes + RLS (public read-only, owner write, admin all)
 │   ├── seed.sql     4 sample stores + 6 products
@@ -160,8 +162,10 @@ Accessibility and the old "Impeccable detector" quality gate from Doc 1 have not
 Doc 1 used base path /PaliTrento/ for GitHub Pages; this build uses `base: './'` in vite.config.js for custom domain `palitrento.online`.
 Product images bucket migration completed — upload working in Dashboard.
 QR Standee PDF implemented in `standee.html` — A5/A4 printable store signage.
+Settings page implemented in `settings.html` / `js/settings.js` — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone.
 Custom domain configured: DNS at Z.com (4 A records + 1 CNAME + Resend records), GitHub Pages custom domain enabled with Enforce HTTPS (GitHub Actions deployment), Supabase Auth URLs updated.
 Resend domain `palitrento.online` verified (DKIM, CNAME rsend/send, DMARC at Z.com). Edge Function `send-email-otp` sender updated to `no-reply@palitrento.online` (deployed v6).
+Supabase SMTP configured via Resend: `smtp.resend.com:587`, user `resend`, pass `re_...`, sender `no-reply@palitrento.online`. Confirm email: ON.
 GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` secrets, outputs to `dist-fix`, deploys to gh-pages.
 
 9. Suggested next steps (in order)
@@ -202,4 +206,6 @@ Subsequent sessions: built email OTP auth, avatar upload, merchant onboarding, d
 2026-11-12 (later): Added GitHub Actions workflow for automated Pages deployment with Supabase secrets. Added Resend DNS records at Z.com, verified `palitrento.online` domain, updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` and deployed to Supabase.
 2026-11-12 (later): Ran Supabase migration for `product-images` bucket — product image upload working.
 2026-11-12 (later): Implemented QR Standee PDF in `standee.html` — A5/A4 printable store signage.
+2026-11-13: Created Settings page (`settings.html`, `js/settings.js`) — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone.
+2026-11-13: Configured Supabase SMTP via Resend (`smtp.resend.com:587`), enabled Confirm email. Password reset and email confirmations now work.
 Current focus: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.

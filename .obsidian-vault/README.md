@@ -33,15 +33,25 @@ The anon key is safe to expose. Security comes from the row-level security rules
 - Edge Function `send-email-otp` sender: `PaliTrento <no-reply@palitrento.online>`
 - Test mode: Only `kenteyy2@gmail.com` can receive (until domain verified)
 
+## Supabase SMTP (Password Reset & Email Confirmations)
+- Host: `smtp.resend.com`
+- Port: `587`
+- Username: `resend`
+- Password: Resend API key (`re_...`)
+- Sender: `no-reply@palitrento.online` (PaliTrento)
+- Confirm email: ON
+
 ## Pages
-index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail)
+index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail), settings (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
 
 ## Not built yet
 SMS OTP login (see note below), price broadcast push, push notifications, offline field inspector.
 Supabase phone login supports Twilio, MessageBird, Vonage and Textlocal. For a Philippine gateway like Semaphore you need an Auth "Send SMS" hook (Edge Function).
 Verify the barangay list in `js/ui.js` against the official PSGC list.
 
-## ✅ Recently Completed (2026-11-12)
+## ✅ Recently Completed (2026-11-13)
+- Settings page (`settings.html`, `js/settings.js`) — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone
+- Supabase SMTP via Resend — Confirm email ON, password reset & email confirmations enabled
 - Product image upload (Supabase migration + Dashboard integration)
 - QR Standee PDF (`standee.html` — A5/A4 printable store signage)
 - Resend domain `palitrento.online` verified (production sender configured)
