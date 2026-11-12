@@ -69,6 +69,8 @@ palitrento/
 ├── verify.html     6-digit email OTP verification
 ├── orders.html     My Orders page (order history)
 ├── settings.html   Settings page (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
+├── forgot-password.html   Request password reset link
+├── reset-password.html    Set new password via email link
 ├── register-business.html  Business owner registration
 ├── store-setup.html  3-step store setup (details, GPS pin, photos)
 ├── dashboard.html  Business owner dashboard (Products CRUD, Orders, Analytics)
@@ -90,6 +92,8 @@ palitrento/
 │   ├── register-business.js  store-setup.js  dashboard.js  chat.js  orders.js
 │   ├── admin.js  admin-verification.js  admin-prices.js  admin-reports.js
 │   ├── settings.js  Settings page logic (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
+│   ├── forgot-password.js  Password reset request flow
+│   ├── reset-password.js   Password reset completion flow
 ├── supabase/
 │   ├── schema.sql   Tables + indexes + RLS (public read-only, owner write, admin all)
 │   ├── seed.sql     4 sample stores + 6 products

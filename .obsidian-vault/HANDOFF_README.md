@@ -42,7 +42,7 @@ index.html  explore.html  map.html  products.html  business.html
 register.html  login.html  account.html  verify.html
 register-business.html  store-setup.html  dashboard.html  chat.html  orders.html
 admin.html  admin-verification.html  admin-prices.html  admin-reports.html
-settings.html                                    # Settings page (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
+settings.html  forgot-password.html  reset-password.html
 css/styles.css          (design tokens + components)
 js/supabase.js          (client; null if env keys missing -> pages use seed data)
 js/data.js              (getStores/getProducts/getStore; falls back to js/seed.js)
@@ -54,6 +54,8 @@ js/home.js explore.js products.js business.js map.js
 js/register.js login.js account.js verify.js register-business.js store-setup.js dashboard.js chat.js orders.js
 js/admin.js admin-verification.js admin-prices.js admin-reports.js
 js/settings.js          # Settings page logic
+js/forgot-password.js   # Forgot password flow
+js/reset-password.js    # Reset password flow
 supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql  supabase/product-images.sql
 vite.config.js  (multi-page, target es2022, base: './')  .env  .env.example  CLAUDE.md  README.md
 ```
@@ -262,6 +264,14 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
     - GitHub Pages custom domain enabled with Enforce HTTPS
     - `vite.config.js` updated: `base: './'` (for custom domain, no subpath)
     - Supabase Auth URLs updated to `https://palitrento.online`
+
+22. **Forgot Password / Reset Password** (2026-11-13)
+    - `forgot-password.html` + `js/forgot-password.js` — Request password reset link via email
+    - `reset-password.html` + `js/reset-password.js` — Set new password using Supabase recovery tokens
+    - Uses Supabase `resetPasswordForEmail` with redirect to `reset-password.html`
+    - Uses Supabase `updateUser({ password })` to save new password
+    - "Forgot password?" link added to login page
+    - SMTP via Resend already configured for delivery
 
 ---
 

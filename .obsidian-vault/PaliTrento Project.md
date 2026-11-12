@@ -78,7 +78,7 @@ palitrento2/
 ├── register.html, login.html, account.html, verify.html
 ├── register-business.html, store-setup.html, dashboard.html, chat.html, orders.html
 ├── admin.html, admin-verification.html, admin-prices.html, admin-reports.html
-├── settings.html                                    # Settings page (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
+├── settings.html, forgot-password.html, reset-password.html
 ├── css/styles.css              # Design tokens + all components
 ├── js/
 │   ├── supabase.js             # Supabase client (null if no env keys)
@@ -91,7 +91,7 @@ palitrento2/
 │   ├── register.js, login.js, account.js, verify.js
 │   ├── register-business.js, store-setup.js, dashboard.js, chat.js, orders.js
 │   ├── admin.js, admin-verification.js, admin-prices.js, admin-reports.js
-│   ├── settings.js             # Settings page logic
+│   ├── settings.js, forgot-password.js, reset-password.js
 ├── supabase/
 │   ├── schema.sql              # Core tables + RLS
 │   ├── seed.sql                # 4 fake stores + products
@@ -313,6 +313,7 @@ export default defineConfig({
 18. ✅ **QR Standee PDF** — A5/A4 printable store signage via `standee.html` (2026-11-12)
 19. ✅ **Settings page** — Profile, Notifications, Privacy, Security, Preferences, Danger Zone (`settings.html`, `js/settings.js`) (2026-11-13)
 20. ✅ **SMTP + Confirm email** — Supabase SMTP via Resend (`smtp.resend.com:587`), Confirm email ON, password reset enabled (2026-11-13)
+21. ✅ **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser` (2026-11-13)
 
 ### In Progress
 - (none — all current blockers resolved)
@@ -352,5 +353,5 @@ export default defineConfig({
 ---
 
 > **Last updated:** 2026-11-13
-> **Current phase:** Core features complete — Product images ✅, QR Standee ✅, Resend verified ✅, Settings page ✅, SMTP/Confirm email ✅. Next: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector
+> **Current phase:** Core features complete — Product images ✅, QR Standee ✅, Resend verified ✅, Settings page ✅, SMTP/Confirm email ✅, Forgot password ✅. Next: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the 'Where we stopped' section."
