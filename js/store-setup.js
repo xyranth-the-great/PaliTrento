@@ -76,6 +76,13 @@ function prefillForm(store) {
   $('#open_time').value = store.open_time ?? '07:00';
   $('#close_time').value = store.close_time ?? '20:00';
 
+  if (store.storefront_image_url) {
+    storefrontUrl = store.storefront_image_url;
+    $('#storefront-preview').src = storefrontUrl;
+    $('#storefront-preview').style.display = 'block';
+    $('#storefront-upload').style.display = 'none';
+  }
+
   if (store.accepted_payments) {
     store.accepted_payments.forEach(p => {
       const cb = form.querySelector(`input[name="payments"][value="${p}"]`);
@@ -138,7 +145,13 @@ function addMarker(lat, lng) {
 function bindEvents() {
   // Step navigation
   $('#next-1')?.addEventListener('click', () => validateStep1() && goToStep(2));
-  $('#next-2')?.addEventListener('click', () => goToStep(3));
+  $('#next-2')?.addEventListener('click', () => {
+    if (!requireStorefrontPhoto()) {
+      $('#storefront-upload').focus();
+      return;
+    }
+    goToStep(3);
+  });
   $('#back-2')?.addEventListener('click', () => goToStep(1));
   $('#back-3')?.addEventListener('click', () => goToStep(2));
 
@@ -162,6 +175,12 @@ function setupPhotoUpload(type) {
   const previewEl = $(`#${type}-preview`);
 
   uploadEl?.addEventListener('click', () => fileInput?.click());
+  uploadEl?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      fileInput?.click();
+    }
+  });
   uploadEl?.addEventListener('dragover', (e) => { e.preventDefault(); uploadEl.style.borderColor = 'var(--primary)'; });
   uploadEl?.addEventListener('dragleave', () => uploadEl.style.borderColor = 'var(--line)');
   uploadEl?.addEventListener('drop', (e) => {
@@ -241,14 +260,22 @@ function validateStep1() {
   return true;
 }
 
+function requireStorefrontPhoto() {
+  if (storefrontUrl) return true;
+  showMsg('Please upload a storefront photo before continuing.', 'bad');
+  return false;
+}
+
 function goToStep(step) {
   if (step === 2 && !validateStep1()) return;
+  if (step === 3 && !requireStorefrontPhoto()) step = 2;
   if (step === 3) buildReview();
 
   currentStep = step;
   Object.entries(steps).forEach(([num, el]) => {
     el.style.display = num == step ? 'block' : 'none';
   });
+  if (step === 2 && !storefrontUrl) $('#storefront-upload').focus();
 
   // Update progress indicator
   [1, 2, 3].forEach(n => {
@@ -304,6 +331,13 @@ async function handleSubmit(e) {
 
   if (!validateStep1()) {
     goToStep(1);
+    return;
+  }
+
+  if (!storefrontUrl) {
+    goToStep(2);
+    requireStorefrontPhoto();
+    $('#storefront-upload').focus();
     return;
   }
 
