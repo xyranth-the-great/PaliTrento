@@ -21,8 +21,13 @@ const clock = t => { let [h, m] = t.split(':').map(Number); const ap = h >= 12 ?
 export const hours = s => `${clock(s.open_time)} to ${clock(s.close_time)}`;
 
 export const openPill = s => isOpen(s) ? '<span class="pill ok">Open now</span>' : '<span class="pill off">Closed</span>';
+export const isStoreVerified = s => s?.verification_status === 'VERIFIED' && Boolean(s.compliance_approved_at);
 export const badges = s => [
-  s.verification_status === 'VERIFIED' ? '<span class="pill ok">LGU verified</span>' : '<span class="pill warn">Verification pending</span>',
+  isStoreVerified(s)
+    ? '<span class="pill ok">Verified</span>'
+    : s.verification_status === 'VERIFIED'
+      ? '<span class="pill warn">Certificate compliance pending</span>'
+      : '<span class="pill warn">Verification pending</span>',
   s.dti_registered ? '<span class="pill info">DTI registered</span>' : '',
   s.bmbe_registered ? '<span class="pill info">BMBE</span>' : '',
   s.srp_compliant ? '<span class="pill ok">Follows price caps</span>' : ''

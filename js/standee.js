@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, CATS, PAY, peso, badges, hours, isOpen } from './ui.js';
+import { renderChrome, $, esc, CATS, PAY, peso, badges, hours, isOpen, isStoreVerified } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { supabase } from './supabase.js';
 import { generateQRCode, generateQRCodeDataURL } from './qrcode.js';
@@ -336,7 +336,7 @@ async function generatePDF(options) {
   // Badges
   if (document.getElementById('includeBadges')?.checked) {
     const storeBadges = [];
-    if (s.verification_status === 'VERIFIED') storeBadges.push('LGU Verified');
+    if (isStoreVerified(s)) storeBadges.push('Verified');
     if (s.dti_registered) storeBadges.push('DTI Registered');
     if (s.bmbe_registered) storeBadges.push('BMBE');
     if (s.srp_compliant) storeBadges.push('Follows Price Caps');
