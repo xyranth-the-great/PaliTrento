@@ -14,6 +14,8 @@ The anon key is safe to expose. Security comes from the row-level security rules
 
 For an existing project, run `supabase/store-submission.sql` in the SQL Editor to add store-submission columns and owner permissions.
 
+Account deletion uses the server-side `delete-account` Edge Function. Deploy it separately with `supabase functions deploy delete-account`; the function requires the Supabase URL, anon key, and service-role key in the Edge Function environment. Never expose the service-role key in the frontend.
+
 ## Deploy to GitHub Pages
 The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
 

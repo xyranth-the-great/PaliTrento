@@ -9,6 +9,7 @@ const contentEl = $('#settings-content');
 const msgEl = $('#settings-message');
 let currentProfile = null;
 let currentSession = null;
+let accountDeletionInProgress = false;
 
 // ===== Tab Navigation =====
 const tabBtns = $$('.settings-tabs .settings-tab-btn');
@@ -542,58 +543,19 @@ $('#delete-account-btn').addEventListener('click', async () => {
   if (!supabase || !currentSession) return alert('Not available');
 
   try {
-    // Delete user data in order (respecting FK constraints)
-    // 1. Delete messages
-    const { data: stores } = await supabase.from('stores').select('id').eq('user_id', currentSession.user.id);
-    const storeIds = (stores || []).map(s => s.id);
-    let orderQuery = supabase.from('orders').select('id').eq('buyer_id', currentSession.user.id);
-    if (storeIds.length > 0) orderQuery = orderQuery.or(`buyer_id.eq.${currentSession.user.id},store_id.in.(${storeIds.join(',')})`);
-    const { data: orders } = await orderQuery;
-    const orderIds = (orders || []).map(o => o.id);
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      body: { confirmation: 'DELETE' },
+    });
+    if (error) throw error;
+    if (data?.success !== true) throw new Error(data?.error || 'Account deletion failed');
 
-    if (orderIds.length > 0) {
-      await supabase.from('messages').delete().in('order_id', orderIds);
-    }
-
-    // 2. Delete orders
-    if (orderIds.length > 0) {
-      await supabase.from('orders').delete().in('id', orderIds);
-    }
-
-    // 3. Delete store images
-    if (storeIds.length > 0) {
-      const { data: storeImages } = await supabase.storage.from('store-images').list(currentSession.user.id);
-      if (storeImages?.length) {
-        await supabase.storage.from('store-images').remove(storeImages.map(f => `${currentSession.user.id}/${f.name}`));
-      }
-    }
-
-    // 4. Delete product images
-    const { data: productImages } = await supabase.storage.from('product-images').list(currentSession.user.id);
-    if (productImages?.length) {
-      await supabase.storage.from('product-images').remove(productImages.map(f => `${currentSession.user.id}/${f.name}`));
-    }
-
-    // 5. Delete avatar
-    if (currentProfile?.avatar_url) {
-      await deleteAvatar(currentSession.user.id, currentProfile.avatar_url);
-    }
-
-    // 6. Delete store record
-    if (storeIds.length > 0) {
-      await supabase.from('stores').delete().in('id', storeIds);
-    }
-
-    // 7. Delete profile
-    await supabase.from('profiles').delete().eq('id', currentSession.user.id);
-
-    // 8. Delete auth user (requires admin/service role - may need Edge Function)
-    // For now, just sign out and disable
-    await supabase.auth.signOut();
+    accountDeletionInProgress = true;
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+    if (signOutError) console.error('Local sign out after account deletion failed:', signOutError);
     clearProfileCache();
 
-    alert('Account deletion initiated. Your data has been removed. You will be redirected.');
-    window.location.href = 'index.html';
+    alert('Your account and data have been permanently deleted.');
+    window.location.replace('index.html');
   } catch (err) {
     console.error('Delete account error:', err);
     alert('Failed to delete account. Please contact support.');
@@ -662,7 +624,7 @@ $('#delete-store-btn').addEventListener('click', async () => {
 onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || !session) {
     clearProfileCache();
-    window.location.href = 'login.html';
+    if (!accountDeletionInProgress) window.location.href = 'login.html';
   }
 });
 
