@@ -689,9 +689,13 @@ function completeDemoPayment() {
       runPaymentCountdown($('#demo-payment-success-count'), 5, () => closeDemoPayment());
     } catch (err) {
       console.error('Demo payment completion error:', err);
-      $('#demo-payment-error-message').textContent = err?.message
-        ? `Could not save your product or ad. ${err.message}`
-        : 'Could not save your product or ad. Please try the simulated payment again.';
+      const missingFeaturedColumn = err?.code === 'PGRST204'
+        && /featured_until/i.test(err?.message || '');
+      $('#demo-payment-error-message').textContent = missingFeaturedColumn
+        ? 'The database is missing the featured_until column. Run supabase/product-demo-payments.sql in the Supabase SQL Editor, then try again.'
+        : err?.message
+          ? `Could not save your product or ad. ${err.message}`
+          : 'Could not save your product or ad. Please try the simulated payment again.';
       showDemoPaymentStep('demo-payment-error');
       $('#demo-payment-simulate').disabled = false;
     }

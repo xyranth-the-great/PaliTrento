@@ -128,9 +128,15 @@ a.card:hover{border-color:var(--primary)}
 .product-card-content{padding:16px}
 .product-ad-action{display:grid;gap:6px;margin-bottom:12px}
 .product-ad-action .btn{justify-self:start;padding:6px 10px;font-size:.75rem}
-.featured-products-section{background:var(--card);border-block:1px solid var(--line)}
-.featured-products-section .sec-head{align-items:flex-start}
-.featured-products-section .sec-head h2{font-size:clamp(1.5rem,3vw,2rem)}
+.home-page main>section.featured-products-section{background:var(--amber-light);color:var(--ink);border-block:1px solid var(--line)}
+.home-page .featured-products-section .sec-head{align-items:center}
+.home-page .featured-products-section .sec-head h2{font-size:clamp(1.5rem,3vw,2rem);color:var(--primary-dark)}
+.featured-products-description{margin:6px 0 0}
+.featured-products-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.featured-products-grid .product-card{height:100%;border-color:rgba(31,77,46,.16);transition:transform .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.featured-products-grid .product-card:hover{transform:translateY(-3px);border-color:var(--primary);box-shadow:0 10px 24px rgba(20,53,31,.1)}
+.featured-products-grid .product-card-media{aspect-ratio:3/2}
+.featured-products-grid .product-card-content{padding:18px}
 .featured-badge{margin-bottom:8px}
 .demo-payment-panel{width:100%;max-width:460px;max-height:90vh;overflow:auto;padding:clamp(20px,5vw,32px);text-align:center}
 .demo-payment-panel h2{margin:0 0 8px;font-size:1.55rem}
@@ -246,6 +252,25 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
 @media(max-width:340px){
   .top nav{gap:4px}
   .top nav a{padding:7px 8px;font-size:.88rem}
+}
+
+@media(max-width:900px){
+  .featured-products-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media(max-width:600px){
+  .featured-products-grid{
+    grid-auto-flow:column;
+    grid-auto-columns:min(84%,320px);
+    grid-template-columns:none;
+    overflow-x:auto;
+    padding:2px 2px 14px;
+    scroll-snap-type:x mandatory;
+    scrollbar-color:var(--primary) transparent;
+    scrollbar-width:thin;
+    -webkit-overflow-scrolling:touch
+  }
+  .featured-products-grid .product-card{scroll-snap-align:start}
 }
 
 /* ===== Settings Page ===== */
