@@ -24,15 +24,17 @@ emailInput.addEventListener('blur', () => {
   if (!email || !email.includes('@') || email === lastWarnedEmail) return;
 
   lastWarnedEmail = email;
-  // Show a subtle hint that they might already have an account
-  emailWarning.textContent = 'Already have an account? <a href="login.html">Log in instead</a>';
+  const loginLink = document.createElement('a');
+  loginLink.href = 'login.html';
+  loginLink.textContent = 'Log in instead';
+  emailWarning.replaceChildren(document.createTextNode('Already have an account? '), loginLink);
   emailWarning.className = 'email-warning is-hint';
 });
 
 // Clear warning when user starts typing again
 emailInput.addEventListener('input', () => {
   if (emailWarning.textContent) {
-    emailWarning.textContent = '';
+    emailWarning.replaceChildren();
     emailWarning.className = 'email-warning';
     lastWarnedEmail = '';
   }
