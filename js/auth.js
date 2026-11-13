@@ -153,6 +153,12 @@ export function getLoginUnavailableMessage() {
   return 'Login is not available right now';
 }
 
+export function getPostLoginPath(role) {
+  if (role === 'business_owner') return 'dashboard.html';
+  if (role === 'admin') return 'admin.html';
+  return 'index.html';
+}
+
 export function getAuthErrorMessage(error) {
   if (!error) return 'Something went wrong';
   const msg = error.message?.toLowerCase() ?? '';

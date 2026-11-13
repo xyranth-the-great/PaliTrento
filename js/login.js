@@ -1,6 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, onAuthStateChange } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
@@ -8,15 +8,32 @@ const googleBtn = $('#google-login-btn');
 
 async function init() {
   const session = await getSession();
-  let profile = null;
-  if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('login.html', session, profile);
+  if (session) {
+    redirectAfterLogin(session.user.user_metadata?.role);
+    return;
+  }
+
+  renderChrome('login.html');
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Login is not available right now')}</p>`;
     if (googleBtn) googleBtn.style.display = 'none';
   }
 }
+
+let redirectStarted = false;
+
+function redirectAfterLogin(role) {
+  if (redirectStarted) return;
+  redirectStarted = true;
+  window.location.replace(getPostLoginPath(role));
+}
+
+onAuthStateChange((event, session) => {
+  if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+    redirectAfterLogin(session.user.user_metadata?.role);
+  }
+});
 
 init();
 
@@ -32,7 +49,7 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const redirectUrl = new URL('login.html', window.location.href).href;
+      const redirectUrl = new URL('index.html', window.location.href).href;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -98,16 +115,8 @@ form.addEventListener('submit', async (e) => {
     }
 
     if (data.session) {
-      // Check user role for redirect
       const profile = await getCachedProfile(data.session.user.id);
-      const role = profile?.role || data.session.user.user_metadata?.role;
-      if (role === 'business_owner') {
-        window.location.href = 'dashboard.html';
-      } else if (role === 'admin') {
-        window.location.href = 'admin.html';
-      } else {
-        window.location.href = 'index.html';
-      }
+      redirectAfterLogin(profile?.role || data.session.user.user_metadata?.role);
     } else if (data.user && !data.user.email_confirmed_at) {
       showMsg('Account not confirmed. Please verify your email first.', 'warn');
     } else {

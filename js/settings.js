@@ -11,7 +11,7 @@ let currentProfile = null;
 let currentSession = null;
 
 // ===== Tab Navigation =====
-const tabBtns = $$('.settings-tabs .tab-btn');
+const tabBtns = $$('.settings-tabs .settings-tab-btn');
 const tabPanels = $$('[role="tabpanel"]');
 
 tabBtns.forEach(btn => {
@@ -19,16 +19,31 @@ tabBtns.forEach(btn => {
     const tab = btn.dataset.tab;
     switchTab(tab);
   });
+
+  btn.addEventListener('keydown', (event) => {
+    const index = Array.from(tabBtns).indexOf(btn);
+    let nextIndex;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabBtns.length;
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabBtns.length) % tabBtns.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = tabBtns.length - 1;
+    if (nextIndex === undefined) return;
+
+    event.preventDefault();
+    switchTab(tabBtns[nextIndex].dataset.tab, true);
+  });
 });
 
-function switchTab(tab) {
+function switchTab(tab, moveFocus = false) {
   tabBtns.forEach(b => {
     const isActive = b.dataset.tab === tab;
     b.setAttribute('aria-selected', isActive);
+    b.tabIndex = isActive ? 0 : -1;
   });
   tabPanels.forEach(p => {
     p.style.display = p.id === `tab-${tab}` ? 'block' : 'none';
   });
+  if (moveFocus) Array.from(tabBtns).find(b => b.dataset.tab === tab)?.focus();
   window.scrollTo(0, 0);
 }
 

@@ -52,7 +52,7 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const redirectUrl = new URL('login.html', window.location.href).href;
+      const redirectUrl = new URL('index.html', window.location.href).href;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {

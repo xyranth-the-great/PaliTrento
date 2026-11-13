@@ -1,4 +1,4 @@
-import { renderChrome, $, storeCard, isOpen, CATS, BARANGAYS } from './ui.js';
+import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS } from './ui.js';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile } from './auth.js';
 
@@ -8,6 +8,17 @@ if (session) profile = await getCachedProfile(session.user.id);
 renderChrome('explore.html', session, profile);
 
 const [stores, products] = await Promise.all([getStores(), getProducts()]);
+const storeById = new Map(stores.map(store => [store.id, store]));
+const promotedProducts = getActiveFeaturedProducts(products)
+  .filter(product => storeById.has(product.store_id));
+if (promotedProducts.length) {
+  $('#explore-featured-products').innerHTML = promotedProducts
+    .map(product => productCard(product, storeById.get(product.store_id)))
+    .join('');
+  $('#explore-featured-products-section').style.display = 'block';
+  initializeFeaturedProductsCarousel($('#explore-featured-products-section'));
+}
+
 const p = new URLSearchParams(location.search);
 $('#cat').insertAdjacentHTML('beforeend', Object.entries(CATS).map(([k, v]) => `<option value="${k}">${v}</option>`).join(''));
 $('#brgy').insertAdjacentHTML('beforeend', BARANGAYS.map(b => `<option>${b}</option>`).join(''));

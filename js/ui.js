@@ -41,14 +41,19 @@ export const storeCard = s => `
     <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
     <div class="store-card-badges">${badges(s)}</div>
   </a>`;
+export const getActiveFeaturedProducts = products => products
+  .filter(product => Date.parse(product.featured_until) > Date.now())
+  .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));
 export const productCard = (p, store) => {
   const c = srp(p);
+  const isFeatured = Date.parse(p.featured_until) > Date.now();
   return `<a class="card product-card" href="product-detail.html?id=${encodeURIComponent(p.id)}">
     <div class="product-card-media">${p.image_url
       ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
       : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
     </div>
     <div class="product-card-content">
+      ${isFeatured ? '<span class="pill info featured-badge">Featured</span>' : ''}
       <div class="row"><h3>${esc(p.name)}</h3>${p.in_stock ? '' : '<span class="pill bad">Out of stock</span>'}</div>
       <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
       ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
@@ -56,6 +61,143 @@ export const productCard = (p, store) => {
     </div>
   </a>`;
 };
+
+export function initializeFeaturedProductsCarousel(section) {
+  const carousel = section.querySelector('[data-featured-carousel]');
+  const viewport = carousel.querySelector('.featured-products-viewport');
+  const track = viewport.querySelector('.featured-products-grid');
+  const controls = carousel.querySelector('[data-featured-controls]');
+  const previous = carousel.querySelector('[data-featured-prev]');
+  const next = carousel.querySelector('[data-featured-next]');
+  const status = carousel.querySelector('[data-featured-status]');
+  const toggle = carousel.querySelector('[data-featured-toggle]');
+  const cards = Array.from(track.children);
+  const slides = cards.map((card, index) => {
+    const slide = document.createElement('div');
+    slide.className = 'featured-products-slide';
+    slide.setAttribute('role', 'group');
+    slide.setAttribute('aria-roledescription', 'slide');
+    slide.setAttribute('aria-label', `${index + 1} of ${cards.length}`);
+    track.replaceChild(slide, card);
+    slide.appendChild(card);
+    return slide;
+  });
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  let position = 0;
+  let direction = 1;
+  let timer = null;
+  let onScreen = !('IntersectionObserver' in window);
+  let hovered = false;
+  let focused = false;
+  let userPaused = false;
+
+  function visibleCount() {
+    return Number.parseInt(getComputedStyle(carousel).getPropertyValue('--featured-visible'), 10) || 1;
+  }
+
+  function maxPosition() {
+    return Math.max(0, slides.length - visibleCount());
+  }
+
+  function update() {
+    const visible = visibleCount();
+    const max = maxPosition();
+    position = Math.min(position, max);
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    const step = (slides[0]?.getBoundingClientRect().width || 0) + gap;
+    track.style.transform = `translate3d(${-position * step}px, 0, 0)`;
+    slides.forEach((slide, index) => {
+      slide.inert = index < position || index >= position + visible;
+    });
+    controls.hidden = max === 0;
+    previous.disabled = position === 0;
+    next.disabled = position === max;
+    status.textContent = slides.length
+      ? `${position + 1}-${Math.min(position + visible, slides.length)} of ${slides.length}`
+      : '0 of 0';
+    toggle.hidden = reduceMotion.matches;
+    toggle.disabled = reduceMotion.matches;
+    toggle.textContent = userPaused ? 'Play' : 'Pause';
+    toggle.setAttribute('aria-label', userPaused ? 'Resume automatic rotation' : 'Pause automatic rotation');
+
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+
+    if (
+      max > 0
+      && !userPaused
+      && !reduceMotion.matches
+      && onScreen
+      && !document.hidden
+      && !hovered
+      && !focused
+    ) {
+      timer = setTimeout(advanceAutomatically, 6000);
+    }
+  }
+
+  function moveTo(nextPosition) {
+    const currentPosition = position;
+    position = Math.max(0, Math.min(nextPosition, maxPosition()));
+    if (position !== currentPosition) direction = position > currentPosition ? 1 : -1;
+    status.setAttribute('aria-live', 'polite');
+    update();
+  }
+
+  function advanceAutomatically() {
+    const max = maxPosition();
+    if (position >= max) direction = -1;
+    else if (position <= 0) direction = 1;
+    position += direction;
+    status.setAttribute('aria-live', 'off');
+    update();
+  }
+
+  previous.addEventListener('click', () => moveTo(position - 1));
+  next.addEventListener('click', () => moveTo(position + 1));
+  toggle.addEventListener('click', () => {
+    userPaused = !userPaused;
+    update();
+  });
+  document.addEventListener('visibilitychange', update);
+  reduceMotion.addEventListener('change', update);
+  window.addEventListener('resize', update, { passive: true });
+
+  if (canHover) {
+    carousel.addEventListener('pointerenter', () => {
+      hovered = true;
+      update();
+    });
+    carousel.addEventListener('pointerleave', () => {
+      hovered = false;
+      update();
+    });
+  }
+
+  carousel.addEventListener('focusin', () => {
+    focused = true;
+    update();
+  });
+  carousel.addEventListener('focusout', event => {
+    if (!carousel.contains(event.relatedTarget)) {
+      focused = false;
+      update();
+    }
+  });
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting;
+      update();
+    }, { threshold: 0.1 });
+    observer.observe(carousel);
+  }
+
+  update();
+}
 
 // Simple person icon SVG (24x24, currentColor for palette)
 const PERSON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;

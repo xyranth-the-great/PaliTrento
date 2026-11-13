@@ -12,7 +12,8 @@
 </head>
 <body>
 <div id="chrome-top"></div>
-<main class="explore-page"><section><div class="wrap">
+<main class="explore-page">
+<section><div class="wrap">
   <h1 style="font-size:clamp(2rem,4vw,2.6rem);margin-bottom:20px">Explore Trento</h1>
   <form id="f" class="filters" role="search">
     <div><label for="q">Search stores or products</label><input id="q" type="search" placeholder="e.g. bigas, gamot, saging"></div>
@@ -20,6 +21,29 @@
     <div><label for="brgy">Barangay</label><select id="brgy"><option value="">All 16 barangays</option></select></div>
   </form>
   <div class="checks"><label><input type="checkbox" id="open"> Open now</label><label><input type="checkbox" id="ver"> LGU verified only</label></div>
+</div></section>
+<section id="explore-featured-products-section" class="catalog-featured-section" aria-labelledby="explore-featured-title" style="display:none">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <h2 id="explore-featured-title">Featured products</h2>
+        <p class="muted featured-products-description">Promoted by local stores for a limited time.</p>
+      </div>
+    </div>
+    <div class="featured-products-carousel" data-featured-carousel role="region" aria-roledescription="carousel" aria-label="Featured products">
+      <div class="featured-products-viewport">
+        <div id="explore-featured-products" class="featured-products-grid"></div>
+      </div>
+      <div class="featured-products-controls" data-featured-controls hidden>
+        <button type="button" class="btn alt" data-featured-prev aria-label="Previous featured products">Previous</button>
+        <span data-featured-status aria-live="off"></span>
+        <button type="button" class="btn alt" data-featured-next aria-label="Next featured products">Next</button>
+        <button type="button" class="btn alt" data-featured-toggle aria-label="Pause automatic rotation">Pause</button>
+      </div>
+    </div>
+  </div>
+</section>
+<section><div class="wrap">
   <p class="muted" id="count" role="status"></p>
   <div class="grid" id="results"></div>
 </div></section></main>
