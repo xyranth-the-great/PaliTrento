@@ -503,7 +503,7 @@ function openProductModal(productId = null) {
     }
   } else {
     $('#modal-title').textContent = 'Add Product';
-    $('#modal-save').textContent = 'Pay ₱5 & add product';
+    $('#modal-save').textContent = 'Pay ₱2 & add product';
   }
 
   // New products must include a photo. Existing products can keep their current image.
@@ -553,7 +553,7 @@ async function saveProduct(e) {
 
   if (!editingProductId) {
     startDemoPayment({
-      amount: 5,
+      amount: 2,
       title: 'Product listing fee',
       description: `Pay the demo fee to publish “${productData.name}”.`,
       successMessage: 'Your product has been added successfully.',

@@ -218,7 +218,14 @@ export function renderChrome(active, session = null, profile = null) {
     && (isCustomerOrBusinessOwner
       || (!['explore.html', 'map.html', 'products.html'].includes(active)
         && (active !== 'index.html' || isLoggedInBuyer)));
-  const links = [['index.html', 'Home'], ['explore.html', 'Explore'], ['map.html', 'Map'], ['products.html', 'Products'], ...(showOrdersLink ? [['orders.html', 'My Orders']] : [])];
+  const links = [
+    ['index.html', 'Home'],
+    ...(role === 'admin' ? [['admin.html', 'Admin Dashboard']] : []),
+    ['explore.html', 'Explore'],
+    ['map.html', 'Map'],
+    ['products.html', 'Products'],
+    ...(showOrdersLink ? [['orders.html', 'My Orders']] : [])
+  ];
   let authLinks;
   if (session) {
     const avatarHtml = profile?.avatar_url
@@ -238,7 +245,9 @@ export function renderChrome(active, session = null, profile = null) {
     }
 
     // My Orders for all logged-in users (links to separate orders page)
-    const ordersLink = `<a href="orders.html" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
+    const ordersLink = isAdmin
+      ? ''
+      : `<a href="orders.html" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 
     // Get cached unread count
     const unreadCounts = getCachedUnreadCounts();

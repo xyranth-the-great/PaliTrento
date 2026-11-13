@@ -17,7 +17,7 @@
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <div>
       <h1 style="margin:0">Settings</h1>
-      <p class="muted">Manage your account, notifications, privacy, and security preferences.</p>
+      <p class="muted">Manage your account, notifications, privacy, and security.</p>
     </div>
   </div>
 
@@ -28,7 +28,6 @@
       <button id="notifications-tab" class="settings-tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="notifications" aria-controls="tab-notifications">Notifications</button>
       <button id="privacy-tab" class="settings-tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="privacy" aria-controls="tab-privacy">Privacy</button>
       <button id="security-tab" class="settings-tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="security" aria-controls="tab-security">Security</button>
-      <button id="preferences-tab" class="settings-tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="preferences" aria-controls="tab-preferences">Preferences</button>
       <button id="danger-tab" class="settings-tab-btn" role="tab" aria-selected="false" tabindex="-1" data-tab="danger" aria-controls="tab-danger">Danger Zone</button>
     </div>
 
@@ -224,7 +223,7 @@
           </div>
         </div>
 
-        <button type="button" id="save-password-btn" class="btn" style="width:100%;max-width:300px">Change password</button>
+        <button type="button" id="save-password-btn" class="btn" style="width:100%;max-width:300px;margin-top:16px">Change password</button>
         <p id="security-msg" class="muted" style="margin-top:12px;min-height:1.5em;display:none"></p>
       </div>
 
@@ -233,59 +232,6 @@
         <p class="muted" style="margin:0 0 16px">Devices currently logged into your account.</p>
         <div id="sessions-list" class="muted">Loading...</div>
         <button type="button" class="btn alt" id="revoke-all-btn" style="margin-top:16px">Log out of all other devices</button>
-      </div>
-    </div>
-
-    <!-- PREFERENCES TAB -->
-    <div id="tab-preferences" role="tabpanel" aria-labelledby="preferences-tab" style="display:none;margin-top:24px">
-      <div class="card" style="padding:24px">
-        <h2 style="margin:0 0 4px">Preferences</h2>
-        <p class="muted" style="margin:0 0 24px">Customize your PaliTrento experience.</p>
-
-        <div style="display:grid;gap:16px;max-width:480px">
-          <div>
-            <label for="pref-language">Language</label>
-            <select id="pref-language">
-              <option value="en">English</option>
-              <option value="tl">Tagalog</option>
-              <option value="ceb">Cebuano</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="pref-currency">Currency display</label>
-            <select id="pref-currency">
-              <option value="PHP" selected>₱ Philippine Peso (PHP)</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="pref-theme">Theme</label>
-            <select id="pref-theme">
-              <option value="system">System default</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </div>
-
-          <label class="setting-row">
-            <div class="setting-info">
-              <strong>Auto-play media</strong>
-              <span class="muted">Automatically play videos and animations in product listings.</span>
-            </div>
-            <input type="checkbox" id="pref-autoplay">
-          </label>
-
-          <label class="setting-row">
-            <div class="setting-info">
-              <strong>Reduce motion</strong>
-              <span class="muted">Minimize animations and transitions (follows system accessibility setting).</span>
-            </div>
-            <input type="checkbox" id="pref-reduce-motion">
-          </label>
-        </div>
-
-        <button type="button" id="save-preferences-btn" class="btn" style="margin-top:16px">Save preferences</button>
       </div>
     </div>
 

@@ -39,7 +39,7 @@ The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In r
 For a site served from the ngrok domain root, run `npm run build:ngrok`, then `npm run preview -- --host 0.0.0.0 --port 4173` and start the tunnel with `ngrok http 4173`. This builds with relative asset paths, unlike the GitHub Pages subpath build above.
 
 ## Pages
-index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail), settings (Profile, Notifications, Privacy, Security, Preferences, Danger Zone), forgot-password (request reset link), reset-password (set new password)
+index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail), settings (Profile, Notifications, Privacy, Security, Danger Zone), forgot-password (request reset link), reset-password (set new password)
 
 ## Not built yet
 SMS OTP login (see note below), merchant and admin screens, orders, chat.
@@ -47,7 +47,7 @@ Supabase phone login supports Twilio, MessageBird, Vonage and Textlocal. For a P
 Verify the barangay list in `js/ui.js` against the official PSGC list.
 
 ## ✅ Recently Completed (2026-11-13)
-- Settings page (`settings.html`, `js/settings.js`) — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone
+- Settings page (`settings.html`, `js/settings.js`) — 5 tabs: Profile, Notifications, Privacy, Security, Danger Zone
 - Supabase SMTP via Resend — Confirm email ON, password reset & email confirmations enabled
 - Product image upload (Supabase migration + Dashboard integration)
 - QR Standee PDF (`standee.html` — A5/A4 printable store signage)
