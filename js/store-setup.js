@@ -403,17 +403,17 @@ async function handleSubmit(e) {
     return;
   }
 
-  const session = await getSession();
-  if (!session) {
-    window.location.href = 'login.html';
-    return;
-  }
-
   submitBtn.disabled = true;
   let isApprovedUpdate = currentStore?.verification_status === 'VERIFIED';
   submitBtn.textContent = isApprovedUpdate ? 'Saving...' : 'Submitting...';
 
   try {
+    const session = await getSession();
+    if (!session) {
+      window.location.href = 'login.html';
+      return;
+    }
+
     const payments = Array.from(form.querySelectorAll('input[name="payments"]:checked')).map(cb => cb.value);
 
     const { data: existing, error: existingError } = await supabase
@@ -425,18 +425,9 @@ async function handleSubmit(e) {
     if (existingError) throw existingError;
 
     isApprovedUpdate = existing?.verification_status === 'VERIFIED';
-    let trnCode = existing?.trn_code;
-    if (!trnCode) {
-      const year = new Date().getFullYear();
-      const { data: countData } = await supabase
-        .from('stores')
-        .select('id', { count: 'exact', head: true });
-      const seq = String((countData?.count || 0) + 1).padStart(3, '0');
-      trnCode = `TRN-${year}-${seq}`;
-    }
 
     const storeData = {
-      trn_code: trnCode,
+      trn_code: existing?.trn_code || createTrnCode(),
       user_id: session.user.id,
       business_name: form.business_name.value.trim(),
       trade_category: form.trade_category.value,
@@ -464,8 +455,12 @@ async function handleSubmit(e) {
       const res = await supabase.from('stores').update(storeData).eq('id', existing.id);
       error = res.error;
     } else {
-      const res = await supabase.from('stores').insert(storeData);
-      error = res.error;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const res = await supabase.from('stores').insert(storeData);
+        error = res.error;
+        if (!error || !isDuplicateTrnCodeError(error)) break;
+        storeData.trn_code = createTrnCode();
+      }
     }
 
     if (error) {
@@ -485,10 +480,38 @@ async function handleSubmit(e) {
     setTimeout(() => window.location.href = 'dashboard.html', 2000);
   } catch (err) {
     console.error('Submit error:', err);
-    showMsg('Failed to submit. Please try again.', 'bad');
+    const detail = getSubmitErrorMessage(err);
+    showMsg(`Failed to submit: ${detail}`, 'bad');
     submitBtn.disabled = false;
     submitBtn.textContent = isApprovedUpdate ? 'Save changes' : 'Submit for verification';
   }
+}
+
+function createTrnCode() {
+  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase();
+  return `TRN-${new Date().getFullYear()}-${suffix}`;
+}
+
+function isDuplicateTrnCodeError(error) {
+  return error?.code === '23505' &&
+    (error.constraint === 'stores_trn_code_key' || error.message?.includes('stores_trn_code_key'));
+}
+
+function getSubmitErrorMessage(error) {
+  if (isDuplicateTrnCodeError(error)) {
+    return 'A store reference was already in use. Please try submitting again.';
+  }
+  if (error?.code === '23514' && error?.constraint === 'stores_trade_category_check') {
+    return 'Your Supabase database does not allow this store category yet. Run supabase/store-submission.sql in the Supabase SQL Editor, then try again.';
+  }
+  if (error?.code === 'PGRST204' || error?.code === '42703') {
+    return 'The stores table is missing fields required for submission. Run supabase/store-submission.sql in your Supabase SQL Editor, then try again.';
+  }
+  if (error?.code === '42501') {
+    return 'Supabase blocked this submission. Run supabase/store-submission.sql to configure store-owner permissions, then try again.';
+  }
+
+  return error?.message || error?.details || error?.hint || 'Please check your details and try again.';
 }
 
 function showMsg(text, type) {
