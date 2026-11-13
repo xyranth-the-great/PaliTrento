@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify Email | PaliTrento</title>
+<meta name="description" content="Enter the verification code sent to your email.">
+<link rel="icon" type="image/png" href="./assets/logo-D8o8arRF.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/verify-BaXCr1pW.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-DXDSwYss.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-BUvbi_9T.js">
+  <link rel="modulepreload" crossorigin href="./assets/email-otp-B30mfrUZ.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-0UkAEiAn.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:480px;padding-top:48px;padding-bottom:48px">
+  <a href="register.html" class="muted" style="display:inline-block;margin-bottom:16px;text-decoration:none">&larr; Back</a>
+
+  <h1>Verify your email</h1>
+  <p class="muted" style="margin-bottom:24px">We sent a <strong>6-digit code</strong> to <span id="verify-email-display"></span>. Enter it below.</p>
+
+  <form id="verify-form" novalidate style="display:grid;gap:16px">
+    <div style="display:flex;gap:8px">
+      <input type="text" name="code1" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code" required style="flex:1;text-align:center;font-size:1.5rem;padding:16px">
+      <input type="text" name="code2" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code" required style="flex:1;text-align:center;font-size:1.5rem;padding:16px">
+      <input type="text" name="code3" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code" required style="flex:1;text-align:center;font-size:1.5rem;padding:16px">
+      <input type="text" name="code4" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code" required style="flex:1;text-align:center;font-size:1.5rem;padding:16px">
+      <input type="text" name="code5" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code" required style="flex:1;text-align:center;font-size:1.5rem;padding:16px">
+      <input type="text" name="code6" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code" required style="flex:1;text-align:center;font-size:1.5rem;padding:16px">
+    </div>
+
+    <button type="submit" id="verify-btn" class="btn" style="width:100%">Verify</button>
+  </form>
+
+  <p id="verify-message" class="muted" style="margin-top:16px;min-height:1.5em"></p>
+
+  <div id="resend-section" style="margin-top:16px;display:none">
+    <p class="muted" style="font-size:.9rem">Didn't receive the code?</p>
+    <button type="button" id="resend-btn" class="btn alt" style="width:100%">Resend code</button>
+    <p id="resend-cooldown" class="muted" style="font-size:.85rem;margin-top:8px;display:none"></p>
+  </div>
+
+  <p class="muted" style="margin-top:24px;font-size:.9rem">
+    Code expires in 10 minutes. <a href="register.html">Register with a different email</a>
+  </p>
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

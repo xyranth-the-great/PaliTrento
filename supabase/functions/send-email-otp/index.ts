@@ -48,7 +48,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             code: 'EMAIL_ALREADY_REGISTERED',
-            error: 'An account with this email already exists. Please log in or reset your password.',
+            error: 'This email address already exists. Please log in or reset your password.',
           }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
