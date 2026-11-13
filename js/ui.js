@@ -36,10 +36,10 @@ export function srp(p) {
     : { cls: 'bad', text: `Over cap by ${peso(p.current_price - p.lgu_srp_ceiling)}` };
 }
 export const storeCard = s => `
-  <a class="card" href="business.html?trn=${encodeURIComponent(s.trn_code)}">
-    <div class="row"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
-    <p class="muted">${esc(CATS[s.trade_category])} in ${esc(s.barangay)}, ${esc(s.purok)}</p>
-    <div>${badges(s)}</div>
+  <a class="card store-card" href="business.html?trn=${encodeURIComponent(s.trn_code)}">
+    <div class="row store-card-heading"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
+    <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
+    <div class="store-card-badges">${badges(s)}</div>
   </a>`;
 export const productCard = (p, store) => {
   const c = srp(p);
