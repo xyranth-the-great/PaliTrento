@@ -251,7 +251,6 @@ const DEFAULT_NOTIFS = {
   messages: true,
   price_caps: false,
   store_announcements: false,
-  digest: false,
   push: false
 };
 
@@ -307,7 +306,6 @@ function saveNotifications() {
     messages: $('#notif-messages').checked,
     price_caps: $('#notif-price-caps').checked,
     store_announcements: $('#notif-store-announcements').checked,
-    digest: $('#notif-digest').checked,
     push: $('#notif-push').checked
   };
   localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
