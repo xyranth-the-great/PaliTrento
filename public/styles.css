@@ -138,6 +138,7 @@ a.card:hover{border-color:var(--primary)}
 .featured-products-viewport{width:100%;overflow:hidden}
 .featured-products-carousel .featured-products-grid{display:flex;gap:var(--featured-gap);grid-template-columns:none;grid-auto-flow:initial;grid-auto-columns:auto;overflow:visible;margin:0;padding:0;transition:transform 250ms cubic-bezier(.77,0,.175,1)}
 .featured-products-slide{flex:0 0 calc((100% - 36px)/3);min-width:0}
+.featured-products-carousel.is-sparse .featured-products-slide{flex-basis:100%}
 .featured-products-grid .product-card{height:100%;border-color:rgba(31,77,46,.16);transition:transform .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease)}
 .featured-products-grid .product-card-media{aspect-ratio:3/2}
 .featured-products-grid .product-card-content{padding:18px}

@@ -92,8 +92,13 @@ export function initializeFeaturedProductsCarousel(section) {
   let focused = false;
   let userPaused = false;
 
-  function visibleCount() {
+  function configuredVisibleCount() {
     return Number.parseInt(getComputedStyle(carousel).getPropertyValue('--featured-visible'), 10) || 1;
+  }
+
+  function visibleCount() {
+    const configuredCount = configuredVisibleCount();
+    return slides.length > 1 && slides.length < configuredCount ? 1 : configuredCount;
   }
 
   function maxPosition() {
@@ -101,6 +106,7 @@ export function initializeFeaturedProductsCarousel(section) {
   }
 
   function update() {
+    carousel.classList.toggle('is-sparse', slides.length > 0 && slides.length < configuredVisibleCount());
     const visible = visibleCount();
     const max = maxPosition();
     position = Math.min(position, max);
