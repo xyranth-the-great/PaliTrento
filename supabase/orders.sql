@@ -26,7 +26,7 @@ create table if not exists orders (
   quantity integer not null default 1 check (quantity > 0),
   total_price numeric(10,2) not null,
   status text not null default 'PENDING' check (status in ('PENDING','CONFIRMED','READY_FOR_PICKUP','COMPLETED','CANCELLED')),
-  payment_method text not null check (payment_method in ('CASH','GCASH','TRIKE_COD')),
+  payment_method text not null check (payment_method in ('CASH','GCASH')),
   notes text,
   confirmed_at timestamptz,
   ready_at timestamptz,

@@ -61,7 +61,7 @@ async function loadProduct() {
     .eq('id', product.store_id)
     .single();
 
-  if (storeError || !store) {
+  if (storeError || !store || store.verification_status !== 'VERIFIED') {
     showError('Store not found');
     return;
   }

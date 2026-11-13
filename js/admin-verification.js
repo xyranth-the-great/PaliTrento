@@ -145,7 +145,7 @@ function openModal(storeId, canEdit = false) {
   const store = currentStores.find(s => s.id === storeId);
   if (!store) return;
 
-  const payments = (store.accepted_payments || []).map(p => PAY[p] || p).join(', ') || '—';
+  const payments = (store.accepted_payments || []).filter(p => Object.prototype.hasOwnProperty.call(PAY, p)).map(p => PAY[p]).join(', ') || '—';
   const storeBadges = badges(store);
 
   modalContent.innerHTML = `

@@ -13,6 +13,8 @@ Tara, Palit Ta sa Trento! Vite + vanilla JS + Supabase + Leaflet.
 The anon key is safe to expose. Security comes from the row-level security rules in `schema.sql`.
 
 For an existing project, run `supabase/store-submission.sql` in the SQL Editor to add store-submission columns and owner permissions.
+Run `supabase/store-product-approval.sql` as well to restrict product publishing to LGU-verified stores.
+For existing projects, run `supabase/remove-trike-cod.sql` to remove Trike COD from saved store payment preferences.
 
 ## Deploy to GitHub Pages
 The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
