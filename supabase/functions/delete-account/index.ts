@@ -157,7 +157,7 @@ serve(async (req) => {
       if (deleteOrdersError) throw new Error(`Failed to delete orders: ${deleteOrdersError.message}`)
     }
 
-    for (const bucket of ['avatars', 'store-images', 'product-images']) {
+    for (const bucket of ['avatars', 'store-images', 'product-images', 'seller-certifications']) {
       await removeUserFiles(adminClient, bucket, user.id)
     }
 

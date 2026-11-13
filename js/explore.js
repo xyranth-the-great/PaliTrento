@@ -1,4 +1,4 @@
-import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS } from './ui.js';
+import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, isStoreVerified, CATS, BARANGAYS } from './ui.js';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile } from './auth.js';
 
@@ -30,7 +30,7 @@ function render() {
   const out = stores.filter(s =>
     (!q || s.business_name.toLowerCase().includes(q) || CATS[s.trade_category].toLowerCase().includes(q) || s.barangay.toLowerCase().includes(q) || hit.has(s.id)) &&
     (!cat || s.trade_category === cat) && (!br || s.barangay === br) &&
-    (!$('#open').checked || isOpen(s)) && (!$('#ver').checked || s.verification_status === 'VERIFIED'));
+    (!$('#open').checked || isOpen(s)) && (!$('#ver').checked || isStoreVerified(s)));
   $('#count').textContent = `${out.length} ${out.length === 1 ? 'place' : 'places'} found`;
   $('#results').innerHTML = out.map(storeCard).join('') ||
     '<div class="empty" style="grid-column:1/-1"><h3>No matches</h3><p class="muted">Try a different word or clear a filter.</p></div>';
