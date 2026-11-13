@@ -14,6 +14,7 @@ let marker = null;
 let mapError = null;
 let storefrontUrl = null;
 let permitsUrl = null;
+let currentStore = null;
 
 // Step elements
 const steps = {
@@ -53,6 +54,7 @@ async function init() {
     .maybeSingle();
 
   if (storeError) throw storeError;
+  currentStore = existingStore;
 
   try {
     await initMap(existingStore?.lat ?? 8.0733, existingStore?.lng ?? 125.8689);
@@ -64,6 +66,7 @@ async function init() {
 
   if (existingStore) {
     prefillForm(existingStore);
+    configureReviewMode(existingStore);
   }
 
   // URL step parameter
@@ -82,6 +85,7 @@ function prefillForm(store) {
   $('#landmark_reference').value = store.landmark_reference ?? '';
   $('#open_time').value = store.open_time ?? '07:00';
   $('#close_time').value = store.close_time ?? '20:00';
+  permitsUrl = store.permits_image_url ?? null;
 
   if (store.storefront_image_url) {
     storefrontUrl = store.storefront_image_url;
@@ -106,6 +110,15 @@ function prefillForm(store) {
       map.setView([store.lat, store.lng], 17);
     }
   }
+}
+
+function configureReviewMode(store) {
+  if (store?.verification_status !== 'VERIFIED') return;
+
+  $('#review-heading').textContent = 'Step 3: Review & Save Changes';
+  $('#review-description').textContent = 'Review your updates before saving. Your LGU approval will remain active.';
+  $('#review-notice').style.display = 'none';
+  submitBtn.textContent = 'Save changes';
 }
 
 function initMap(lat, lng) {
@@ -397,18 +410,30 @@ async function handleSubmit(e) {
   }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Submitting...';
+  let isApprovedUpdate = currentStore?.verification_status === 'VERIFIED';
+  submitBtn.textContent = isApprovedUpdate ? 'Saving...' : 'Submitting...';
 
   try {
     const payments = Array.from(form.querySelectorAll('input[name="payments"]:checked')).map(cb => cb.value);
 
-    // Generate TRN code: TRN-YYYY-NNN
-    const year = new Date().getFullYear();
-    const { data: countData } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('stores')
-      .select('id', { count: 'exact', head: true });
-    const seq = String((countData?.count || 0) + 1).padStart(3, '0');
-    const trnCode = `TRN-${year}-${seq}`;
+      .select('*')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+
+    isApprovedUpdate = existing?.verification_status === 'VERIFIED';
+    let trnCode = existing?.trn_code;
+    if (!trnCode) {
+      const year = new Date().getFullYear();
+      const { data: countData } = await supabase
+        .from('stores')
+        .select('id', { count: 'exact', head: true });
+      const seq = String((countData?.count || 0) + 1).padStart(3, '0');
+      trnCode = `TRN-${year}-${seq}`;
+    }
 
     const storeData = {
       trn_code: trnCode,
@@ -426,20 +451,13 @@ async function handleSubmit(e) {
       open_time: form.open_time.value,
       close_time: form.close_time.value,
       accepted_payments: payments,
-      storefront_image_url: storefrontUrl,
-      permits_image_url: permitsUrl,
-      verification_status: 'PENDING',
-      srp_compliant: false,
-      dti_registered: false,
-      bmbe_registered: false,
+      storefront_image_url: storefrontUrl || existing?.storefront_image_url || null,
+      permits_image_url: permitsUrl || existing?.permits_image_url || null,
+      verification_status: isApprovedUpdate ? 'VERIFIED' : 'PENDING',
+      srp_compliant: isApprovedUpdate ? existing.srp_compliant : false,
+      dti_registered: isApprovedUpdate ? existing.dti_registered : false,
+      bmbe_registered: isApprovedUpdate ? existing.bmbe_registered : false,
     };
-
-    // Check if updating existing
-    const { data: existing } = await supabase
-      .from('stores')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .maybeSingle();
 
     let error;
     if (existing) {
@@ -455,16 +473,21 @@ async function handleSubmit(e) {
       throw error;
     }
 
-    showMsg('Store submitted for verification! LGU will review within 3-5 business days.', 'ok');
+    showMsg(
+      isApprovedUpdate
+        ? 'Store changes saved. Your LGU approval remains active.'
+        : 'Store submitted for verification! LGU will review within 3-5 business days.',
+      'ok'
+    );
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitted';
+    submitBtn.textContent = isApprovedUpdate ? 'Changes saved' : 'Submitted';
 
     setTimeout(() => window.location.href = 'dashboard.html', 2000);
   } catch (err) {
     console.error('Submit error:', err);
     showMsg('Failed to submit. Please try again.', 'bad');
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Submit for verification';
+    submitBtn.textContent = isApprovedUpdate ? 'Save changes' : 'Submit for verification';
   }
 }
 
