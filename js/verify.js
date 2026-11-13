@@ -1,7 +1,7 @@
 import { renderChrome, $, esc } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { sendEmailOTP, verifyEmailOTP, resendEmailOTP } from './email-otp.js';
-import { isSupabaseConfigured, getLoginUnavailableMessage } from './auth.js';
+import { isSupabaseConfigured, getLoginUnavailableMessage, getAuthErrorMessage } from './auth.js';
 
 const form = $('#verify-form');
 const msgEl = $('#verify-message');
@@ -137,15 +137,16 @@ form.addEventListener('submit', async (e) => {
 
     // For registration: sign up the user now
     if (purpose === 'verify') {
-      const session = await getSession();
       // The register page should have stored pending registration data
       const pendingData = sessionStorage.getItem('pending_registration');
+      console.log('[Verify] pending_registration from sessionStorage:', pendingData);
+      console.log('[Verify] purpose:', purpose, 'nextPage:', nextPage);
       if (pendingData) {
         const { full_name, password, role, barangay } = JSON.parse(pendingData);
         // Use supabase to sign up
         const { supabase } = await import('./supabase.js');
         const redirectUrl = new URL('login.html', window.location.href).href;
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -153,19 +154,42 @@ form.addEventListener('submit', async (e) => {
             emailRedirectTo: redirectUrl,
           },
         });
+        sessionStorage.removeItem('pending_registration');
+
         if (signUpError) {
-          showMsg('Verification succeeded but account creation failed. Please try logging in.', 'warn');
-        } else {
-          sessionStorage.removeItem('pending_registration');
-          const redirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : 'login.html?verified=1';
-          setTimeout(() => window.location.href = redirectUrl, 1500);
+          console.error('[Verify] signUpError:', signUpError);
+          showMsg(getAuthErrorMessage(signUpError), 'bad');
           return;
         }
+
+        if (!signUpData.user) {
+          showMsg('Could not confirm account creation. Please try registering again.', 'bad');
+          return;
+        }
+
+        // Handle both null and empty array cases for existing accounts
+        console.log('[Verify] signUpData:', JSON.stringify(signUpData, null, 2));
+        console.log('[Verify] user.identities:', signUpData.user?.identities);
+
+        // Check for existing account - identities is null or empty array means email already exists
+        const identities = signUpData.user?.identities;
+        if (!identities || (Array.isArray(identities) && identities.length === 0)) {
+          showMsg('An account with this email already exists. Please log in or reset your password.', 'bad');
+          return;
+        }
+
+        const finalRedirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : 'login.html?verified=1';
+        setTimeout(() => window.location.href = finalRedirectUrl, 1500);
+        return;
+      } else {
+        console.warn('[Verify] No pending_registration data found in sessionStorage!');
+        showMsg('Registration data missing. Please try registering again.', 'bad');
+        return;
       }
     }
 
-    const redirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : 'login.html';
-    setTimeout(() => window.location.href = redirectUrl, 1500);
+    const finalRedirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : 'login.html';
+    setTimeout(() => window.location.href = finalRedirectUrl, 1500);
   } catch (err) {
     console.error('Verify error:', err);
     showMsg('Something went wrong. Please try again.', 'bad');

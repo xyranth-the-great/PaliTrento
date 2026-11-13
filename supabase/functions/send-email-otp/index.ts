@@ -7,6 +7,19 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
+async function emailIsRegistered(supabase: ReturnType<typeof createClient>, email: string) {
+  const perPage = 1000
+
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage })
+    if (error) throw error
+
+    const users = data.users ?? []
+    if (users.some((user) => user.email?.trim().toLowerCase() === email)) return true
+    if (users.length < perPage) return false
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -16,11 +29,30 @@ serve(async (req) => {
   try {
     const { email, code, purpose } = await req.json()
 
-    if (!email || !code) {
+    if (typeof email !== 'string' || !email.trim() || typeof code !== 'string' || !code) {
       return new Response(
         JSON.stringify({ error: 'Missing email or code' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    const normalizedEmail = email.trim().toLowerCase()
+
+    // Supabase client with service role
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    if ((purpose || 'verify') === 'verify') {
+      if (await emailIsRegistered(supabase, normalizedEmail)) {
+        return new Response(
+          JSON.stringify({
+            code: 'EMAIL_ALREADY_REGISTERED',
+            error: 'This email address already exists. Please log in or reset your password.',
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
     }
 
     // Get Resend API key from environment
@@ -33,17 +65,12 @@ serve(async (req) => {
       )
     }
 
-    // Supabase client with service role
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Store OTP code in database (expires in 10 minutes)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
     const { error: dbError } = await supabase
       .from('email_otp_codes')
       .insert({
-        email: email.toLowerCase(),
+        email: normalizedEmail,
         code,
         purpose: purpose || 'verify',
         expires_at: expiresAt,
@@ -102,7 +129,7 @@ A local directory for the Municipality of Trento, Agusan del Sur
       },
       body: JSON.stringify({
         from: 'PaliTrento <no-reply@palitrento.online>',
-        to: [email],
+        to: [normalizedEmail],
         subject: 'Your PaliTrento verification code',
         html: emailHtml,
         text: emailText,
@@ -114,7 +141,7 @@ A local directory for the Municipality of Trento, Agusan del Sur
     if (!res.ok) {
       console.error('Resend error:', data)
       // Clean up the code if email failed
-      await supabase.from('email_otp_codes').delete().eq('email', email.toLowerCase()).eq('code', code)
+      await supabase.from('email_otp_codes').delete().eq('email', normalizedEmail).eq('code', code)
       return new Response(
         JSON.stringify({ error: 'Failed to send email', details: data }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

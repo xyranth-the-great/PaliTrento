@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LGU Admin Dashboard | PaliTrento</title>
+<meta name="description" content="LGU Admin dashboard for store verification and price management.">
+<link rel="icon" type="image/png" href="./assets/logo-D8o8arRF.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+  <script type="module" crossorigin src="./assets/admin-BkWlDt2L.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-DXDSwYss.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-BUvbi_9T.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-0UkAEiAn.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:1200px;padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">LGU Admin Dashboard</h1>
+      <p class="muted">Municipality of Trento, Agusan del Sur</p>
+    </div>
+    <span class="pill info">Admin</span>
+  </div>
+
+  <!-- Stats cards -->
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:32px">
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--primary)" id="stat-pending">—</div>
+      <div class="muted">Pending Verification</div>
+    </div>
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--ok)" id="stat-verified">—</div>
+      <div class="muted">Verified Stores</div>
+    </div>
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--warn)" id="stat-rejected">—</div>
+      <div class="muted">Rejected / Clarification</div>
+    </div>
+    <div class="card" style="padding:20px;text-align:center">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--info)" id="stat-total-stores">—</div>
+      <div class="muted">Total Stores</div>
+    </div>
+  </div>
+
+  <!-- Quick actions -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px">
+    <a href="admin-verification.html" class="btn" style="flex:1;min-width:200px;text-align:center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Verification Queue
+    </a>
+    <a href="admin-prices.html" class="btn alt" style="flex:1;min-width:200px;text-align:center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Price Broadcasts
+    </a>
+    <a href="admin-reports.html" class="btn alt" style="flex:1;min-width:200px;text-align:center">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reports
+    </a>
+  </div>
+
+  <!-- Recent pending stores -->
+  <div class="card" style="padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <h2 style="margin:0">Recently Submitted Stores</h2>
+      <a href="admin-verification.html" class="btn alt" style="padding:8px 16px;font-size:.9rem">View all →</a>
+    </div>
+    <div id="recent-pending" class="grid" style="display:none"></div>
+    <p class="muted" id="no-pending" style="display:none;text-align:center;padding:32px">No pending stores.</p>
+  </div>
+
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

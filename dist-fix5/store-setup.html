@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set Up Your Store | PaliTrento</title>
+<meta name="description" content="Complete your store setup in 3 steps.">
+<link rel="icon" type="image/png" href="./assets/logo-D8o8arRF.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <script type="module" crossorigin src="./assets/store-setup-SnNOz6kp.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/auth-DXDSwYss.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-BUvbi_9T.js">
+  <link rel="modulepreload" crossorigin href="./assets/storage-894vkkBA.js">
+  <link rel="stylesheet" crossorigin href="./assets/auth-0UkAEiAn.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+<div class="wrap" style="max-width:720px;padding-top:24px;padding-bottom:48px">
+
+  <!-- Progress indicator -->
+  <div class="setup-progress" style="display:flex;gap:8px;margin-bottom:32px" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="3">
+    <div class="step" id="step-indicator-1" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle" style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">1</div>
+      <span class="step-label muted" style="font-size:.75rem;text-align:center">Details</span>
+    </div>
+    <div class="step" id="step-indicator-2" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle" style="width:36px;height:36px;border-radius:50%;background:var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700">2</div>
+      <span class="step-label muted" style="font-size:.75rem;text-align:center">Photos</span>
+    </div>
+    <div class="step" id="step-indicator-3" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle" style="width:36px;height:36px;border-radius:50%;background:var(--line);color:var(--muted);display:flex;align-items:center;justify-content:center;font-weight:700">3</div>
+      <span class="step-label muted" style="font-size:.75rem;text-align:center">Review</span>
+    </div>
+  </div>
+
+  <form id="setup-form" novalidate>
+
+    <!-- STEP 1: Business Details -->
+    <div id="step-1" class="setup-step" style="display:block">
+      <h2 style="margin-bottom:8px">Step 1: Business Details</h2>
+      <p class="muted" style="margin-bottom:24px">Tell us about your store. Required fields marked <span class="bad" style="font-size:.7rem">*</span>.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="business_name">Business name <span class="bad">*</span></label>
+          <input id="business_name" name="business_name" type="text" required autocomplete="organization" placeholder="Aling Nena's Sari-Sari Store">
+        </div>
+
+        <div>
+          <label for="trade_category">Category <span class="bad">*</span></label>
+          <select id="trade_category" name="trade_category" required>
+            <option value="">Choose category</option>
+            <option value="SARI_SARI">Sari-sari store</option>
+            <option value="CARINDERIA">Carinderia</option>
+            <option value="FRESH_PRODUCE">Fresh produce</option>
+            <option value="PHARMACY">Pharmacy</option>
+            <option value="SERVICES">Services</option>
+            <option value="AGRI">Agri supply</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <label for="proprietor_name">Proprietor name <span class="bad">*</span></label>
+        <input id="proprietor_name" name="proprietor_name" type="text" required autocomplete="name" placeholder="Nena Santos">
+      </div>
+
+      <div style="margin-top:16px">
+        <label for="contact_number">Contact number <span class="bad">*</span></label>
+        <input id="contact_number" name="contact_number" type="tel" required autocomplete="tel" placeholder="+63 9XX XXX XXXX" pattern="^\+63\s?9\d{9}$">
+        <p class="muted" style="font-size:.8rem;margin-top:4px">Format: +63 9XX XXX XXXX</p>
+      </div>
+
+      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="barangay">Barangay <span class="bad">*</span></label>
+          <select id="barangay" name="barangay" required>
+            <option value="">Choose barangay</option>
+          </select>
+        </div>
+        <div>
+          <label for="purok">Purok</label>
+          <input id="purok" name="purok" type="text" autocomplete="address-level4" placeholder="Purok 3">
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <label for="landmark_reference">Landmark reference <span class="bad">*</span></label>
+        <input id="landmark_reference" name="landmark_reference" type="text" required autocomplete="address-line2" placeholder="Near Trento Municipal Hall">
+      </div>
+
+      <div style="margin-top:16px">
+        <label>Store location on map <span class="bad">*</span></label>
+        <div id="map" style="height:280px;border-radius:var(--r-lg);border:1px solid var(--line);margin-top:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="button" class="btn alt" id="use-my-location" style="flex:1">Use my location</button>
+          <button type="button" class="btn" id="pick-on-map" style="flex:1">Pick on map</button>
+        </div>
+        <p class="muted" style="font-size:.8rem;margin-top:4px">Drag the marker to your exact store location</p>
+        <input type="hidden" id="lat" name="lat" required>
+        <input type="hidden" id="lng" name="lng" required>
+      </div>
+
+      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label for="open_time">Opening time <span class="bad">*</span></label>
+          <input id="open_time" name="open_time" type="time" required value="07:00">
+        </div>
+        <div>
+          <label for="close_time">Closing time <span class="bad">*</span></label>
+          <input id="close_time" name="close_time" type="time" required value="20:00">
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <fieldset>
+          <legend>Accepted payments <span class="bad">*</span></legend>
+          <div class="checks" style="margin-top:8px">
+            <label><input type="checkbox" name="payments" value="CASH" checked> Cash</label>
+            <label><input type="checkbox" name="payments" value="GCASH"> GCash</label>
+            <label><input type="checkbox" name="payments" value="TRIKE_COD"> Trike COD</label>
+          </div>
+        </fieldset>
+      </div>
+
+      <div style="margin-top:24px;display:flex;justify-content:flex-end">
+        <button type="button" class="btn" id="next-1" style="width:auto;min-width:160px">Next: Photos →</button>
+      </div>
+    </div>
+
+    <!-- STEP 2: Photos -->
+    <div id="step-2" class="setup-step" style="display:none">
+      <h2 style="margin-bottom:8px">Step 2: Photos</h2>
+      <p class="muted" style="margin-bottom:24px">Upload photos to help customers recognize your store. Optional but recommended.</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <label>Storefront photo</label>
+          <div class="photo-upload" id="storefront-upload" style="border:2px dashed var(--line);border-radius:var(--r-lg);padding:24px;text-align:center;cursor:pointer;transition:border-color .2s">
+            <input type="file" id="storefront-file" accept="image/jpeg,image/png,image/webp" style="display:none">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--muted);margin-bottom:8px"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p class="muted" style="margin:0">Click or drag to upload</p>
+            <p class="muted" style="font-size:.75rem;margin:4px 0 0">JPG, PNG, WebP • Max 5 MB</p>
+          </div>
+          <img id="storefront-preview" src="" alt="Storefront preview" style="display:none;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-lg);margin-top:12px">
+        </div>
+
+        <div>
+          <label>Permits (DTI/BMBE) — optional</label>
+          <div class="photo-upload" id="permits-upload" style="border:2px dashed var(--line);border-radius:var(--r-lg);padding:24px;text-align:center;cursor:pointer">
+            <input type="file" id="permits-file" accept="image/jpeg,image/png,image/webp" style="display:none">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--muted);margin-bottom:8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <p class="muted" style="margin:0">Click or drag to upload</p>
+            <p class="muted" style="font-size:.75rem;margin:4px 0 0">JPG, PNG, WebP • Max 5 MB</p>
+          </div>
+          <img id="permits-preview" src="" alt="Permits preview" style="display:none;width:100%;max-height:200px;object-fit:cover;border-radius:var(--r-lg);margin-top:12px">
+        </div>
+      </div>
+
+      <div style="margin-top:24px;display:flex;gap:12px;justify-content:space-between">
+        <button type="button" class="btn alt" id="back-2" style="width:auto;min-width:120px">← Back</button>
+        <button type="button" class="btn" id="next-2" style="width:auto;min-width:160px">Next: Review →</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Review -->
+    <div id="step-3" class="setup-step" style="display:none">
+      <h2 style="margin-bottom:8px">Step 3: Review & Submit</h2>
+      <p class="muted" style="margin-bottom:24px">Check your details. After submitting, LGU will review within 3-5 business days.</p>
+
+      <div id="review-content" style="background:var(--muted-bg);border-radius:var(--r-lg);padding:20px;margin-bottom:24px"></div>
+
+      <div style="background:var(--warn-bg);border:1px solid var(--warn);border-radius:var(--r-lg);padding:16px;margin-bottom:24px">
+        <p class="muted" style="margin:0;font-size:.9rem"><strong>What happens next:</strong> Your store will be listed as "Verification pending". LGU staff will verify your business and may contact you. Once approved, you'll get access to your dashboard to manage products and orders.</p>
+      </div>
+
+      <div style="margin-top:24px;display:flex;gap:12px;justify-content:space-between">
+        <button type="button" class="btn alt" id="back-3" style="width:auto;min-width:120px">← Back</button>
+        <button type="submit" class="btn" id="submit-btn" style="width:auto;min-width:160px">Submit for verification</button>
+      </div>
+    </div>
+
+  </form>
+
+  <p id="setup-message" class="muted" style="margin-top:16px;min-height:1.5em"></p>
+
+</div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

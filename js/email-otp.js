@@ -23,7 +23,9 @@ export async function sendEmailOTP(email, purpose = 'verify') {
   const data = await res.json();
 
   if (!res.ok) {
-    return { error: new Error(data.error || 'Failed to send code'), code: null };
+    const error = new Error(data.error || 'Failed to send code');
+    error.code = data.code;
+    return { error, code: null };
   }
 
   return { error: null, code };
