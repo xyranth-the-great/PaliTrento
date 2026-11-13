@@ -41,6 +41,9 @@ export const storeCard = s => `
     <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
     <div class="store-card-badges">${badges(s)}</div>
   </a>`;
+export const getActiveFeaturedProducts = products => products
+  .filter(product => Date.parse(product.featured_until) > Date.now())
+  .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));
 export const productCard = (p, store) => {
   const c = srp(p);
   const isFeatured = Date.parse(p.featured_until) > Date.now();

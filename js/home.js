@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, storeCard, productCard, srp, peso, UNITS, CATS } from './ui.js';
+import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, srp, peso, UNITS, CATS } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile, getPostLoginPath } from './auth.js';
@@ -18,9 +18,8 @@ if (session && postLoginPath !== 'index.html') {
   $('#chips').innerHTML = Object.entries(CATS).map(([k, v]) => `<a class="chip" href="explore.html?cat=${k}">${v}</a>`).join('');
   const [stores, products] = await Promise.all([getStores(), getProducts()]);
   const storeById = new Map(stores.map(store => [store.id, store]));
-  const promotedProducts = products
-    .filter(product => Date.parse(product.featured_until) > Date.now() && storeById.has(product.store_id))
-    .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));
+  const promotedProducts = getActiveFeaturedProducts(products)
+    .filter(product => storeById.has(product.store_id));
   if (promotedProducts.length) {
     $('#featured-products').innerHTML = promotedProducts
       .map(product => productCard(product, storeById.get(product.store_id)))
