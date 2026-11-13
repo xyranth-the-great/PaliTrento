@@ -2,10 +2,8 @@ import { supabase } from './supabase.js';
 
 const STORE_IMAGES_BUCKET = 'store-images';
 const PRODUCT_IMAGES_BUCKET = 'product-images';
-const CERTIFICATIONS_BUCKET = 'seller-certifications';
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const CERTIFICATE_TYPES = ['locational_clearance', 'cedula', 'fire_safety', 'sanitary_permit', 'building_occupancy'];
 
 export async function uploadStoreImage(userId, file, folder = 'storefront') {
   if (!supabase) return { error: new Error('Not configured'), url: null };
@@ -54,30 +52,6 @@ export async function deleteStoreImage(userId, url) {
     // ignore
   }
   return { error: null };
-}
-
-export async function uploadCertification(userId, certificateType, file) {
-  if (!supabase) return { error: new Error('Not configured'), path: null };
-  if (!CERTIFICATE_TYPES.includes(certificateType)) {
-    return { error: new Error('Choose a valid certificate type'), path: null };
-  }
-  if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type) || file.size > 10 * 1024 * 1024) {
-    return { error: new Error('Choose a JPG, PNG, WebP or PDF file under 10 MB'), path: null };
-  }
-
-  const extension = file.type === 'application/pdf'
-    ? 'pdf'
-    : file.type === 'image/jpeg'
-      ? 'jpg'
-      : file.type === 'image/png'
-        ? 'png'
-        : 'webp';
-  const path = `${userId}/certifications/${certificateType}/${crypto.randomUUID()}.${extension}`;
-  const { error } = await supabase.storage
-    .from(CERTIFICATIONS_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-
-  return error ? { error, path: null } : { error: null, path };
 }
 
 export async function uploadProductImage(userId, productId, file) {

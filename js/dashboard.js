@@ -87,50 +87,29 @@ function renderStoreCard(store) {
     PENDING: 'warn',
     VERIFIED: 'ok',
     REJECTED: 'bad',
-    CLARIFICATION_REQUIRED: 'info',
-    CERTIFICATES_PENDING: 'info',
+    CLARIFICATION_REQUIRED: 'info'
   };
-  const displayStatus = store.verification_status === 'VERIFIED' && !isStoreVerified(store)
-    ? 'CERTIFICATES_PENDING'
-    : store.verification_status;
   const statusLabels = {
     PENDING: 'Verification pending',
     VERIFIED: 'Verified',
     REJECTED: 'Rejected',
-    CLARIFICATION_REQUIRED: 'Clarification needed',
-    CERTIFICATES_PENDING: 'Certificate compliance pending',
+    CLARIFICATION_REQUIRED: 'Clarification needed'
   };
   const pill = document.createElement('span');
-  pill.className = `pill ${statusColors[displayStatus] || 'warn'}`;
-  pill.textContent = statusLabels[displayStatus] || displayStatus;
+  pill.className = `pill ${statusColors[store.verification_status] || 'warn'}`;
+  pill.textContent = statusLabels[store.verification_status] || store.verification_status;
   badgeContainer.appendChild(pill);
-
-  if (!store.compliance_approved_at) {
-    const deadlineNotice = document.createElement('p');
-    deadlineNotice.className = 'muted';
-    deadlineNotice.style.margin = '8px 0 0';
-    deadlineNotice.textContent = store.compliance_deadline_at
-      ? `Submit applicable certificates by ${new Date(store.compliance_deadline_at).toLocaleDateString('en-PH')}. The deadline remains active until admin approval.`
-      : 'Your 15-day certificate period will begin after the compliance email is sent.';
-    badgeContainer.appendChild(deadlineNotice);
-
-    const uploadLink = document.createElement('a');
-    uploadLink.href = 'store-setup.html?step=2';
-    uploadLink.className = 'btn alt';
-    uploadLink.textContent = 'Submit certificates';
-    badgeContainer.appendChild(uploadLink);
-  }
 
   const canManageProducts = store.verification_status === 'VERIFIED';
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
-  addProductButton.title = canManageProducts ? '' : 'Available after store approval';
+  addProductButton.title = canManageProducts ? '' : 'Available after LGU approval';
   const approvalNotice = $('#product-approval-notice');
   approvalNotice.style.display = canManageProducts ? 'none' : 'block';
   approvalNotice.className = `pill ${statusColors[store.verification_status] || 'warn'}`;
   approvalNotice.textContent = store.verification_status === 'PENDING'
-    ? 'Your store is awaiting admin approval. You can view existing products, but adding, editing, or advertising products will be available after approval. Products are not shown to customers before approval.'
-    : `Your store is not yet approved (${statusLabels[store.verification_status] || store.verification_status}). Product management and public listings are available after admin approval.`;
+    ? 'Your store is awaiting LGU approval. You can view existing products, but adding, editing, or advertising products will be available after approval. Products are not shown to customers before approval.'
+    : `Your store is not yet approved (${statusLabels[store.verification_status] || store.verification_status}). Product management and public listings are available after LGU approval.`;
 
   // Show standee button for verified stores
   const standeeBtn = $('#standee-btn');

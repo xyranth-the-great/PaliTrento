@@ -1,16 +1,8 @@
 import { renderChrome, $, esc, BARANGAYS, CATS, PAY } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { supabase } from './supabase.js';
-import { uploadStoreImage, uploadCertification } from './storage.js';
+import { uploadStoreImage, deleteStoreImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
-
-const CERTIFICATE_TYPES = [
-  { id: 'locational_clearance', label: 'Locational / Zoning Clearance' },
-  { id: 'cedula', label: 'Community Tax Certificate (Cedula)' },
-  { id: 'fire_safety', label: 'Fire Safety Inspection Certificate' },
-  { id: 'sanitary_permit', label: 'Sanitary Permit' },
-  { id: 'building_occupancy', label: 'Building Permit and Certificate of Occupancy' },
-];
 
 const form = $('#setup-form');
 const msgEl = $('#setup-message');
@@ -21,9 +13,8 @@ let map = null;
 let marker = null;
 let mapError = null;
 let storefrontUrl = null;
+let permitsUrl = null;
 let currentStore = null;
-let existingCertifications = [];
-const certificationFiles = new Map();
 
 // Step elements
 const steps = {
@@ -65,17 +56,6 @@ async function init() {
   if (storeError) throw storeError;
   currentStore = existingStore;
 
-  if (existingStore) {
-    const { data: certifications, error: certificationError } = await supabase
-      .from('store_certifications')
-      .select('*')
-      .eq('store_id', existingStore.id)
-      .order('created_at');
-    if (certificationError) throw certificationError;
-    existingCertifications = certifications ?? [];
-  }
-  renderCertificationOptions();
-
   try {
     await initMap(existingStore?.lat ?? 8.0733, existingStore?.lng ?? 125.8689);
   } catch (error) {
@@ -105,6 +85,7 @@ function prefillForm(store) {
   $('#landmark_reference').value = store.landmark_reference ?? '';
   $('#open_time').value = store.open_time ?? '07:00';
   $('#close_time').value = store.close_time ?? '20:00';
+  permitsUrl = store.permits_image_url ?? null;
 
   if (store.storefront_image_url) {
     storefrontUrl = store.storefront_image_url;
@@ -135,87 +116,9 @@ function configureReviewMode(store) {
   if (store?.verification_status !== 'VERIFIED') return;
 
   $('#review-heading').textContent = 'Step 3: Review & Save Changes';
-  $('#review-description').textContent = 'Review your updates before saving. Certificate approval is managed separately.';
+  $('#review-description').textContent = 'Review your updates before saving. Your LGU approval will remain active.';
   $('#review-notice').style.display = 'none';
   submitBtn.textContent = 'Save changes';
-}
-
-function renderCertificationOptions() {
-  const container = $('#certification-options');
-  const statusLabels = {
-    REQUESTED: 'Requested by admin',
-    PENDING: 'Under review',
-    APPROVED: 'Approved',
-    REJECTED: 'Replacement needed',
-  };
-  const statusClasses = {
-    REQUESTED: 'warn',
-    PENDING: 'info',
-    APPROVED: 'ok',
-    REJECTED: 'bad',
-  };
-
-  container.innerHTML = CERTIFICATE_TYPES.map((certificate) => {
-    const existing = existingCertifications.find((item) => item.certificate_type === certificate.id);
-    const selected = Boolean(existing?.required);
-    const approved = existing?.review_status === 'APPROVED';
-    const fileId = `certificate-file-${certificate.id}`;
-    const status = existing?.review_status;
-    const fileStatus = existing?.storage_path
-      ? 'A certificate file is on record.'
-      : 'No file submitted yet.';
-
-    return `
-      <div style="border:1px solid var(--line);border-radius:var(--r-lg);padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
-          <label for="certificate-select-${certificate.id}" style="display:flex;align-items:flex-start;gap:10px">
-            <input id="certificate-select-${certificate.id}" type="checkbox" data-cert-select="${certificate.id}" ${selected ? 'checked' : ''} ${existing?.required ? 'disabled' : ''}>
-            <span><strong>${esc(certificate.label)}</strong></span>
-          </label>
-          ${status ? `<span class="pill ${statusClasses[status] || 'warn'}">${statusLabels[status] || status}</span>` : ''}
-        </div>
-        ${existing?.admin_notes ? `<p class="muted" style="margin:8px 0 0">${esc(existing.admin_notes)}</p>` : ''}
-        <div data-cert-input-wrap="${certificate.id}" style="display:${selected ? 'block' : 'none'};margin-top:12px">
-          <label class="btn alt" for="${fileId}" style="width:auto">Choose or replace file</label>
-          <input id="${fileId}" type="file" data-cert-file="${certificate.id}" accept="image/jpeg,image/png,image/webp,application/pdf" style="display:none" ${approved ? 'disabled' : ''}>
-          <p class="muted" data-cert-file-name="${certificate.id}" style="font-size:.8rem;margin:8px 0 0">${fileStatus} JPG, PNG, WebP or PDF, up to 10 MB.</p>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  CERTIFICATE_TYPES.forEach((certificate) => {
-    const checkbox = container.querySelector(`[data-cert-select="${certificate.id}"]`);
-    const fileInput = container.querySelector(`[data-cert-file="${certificate.id}"]`);
-    const fileName = container.querySelector(`[data-cert-file-name="${certificate.id}"]`);
-    const inputWrap = container.querySelector(`[data-cert-input-wrap="${certificate.id}"]`);
-
-    checkbox.addEventListener('change', () => {
-      inputWrap.style.display = checkbox.checked ? 'block' : 'none';
-    });
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      if (!file) return;
-      certificationFiles.set(certificate.id, file);
-      fileName.textContent = `Selected: ${file.name}`;
-    });
-  });
-
-  const deadlineInfo = $('#compliance-deadline-info');
-  if (currentStore?.compliance_approved_at) {
-    deadlineInfo.textContent = 'All required certificates have been approved.';
-  } else if (currentStore?.compliance_deadline_at) {
-    const date = new Date(currentStore.compliance_deadline_at).toLocaleDateString('en-PH', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-    deadlineInfo.textContent = `Certificate approval deadline: ${date}. The timer continues while submitted files are under review.`;
-  } else if (currentStore) {
-    deadlineInfo.textContent = 'Your 15-day deadline will begin when an admin emails your compliance notice.';
-  } else {
-    deadlineInfo.textContent = 'Your 15-day deadline starts when you submit your store.';
-  }
 }
 
 function initMap(lat, lng) {
@@ -301,6 +204,7 @@ function bindEvents() {
 
   // Photo uploads
   setupPhotoUpload('storefront');
+  setupPhotoUpload('permits');
 
   // Form submit
   form.addEventListener('submit', handleSubmit);
@@ -350,6 +254,7 @@ async function handleFileSelect(type, file) {
   }
 
   if (type === 'storefront') storefrontUrl = url;
+  if (type === 'permits') permitsUrl = url;
 
   previewEl.src = url;
   previewEl.style.display = 'block';
@@ -463,9 +368,6 @@ function goToStep(step) {
 
 function buildReview() {
   const payments = Array.from(form.querySelectorAll('input[name="payments"]:checked')).map(cb => cb.value);
-  const certificates = Array.from($('#certification-options').querySelectorAll('[data-cert-select]:checked'))
-    .map((checkbox) => CERTIFICATE_TYPES.find((certificate) => certificate.id === checkbox.dataset.certSelect)?.label)
-    .filter(Boolean);
   const content = $(`#review-content`);
   content.innerHTML = `
     <div style="display:grid;gap:12px">
@@ -480,44 +382,9 @@ function buildReview() {
       <div><strong>Hours:</strong> ${form.open_time.value} – ${form.close_time.value}</div>
       <div><strong>Payments:</strong> ${payments.map(p => esc(PAY[p] || p)).join(', ')}</div>
       <div><strong>Storefront photo:</strong> ${storefrontUrl ? '<span class="ok">Uploaded</span>' : '<span class="warn">None</span>'}</div>
-      <div><strong>Certificates selected:</strong> ${certificates.length ? certificates.map(esc).join(', ') : '<span class="warn">None yet</span>'}</div>
+      <div><strong>Permits:</strong> ${permitsUrl ? '<span class="ok">Uploaded</span>' : '<span class="warn">None (optional)</span>'}</div>
     </div>
   `;
-}
-
-async function saveSelectedCertifications(storeId, userId) {
-  const selected = Array.from($('#certification-options').querySelectorAll('[data-cert-select]:checked'));
-  const submitted = [];
-
-  for (const checkbox of selected) {
-    const certificateType = checkbox.dataset.certSelect;
-    const file = certificationFiles.get(certificateType);
-    if (!file) continue;
-
-    const { error: uploadError, path } = await uploadCertification(userId, certificateType, file);
-    if (uploadError) throw new Error(`${CERTIFICATE_TYPES.find((item) => item.id === certificateType)?.label}: ${uploadError.message}`);
-
-    const { error } = await supabase
-      .from('store_certifications')
-      .upsert({
-        store_id: storeId,
-        certificate_type: certificateType,
-        storage_path: path,
-        required: true,
-        review_status: 'PENDING',
-        admin_notes: null,
-        submitted_at: new Date().toISOString(),
-        submission_notified_at: null,
-        reviewed_at: null,
-        reviewed_by: null,
-      }, { onConflict: 'store_id,certificate_type' });
-    if (error) throw error;
-
-    certificationFiles.delete(certificateType);
-    submitted.push(certificateType);
-  }
-
-  return submitted;
 }
 
 async function handleSubmit(e) {
@@ -578,7 +445,7 @@ async function handleSubmit(e) {
       close_time: form.close_time.value,
       accepted_payments: payments,
       storefront_image_url: storefrontUrl || existing?.storefront_image_url || null,
-      permits_image_url: existing?.permits_image_url || null,
+      permits_image_url: permitsUrl || existing?.permits_image_url || null,
       verification_status: isApprovedUpdate ? 'VERIFIED' : 'PENDING',
       srp_compliant: isApprovedUpdate ? existing.srp_compliant : false,
       dti_registered: isApprovedUpdate ? existing.dti_registered : false,
@@ -586,21 +453,13 @@ async function handleSubmit(e) {
     };
 
     let error;
-    let savedStoreId = existing?.id ?? null;
     if (existing) {
-      const res = await supabase
-        .from('stores')
-        .update(storeData)
-        .eq('id', existing.id)
-        .select('id')
-        .single();
+      const res = await supabase.from('stores').update(storeData).eq('id', existing.id);
       error = res.error;
-      if (!error) savedStoreId = res.data.id;
     } else {
       for (let attempt = 0; attempt < 5; attempt++) {
-        const res = await supabase.from('stores').insert(storeData).select('id').single();
+        const res = await supabase.from('stores').insert(storeData);
         error = res.error;
-        if (!error) savedStoreId = res.data.id;
         if (!error || !isDuplicateTrnCodeError(error)) break;
         storeData.trn_code = createTrnCode();
       }
@@ -611,48 +470,16 @@ async function handleSubmit(e) {
       throw error;
     }
 
-    if (!savedStoreId) throw new Error('The store was saved, but its ID could not be loaded.');
-
-    const submittedCertificates = await saveSelectedCertifications(savedStoreId, session.user.id);
-    let emailNoticeError = null;
-    const hasUnnotifiedCertificates = existingCertifications.some((certificate) =>
-      certificate.review_status === 'PENDING'
-      && certificate.storage_path
-      && !certificate.submission_notified_at
+    showMsg(
+      isApprovedUpdate
+        ? 'Store changes saved. Your LGU approval remains active.'
+        : 'Store submitted for verification! LGU will review within 3-5 business days.',
+      'ok'
     );
-    if (submittedCertificates.length || hasUnnotifiedCertificates) {
-      const { data, error: notifyError } = await supabase.functions.invoke('manage-certifications', {
-        body: { action: 'submitted', storeId: savedStoreId },
-      });
-      if (notifyError || data?.success !== true) {
-        emailNoticeError = notifyError?.message || data?.error || 'Email confirmation was not sent.';
-        console.error('Certificate email notification failed:', emailNoticeError);
-      }
-    }
-
-    const message = emailNoticeError
-      ? `Store and certificates saved, but the confirmation email could not be sent: ${emailNoticeError}`
-      : submittedCertificates.length
-        ? 'Certificates submitted for review. Admin review usually takes about 24 hours; the 15-day timer remains until approval.'
-        : isApprovedUpdate
-          ? 'Store changes saved.'
-          : 'Store submitted. Your 15-day certificate deadline has started.';
-    showMsg(message, emailNoticeError ? 'warn' : 'ok');
     submitBtn.disabled = true;
     submitBtn.textContent = isApprovedUpdate ? 'Changes saved' : 'Submitted';
 
-    currentStore = { ...currentStore, id: savedStoreId };
-    existingCertifications = await supabase
-      .from('store_certifications')
-      .select('*')
-      .eq('store_id', savedStoreId)
-      .order('created_at')
-      .then(({ data, error: refreshError }) => {
-        if (refreshError) throw refreshError;
-        return data ?? [];
-      });
-    renderCertificationOptions();
-    setTimeout(() => window.location.href = 'dashboard.html', emailNoticeError ? 5000 : 2000);
+    setTimeout(() => window.location.href = 'dashboard.html', 2000);
   } catch (err) {
     console.error('Submit error:', err);
     const detail = getSubmitErrorMessage(err);
