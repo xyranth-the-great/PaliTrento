@@ -20,6 +20,51 @@
         ],
         "createdAt": "2026-11-12T04:34:57.618Z",
         "reason": "Intentional design: .board has border-top accent on straight edge with only top corners rounded (common header pattern)"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "dist_new/index.html"
+        ],
+        "createdAt": "2026-11-13T10:32:28.881Z",
+        "reason": "user requested carousel animation for featured products - explicit request for auto-scrolling marquee pattern"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "dist/index.html"
+        ],
+        "createdAt": "2026-11-13T10:32:33.693Z",
+        "reason": "user requested carousel animation for featured products"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "dist-new/index.html"
+        ],
+        "createdAt": "2026-11-13T10:32:39.750Z",
+        "reason": "user requested carousel animation for featured products"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "dist-new-build/index.html"
+        ],
+        "createdAt": "2026-11-13T10:32:52.277Z",
+        "reason": "user requested carousel animation for featured products"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-13T10:32:58.200Z",
+        "reason": "user requested carousel animation for featured products"
       }
     ]
   }

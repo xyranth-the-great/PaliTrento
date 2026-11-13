@@ -1,7 +1,19 @@
 # PaliTrento: Handoff README
 
 > Date written: 2026-11-10. Updated: 2026-11-13. Paste this whole file into a new chat and say:
-> "Read this and continue from the 'Where we stopped' section."
+> "Read this and continue from the current-state and pending-check sections."
+
+---
+
+## Current state (2026-11-13)
+
+- Business owners see **My Products**, linking to `dashboard.html#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
+- New Google OAuth accounts are offered **Customer** or **Business owner** after sign-in. Customers continue to Home; business owners continue to store setup. Run `supabase/google-auth-role.sql` in the connected Supabase project for role persistence.
+- Featured products appear on Home, Explore, and Products. The Home carousel moves left in a loop, one card at a time; it pauses on hover/focus or when offscreen, includes Pause/Play, and respects reduced-motion settings. Previous/Next buttons were removed.
+- Sellers can see the customer's name in order chat through `supabase/chat-customer-name.sql`; run it after `orders.sql` and `chat.sql`.
+- Certificate-compliance enforcement was undone. Keep the optional DTI/BMBE permit flow and the public badge wording **Verified**; do not restore the 15-day suspension workflow.
+- Fixed seller store editing to preserve the existing TRN code, fixed the seller Home navigation loop, removed Email digest from Notifications, and implemented server-side account deletion. Confirm the `delete-account` Edge Function is deployed before relying on account deletion.
+- **Pending production checks:** confirm `product-demo-payments.sql`, `google-auth-role.sql`, and `chat-customer-name.sql` have been applied to the correct Supabase project. The carousel build passes, but the latest browser connection timed out, so visually test its loop.
 
 ---
 
@@ -18,7 +30,7 @@
 
 ## 1. What the project is
 
-**PaliTrento** ("Tara, Palit Ta sa Trento!"): a local directory and marketplace for the **Municipality of Trento, Agusan del Sur, Philippines**. Residents find nearby stores, products, prices, and a map. It shows LGU (municipal) price-cap transparency and trust badges (LGU verified, DTI/BMBE registered).
+**PaliTrento** ("Tara, Palit Ta sa Trento!"): a local directory and marketplace for the **Municipality of Trento, Agusan del Sur, Philippines**. Residents find nearby stores, products, prices, and a map. It shows LGU (municipal) price-cap transparency and trust badges (**Verified**, optional DTI/BMBE permits).
 
 **Two source specs existed. My decisions:**
 
@@ -28,7 +40,7 @@
 | Colors / style | Forest green `#1f4d2e`, harvest amber `#e59834`, ivory `#fcf9f2`, font Plus Jakarta Sans |
 | Features | Price-cap (SRP) pills, verification badges, barangay filter, open-now, map |
 | Backend | Supabase (Postgres + Auth + Storage + Realtime) |
-| Login | Planned SMS OTP; **currently email/password** (SMS later) |
+| Login | Email/password, email OTP registration, and Google OAuth; SMS login remains future work |
 | Scope so far | Public pages + login/account + merchant onboarding/dashboard + pickup orders + chat |
 
 **Long-term roadmap (33 screens):** merchant onboarding/dashboard, product detail + pickup orders, buyer-seller chat, LGU admin (verification queue, price broadcasts), offline field-inspector audit tool, QR standees.
@@ -56,7 +68,7 @@ js/admin.js admin-verification.js admin-prices.js admin-reports.js
 js/settings.js          # Settings page logic
 js/forgot-password.js   # Forgot password flow
 js/reset-password.js    # Reset password flow
-supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql  supabase/product-images.sql
+supabase/schema.sql  supabase/seed.sql  supabase/add-store.sql  supabase/email-otp.sql  supabase/orders.sql  supabase/chat.sql  supabase/admin.sql  supabase/admin-notes.sql  supabase/product-images.sql  supabase/product-demo-payments.sql  supabase/chat-customer-name.sql  supabase/google-auth-role.sql
 vite.config.js  (multi-page, target es2022, base: './')  .env  .env.example  CLAUDE.md  README.md
 ```
 
@@ -72,7 +84,9 @@ vite.config.js  (multi-page, target es2022, base: './')  .env  .env.example  CLA
 
 **stores columns:** id, trn_code (unique, TRN-YYYY-NNN), business_name, trade_category (SARI_SARI|CARINDERIA|FRESH_PRODUCE|PHARMACY|SERVICES|AGRI), proprietor_name, contact_number (+63...), barangay, purok, landmark_reference, lat, lng, bmbe_registered, dti_registered, srp_compliant, verification_status (PENDING|VERIFIED|REJECTED|CLARIFICATION_REQUIRED), open_time, close_time, accepted_payments text[] (CASH|GCASH|TRIKE_COD), storefront_image_url, permits_image_url, admin_notes, verified_at, verified_by, user_id (FK to auth.users), created_at.
 
-**products columns:** id, store_id, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price, lgu_srp_ceiling (null = no cap), in_stock, quantity, image_url, created_at.
+**products columns:** id, store_id, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price, lgu_srp_ceiling (null = no cap), in_stock, quantity, image_url, `featured_until`, created_at.
+
+**Migration reminder:** `supabase/product-demo-payments.sql` adds `featured_until`; `supabase/google-auth-role.sql` adds the Google account-role RPC; `supabase/chat-customer-name.sql` adds the participant-checked buyer-name RPC. Confirm each is applied to the Supabase project used by the app.
 
 **profiles columns (NO email column; email lives in Supabase Auth):** id (= auth user id), full_name, role (customer|business_owner|admin), barangay, created_at, avatar_url.
 
@@ -171,13 +185,15 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
    6. npm run build and report what changed. Don't touch .env, SQL, RLS, settings.
    ```
 
-**First thing to ask me:** did I run that fix, and after restarting `npm run dev` + hard refresh (Ctrl+Shift+R), does saving now show "Saved" with no red 400 in the Console? If still failing, ask for the Network tab (filter `profiles`) Status + Response of the failing request.
+**Status:** This account-page profile-save issue was fixed; do not ask about it unless it reappears.
 
 ---
 
-## 5. WHERE WE STOPPED (open bug)
+## 5. Current and recent status
 
 **The account page save bug above is FIXED.** The email column was removed from the profiles select, error handling improved, favicon added.
+
+Recent requests completed on 2026-11-13 include featured-product promotion and placement on Home/Explore/Products; the left-looping carousel; Google account type selection; customer names in seller chat; the seller **My Products** navigation; hiding order-page links for admins/sellers; the Admin Dashboard title; removing Email digest; and undoing the certificate-compliance workflow. See **Current state** at the top for behavior and pending Supabase steps.
 
 **Next features completed since then:**
 
@@ -225,8 +241,8 @@ create policy "own avatar delete" on storage.objects for delete to authenticated
     - Badge always renders (hidden when 0) so realtime can find it
 
 13. **My Orders page** (`orders.html`)
-    - Separate page for order history, accessible via main nav "My Orders"
-    - Avatar dropdown also links to `orders.html`
+    - Customer order history; only customer navigation links to it
+    - Admin and business-owner navigation do not link to `orders.html`
     - Product detail redirects to `orders.html` after reserve
 
 14. **Account page fix** — Removed Orders tab, now Profile only
@@ -339,7 +355,7 @@ export default defineConfig({
 2. Claude built the first pass (5 public pages + Supabase schema/seed) and delivered `palitrento.zip`; later wrote `CLAUDE.md` for Claude Code.
 3. I asked about free SMS providers. Answer: none truly free; PhilSMS cheapest (no setup/minimum), Semaphore a bit higher; start with email login. I then said to just guide me step by step instead of building.
 4. I ran the project, connected Supabase (fixed `.env` vs `.env.example` problem), added my first real store via Claude Code-generated SQL.
-5. Built email/password login with Claude Code; fixed the URL crash on register; hit the account-page issues; requested avatar upload; hit the `email` column 400 error (current open bug).
+5. Built email/password login with Claude Code; fixed the URL crash on register and the account/profile errors; requested avatar upload.
 6. I asked for this README to continue in another account.
 7. **2026-11-12:** Purchased `palitrento.online` domain, configured DNS at Z.com, updated vite.config.js for custom domain, deployed to GitHub Pages.
 8. **2026-11-12 (later):** Added GitHub Actions workflow (`.github/workflows/deploy.yml`) for automated deployment to GitHub Pages with Supabase secrets. Fixed deploy path to `dist-fix`. Added Resend DNS records at Z.com (DKIM, CNAME rsend/send, DMARC). Verified `palitrento.online` in Resend. Updated `send-email-otp` Edge Function sender to `no-reply@palitrento.online` and deployed to Supabase.
@@ -347,6 +363,7 @@ export default defineConfig({
 10. **2026-11-12 (later):** Implemented QR Standee PDF generation in `standee.html` — A5/A4 printable store signage with QR code.
 11. **2026-11-13:** Created Settings page (`settings.html`, `js/settings.js`) with 6 tabs: Profile (avatar, name, barangay), Notifications (6 toggles), Privacy (5 toggles + data export), Security (password change, active sessions), Preferences (language, theme, reduce motion), Danger Zone (delete account, delete store).
 12. **2026-11-13:** Configured Supabase SMTP via Resend (`smtp.resend.com:587`, user `resend`, pass `re_...`). Enabled Confirm email in Supabase Auth. Password reset and email confirmations now work via Supabase SMTP. Updated Edge Function `send-email-otp` to v6 with production sender.
+13. **2026-11-13:** Added featured-product promotion and a smooth left-loop carousel; added Google OAuth role choice, seller chat customer-name display, and role-aware My Products navigation. Updated the Admin Dashboard title, removed Email digest, and rolled back the 15-day certificate-compliance workflow. Fixed seller store edits to preserve TRN and seller Home navigation. Implemented the account-deletion Edge Function; deployment status still needs confirmation.
 
 ---
 
@@ -356,6 +373,7 @@ export default defineConfig({
 |---|---|
 | `send-email-otp` | Sends 6-digit code via Resend |
 | `verify-email-otp` | Verifies code, marks used |
+| `delete-account` | Server-side account deletion; confirm it is deployed before relying on it |
 
 **Secrets set in Supabase Dashboard → Edge Functions:**
 - `RESEND_API_KEY` (starts with `re_`)
@@ -372,8 +390,8 @@ export default defineConfig({
 
 ## 11. What to do in a new chat
 
-1. **Paste this README** and say: "Read this and continue from the 'Where we stopped' section."
-2. I'll tell you where I am (likely testing the chat badge flow).
+1. **Paste this README** and say: "Read this and continue from the current-state and pending-check sections."
+2. Start by confirming the listed Supabase migrations and Edge Function deployment, then browser-test the featured carousel.
 3. You guide me step by step — one command/click at a time.
 4. When code is needed, write a ready-to-paste instruction for **Claude Code** (my coding agent in VS Code).
 
@@ -418,4 +436,4 @@ VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ---
 
-**End of handoff.** Paste this into a new chat and say: "Read this and continue from the 'Where we stopped' section."
+**End of handoff.** Paste this into a new chat and say: "Read this and continue from the current-state and pending-check sections."

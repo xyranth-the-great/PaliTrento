@@ -8,7 +8,7 @@ Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this fil
 
 PaliTrento is a hyperlocal discovery platform for the Municipality of Trento, Agusan del Sur, Philippines: a directory and marketplace of local businesses (sari-sari stores, carinderias, market stalls, pharmacies, agri suppliers, services), with products, prices, a map, and LGU (local government) price-cap transparency.
 
-It is a municipality-specific platform, not a generic national one. Filipino/Visayan UX touches, peso pricing, barangay awareness, and trust signals (LGU verified, DTI/BMBE registered, price-cap compliance) are core.
+It is a municipality-specific platform, not a generic national one. Filipino/Visayan UX touches, peso pricing, barangay awareness, and trust signals (Verified badge, optional DTI/BMBE permits, price-cap compliance) are core.
 
 Mission: make it easy for Trento residents to find, support, and transact with local businesses, and give micro-entrepreneurs a zero-friction digital presence.
 
@@ -25,7 +25,7 @@ Topic	Decision
 Stack	Doc 1: Vite + vanilla JS (ES modules), no framework
 Colors / visual style	Doc 2 palette
 Features	Doc 2 features (price caps, verification badges, barangay filter, open-now)
-Login	Doc 2: SMS OTP (not built yet, see section 8)
+Login	Email/password, email OTP registration, and Google OAuth are implemented. SMS login remains future work.
 Backend	Supabase (Postgres + Auth), accessed from JS with @supabase/supabase-js
 First pass scope	Public pages only: home, explore, map, products, business
 
@@ -50,7 +50,7 @@ Note: Vite is only a build/dev tool. Supabase works in any JS; Vite just injects
 --ok:#15803d/#dcfce7  --warn:#b45309/#fef3c7  --bad:#b91c1c/#fee2e2  --info:#0284c7/#e0f2fe
 --font: 'Plus Jakarta Sans'   radii 6/8/12/16
 
-Rules followed: WCAG AA contrast (amber is used as a background with dark-green text, never as text on white); visible focus rings (amber, 3px); no bounce easing (cubic-bezier(.16,1,.3,1)); prefers-reduced-motion keeps color/opacity transitions; container padding 24px; mobile-first responsive.
+Rules followed: WCAG AA contrast (amber is used as a background with dark-green text, never as text on white); visible focus rings (amber, 3px); no bounce easing (cubic-bezier(.16,1,.3,1)); prefers-reduced-motion keeps color/opacity transitions; container padding 24px; mobile-first responsive. Public verification wording is **Verified** (not "LGU verified").
 
 Signature element: the Bantay Presyo price board on the home page. It lists staples with today's price vs the LGU price cap and a "Within cap" / "Over cap by ₱X" pill.
 
@@ -58,22 +58,22 @@ Copy style: plain, active, sentence case. Light Filipino touches ("Tara, Palit T
 
 5. What is built (first pass + subsequent features)
 palitrento/
-├── index.html      Home: hero search, category chips, Bantay Presyo board, featured stores
-├── explore.html    Search + filters (category, barangay, open now, LGU verified)
+├── index.html      Home: hero search, category chips, featured products carousel, Bantay Presyo board, featured stores
+├── explore.html    Search + filters (category, barangay, open now, Verified); featured products
 ├── map.html        Full-height Leaflet map + store list + "Show my location"
-├── products.html   Product catalog with price-cap pills; filters
+├── products.html   Product catalog with price-cap pills; filters and featured products
 ├── business.html   Detail page, loaded as business.html?trn=TRN-2024-089
 ├── register.html   Email/password registration with email OTP (Resend)
-├── login.html      Email/password login
+├── login.html      Email/password and Google login
 ├── account.html    Profile (name, barangay, avatar) — no Orders tab
 ├── verify.html     6-digit email OTP verification
-├── orders.html     My Orders page (order history)
+├── orders.html     Customer My Orders page (not linked in admin or business-owner navigation)
 ├── settings.html   Settings page (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
 ├── forgot-password.html   Request password reset link
 ├── reset-password.html    Set new password via email link
 ├── register-business.html  Business owner registration
 ├── store-setup.html  3-step store setup (details, GPS pin, photos)
-├── dashboard.html  Business owner dashboard (Products CRUD, Orders, Analytics)
+├── dashboard.html  Business owner dashboard (My Products inventory, Orders, Analytics)
 ├── chat.html       Buyer-seller chat per order (Supabase Realtime)
 ├── admin.html      Admin dashboard (stats, quick actions)
 ├── admin-verification.html  Store verification queue
@@ -103,16 +103,21 @@ palitrento/
 │   ├── chat.sql     Messages table + RLS + Realtime
 │   ├── admin.sql     Advisories + admin RLS
 │   ├── admin-notes.sql   admin_notes, verified_at, verified_by
-│   ├── product-images.sql  Product images bucket + RLS (NEW)
+│   ├── product-images.sql  Product images bucket + RLS
+│   ├── product-demo-payments.sql  Featured-product expiry field
+│   ├── google-auth-role.sql  Secure role persistence for new Google accounts
+│   ├── chat-customer-name.sql  Participant-checked customer-name RPC
 ├── vite.config.js  .env.example  package.json  README.md  .gitignore
 
 How it works
 
-Each page HTML has <div id="chrome-top"> (and #chrome-foot); renderChrome(activePage) injects the header/nav/footer.
+Each page HTML has <div id="chrome-top"> (and #chrome-foot); renderChrome(activePage) injects the header/nav/footer. Business owners see **My Products**, which opens their own dashboard inventory; customers retain **My Orders**, while admin and business-owner navigation has no orders.html link.
 data.js queries Supabase; if the client is null or the table is empty, it returns seed data, so the site always renders.
 Store → products link: products.store_id === stores.id. In seed data ids are s1..s8; in Supabase they are UUIDs.
 Open/closed is computed client-side from open_time / close_time and the visitor's local clock.
 All user/DB strings go through esc() before innerHTML.
+New Google OAuth accounts are offered Customer or Business owner registration; role saving requires `supabase/google-auth-role.sql`. Seller order chat can display the customer's name through `supabase/chat-customer-name.sql`.
+Featured products are available on Home, Explore, and Products. The Home carousel moves left in a loop, pauses on hover/focus or when offscreen, retains Pause/Play, and respects reduced motion. A single featured product remains static; Previous/Next controls are removed.
 
 Verified: npm install && npm run build succeeds. Not yet verified in a browser; run npm run dev and click through every page.
 
@@ -120,7 +125,7 @@ Verified: npm install && npm run build succeeds. Not yet verified in a browser; 
 
 stores: id uuid pk, trn_code text unique (TRN-YYYY-NNN), business_name, trade_category (SARI_SARI|CARINDERIA|FRESH_PRODUCE|PHARMACY|SERVICES|AGRI), proprietor_name, contact_number (E.164), barangay, purok, landmark_reference, lat, lng, bmbe_registered, dti_registered, srp_compliant, verification_status (PENDING|VERIFIED|REJECTED|CLARIFICATION_REQUIRED), open_time, close_time, accepted_payments text[] (CASH|GCASH|TRIKE_COD), storefront_image_url, permits_image_url, admin_notes, verified_at, verified_by, user_id fk→auth.users, created_at
 
-products: id uuid pk, store_id fk→stores, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price numeric, lgu_srp_ceiling numeric (null = no cap), in_stock, quantity, image_url, created_at
+products: id uuid pk, store_id fk→stores, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price numeric, lgu_srp_ceiling numeric (null = no cap), in_stock, quantity, image_url, featured_until (featured promotion expiry), created_at
 
 profiles: id uuid pk (= auth.users.id), full_name, role (customer|business_owner|admin), barangay, avatar_url, created_at
 
@@ -139,7 +144,7 @@ RLS policies:
 
 Planned tables (from the specs, not yet created): inspections (offline field audit records)
 
-Fields in Doc 2 not yet in the schema: compliance.dti_cert_no, brgy_clearance_no, verified_at, verified_by_officer_id, standee_kit (qr_payload_url, pdf_cmyk_url), remaining_stock_qty, low_stock_threshold, cook_batch_time, purok_broadcast_active, srp_variance_percentage, image_url (now added to products).
+Fields in Doc 2 not yet in the schema: compliance.dti_cert_no, brgy_clearance_no, verified_by_officer_id, standee_kit (qr_payload_url, pdf_cmyk_url), remaining_stock_qty, low_stock_threshold, cook_batch_time, purok_broadcast_active, srp_variance_percentage.
 
 7. Full Doc 2 screen map (the long-term roadmap, 33 screens)
 
@@ -159,14 +164,16 @@ Doc 1's original roadmap: seed 10-20 merchants, wire explore to Supabase, produc
 SMS OTP login is not built. Supabase phone auth natively supports Twilio, MessageBird, Vonage, Textlocal. For a Philippine gateway (Semaphore / Movider / PhilSMS) you must use an Auth "Send SMS" hook (Edge Function). The user has not yet chosen an SMS provider. Ask before building auth.
 Barangay list in js/ui.js was written from memory (16 names). Verify against the official PSGC list for Trento.
 Sample data is fictional. Replace seed.js and seed.sql with real merchants.
-No images yet. Doc 2 referenced 3 image assets as unresolved placeholders ({{DATA:IMAGE:...}}): hero market illustration, sari-sari storefront photo, banana basket photo.
-Supabase keys not yet connected; pages currently run on seed data.
+The three original Doc 2 image placeholders (hero market illustration, sari-sari storefront photo, banana basket photo) are not confirmed as replaced. Product/store image upload features exist separately.
+Production status of the `product-demo-payments.sql`, `google-auth-role.sql`, and `chat-customer-name.sql` migrations has not been confirmed; verify before relying on those features in production.
 business.html links use trn_code in the query string (?trn=), not a pretty path.
 Accessibility and the old "Impeccable detector" quality gate from Doc 1 have not been run.
 Doc 1 used base path /PaliTrento/ for GitHub Pages; this build uses `base: './'` in vite.config.js for custom domain `palitrento.online`.
 Product images bucket migration completed — upload working in Dashboard.
 QR Standee PDF implemented in `standee.html` — A5/A4 printable store signage.
-Settings page implemented in `settings.html` / `js/settings.js` — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone.
+Settings page implemented in `settings.html` / `js/settings.js` — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone. Email digest was removed from Notifications.
+Certificate compliance enforcement was undone at the user's request. DTI/BMBE permits remain optional; do not reinstate the 15-day compliance deadline or automatic account suspension.
+Account deletion uses a server-side `delete-account` Edge Function. Its deployment status is unconfirmed; verify deployment and behavior before documenting the feature as production-ready.
 Custom domain configured: DNS at Z.com (4 A records + 1 CNAME + Resend records), GitHub Pages custom domain enabled with Enforce HTTPS (GitHub Actions deployment), Supabase Auth URLs updated.
 Resend domain `palitrento.online` verified (DKIM, CNAME rsend/send, DMARC at Z.com). Edge Function `send-email-otp` sender updated to `no-reply@palitrento.online` (deployed v6).
 Supabase SMTP configured via Resend: `smtp.resend.com:587`, user `resend`, pass `re_...`, sender `no-reply@palitrento.online`. Confirm email: ON.
@@ -174,16 +181,10 @@ GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SU
 
 9. Suggested next steps (in order)
 
-Run npm install && npm run dev; browser-test all pages (desktop + mobile width).
-Create the Supabase project, run schema.sql then seed.sql, fill .env, confirm pages show DB data.
-Decide the SMS provider, then build login: OTP screen, barangay onboarding, profiles table + trigger, role-based nav.
-Merchant flow: onboarding (screens 16-18), dashboard (19), product add/edit with live cap check (20-21). Needs owner RLS policies.
-Product detail page + reserve-for-pickup orders; buyer ↔ seller chat via Supabase Realtime.
-Admin/LGU: verification queue, price broadcast composer, reports.
-Offline field-inspector tool (IndexedDB queue + idempotent batch sync).
-Price Broadcast Push — Notify users when LGU posts new price caps.
-SMS OTP — PhilSMS/Semaphore via Edge Function.
-Push Notifications — Browser push for order updates.
+Apply/confirm the three migrations listed in section 5 for featured products, Google role selection, and seller chat customer names.
+Confirm the `delete-account` Edge Function is deployed; test account deletion end to end.
+Browser-test the featured carousel loop, including wraparound, sparse lists, pause behavior, and reduced-motion behavior. The production build passes; the latest browser connection timed out.
+Continue longer-term work only after checking current code and production state: SMS login, push notifications, offline field inspection, price broadcasts, and other roadmap features.
 
 10. Working conventions for Claude Code
 
@@ -192,7 +193,7 @@ Change design values in the :root tokens in css/styles.css first, then component
 Reuse ui.js helpers; escape all dynamic strings with esc().
 Always keep the seed-data fallback working so the site renders without Supabase.
 Prices use peso() (₱). Categories/units/payments come from CATS/UNITS/PAY in ui.js. Don't duplicate labels.
-Use plain, user-facing wording ("Within cap", "LGU verified"), not system terms.
+Use plain, user-facing wording ("Within cap", "Verified"), not system terms.
 Never commit .env. The anon key is public-safe only because RLS restricts access, so every new table needs RLS policies.
 Test: npm run build must pass; check keyboard focus and mobile layout after UI changes.
 
@@ -212,4 +213,5 @@ Subsequent sessions: built email OTP auth, avatar upload, merchant onboarding, d
 2026-11-12 (later): Implemented QR Standee PDF in `standee.html` — A5/A4 printable store signage.
 2026-11-13: Created Settings page (`settings.html`, `js/settings.js`) — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone.
 2026-11-13: Configured Supabase SMTP via Resend (`smtp.resend.com:587`), enabled Confirm email. Password reset and email confirmations now work.
-Current focus: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.
+Current next steps: Confirm the Supabase migrations and `delete-account` Edge Function deployment noted in section 5, then browser-test the featured carousel loop.
+2026-11-13 update: Updated seller/admin navigation, Google OAuth role choice, chat customer-name display, featured-product placement and smooth left-loop carousel. Removed Email digest and rolled back the 15-day certificate-compliance workflow. See section 5 for migration and deployment checks.

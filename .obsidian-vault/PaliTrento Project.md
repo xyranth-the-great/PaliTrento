@@ -33,19 +33,20 @@ custom-domain: palitrento.online
 ## 🎯 Core Features (Completed)
 
 ### Public Pages
-- [x] **Home** — Hero search, category chips, Bantay Presyo price board, featured stores
-- [x] **Explore** — Search + filters (category, barangay, open now, LGU verified)
+- [x] **Home** — Hero search, category chips, featured products carousel above the Bantay Presyo price board, featured stores
+- [x] **Explore** — Search + filters (category, barangay, open now, Verified); includes active featured products
 - [x] **Map** — Full-height Leaflet map + store list + "Show my location"
-- [x] **Products** — Product catalog with price-cap pills, filters
+- [x] **Products** — Product catalog with price-cap pills, filters, and active featured products
 - [x] **Business** — Detail page (`business.html?trn=TRN-2024-089`)
 
 ### Authentication & Accounts
 - [x] **Email OTP registration** (Resend, 6-digit code, 10-min expiry)
 - [x] **Email/password login** (Supabase Auth, Confirm email ON)
+- [x] **Google OAuth** — new accounts choose Customer or Business owner; business owners continue to store setup
 - [x] **Forgot password / Password reset** (Supabase SMTP via Resend)
 - [x] **Account page** — Profile (name, barangay, avatar)
 - [x] **Avatar upload** — JPG/PNG/WebP, 2MB max, crop to 256x256, stored in `avatars` bucket
-- [x] **Avatar dropdown** — Role-based (Dashboard/My Orders/Account/Settings/Logout), hover desktop / click mobile
+- [x] **Avatar dropdown** — Role-based account links, Settings, and Logout; hover desktop / click mobile
 - [x] **Settings page** — Profile, Notifications, Privacy, Security, Preferences, Danger Zone (`settings.html`)
 
 ### Merchant Features
@@ -53,17 +54,21 @@ custom-domain: palitrento.online
 - [x] **3-step store setup** — Details + GPS pin (Leaflet) + Photos (storefront/permits)
 - [x] **Business owner dashboard** — Products CRUD, Orders workflow (Confirm→Ready→Complete), Analytics
 - [x] **Product image upload** — Dashboard edit product → upload → stored in `product-images` bucket
+- [x] **Featured product ads** — Demo payment and `featured_until` scheduling; active ads appear on Home, Explore, and Products
 - [x] **QR Standee PDF** — Generate A5/A4 printable PDF for store signage (via `standee.html`)
 
 ### Orders & Chat
 - [x] **Product detail page** — Reserve for pickup, quantity, payment method
 - [x] **Pickup orders** — PENDING → CONFIRMED → READY_FOR_PICKUP → COMPLETED
 - [x] **Buyer-Seller chat** (Supabase Realtime, per-order, optimistic UI, read receipts)
+- [x] **Seller-visible customer name** — Participant-checked RPC exposes the buyer's name in seller chat
 - [x] **Unread message badge** — Real-time, cross-page, clears on chat open
-- [x] **My Orders page** (`orders.html`) — Separate page for order history, accessible via nav
+- [x] **My Orders page** (`orders.html`) — Customer order history; hidden from admin/business-owner navigation
+- [x] **My Products navigation** — Business owners open their own dashboard Products tab
 
 ### LGU Admin
 - [x] **Admin dashboard** — Stats cards, quick actions
+- [x] Admin heading and page title say **Admin Dashboard**
 - [x] **Verification queue** — Filterable, review modal (Approve/Clarification/Reject)
 - [x] **Price broadcasts** — Create/manage advisories
 - [x] **Reports** — Category/barangay breakdown, price cap compliance
@@ -93,7 +98,7 @@ palitrento2/
 │   ├── admin.js, admin-verification.js, admin-prices.js, admin-reports.js
 │   ├── settings.js, forgot-password.js, reset-password.js
 ├── supabase/
-│   ├── schema.sql              # Core tables + RLS
+│   ├── schema.sql              # Core tables + RLS (products include featured_until)
 │   ├── seed.sql                # 4 fake stores + products
 │   ├── add-store.sql           # Manual store insert template
 │   ├── email-otp.sql           # email_otp_codes table + RLS
@@ -101,7 +106,10 @@ palitrento2/
 │   ├── chat.sql                # Messages table + RLS + Realtime
 │   ├── admin.sql               # Advisories + admin RLS
 │   ├── admin-notes.sql         # admin_notes, verified_at, verified_by
-│   ├── product-images.sql      # Product images bucket + RLS (NEW)
+│   ├── product-images.sql      # Product images bucket + RLS
+│   ├── product-demo-payments.sql # featured_until column for promoted products
+│   ├── chat-customer-name.sql  # Participant-checked buyer-name RPC
+│   ├── google-auth-role.sql    # Secure Google sign-up role selection RPC
 ├── .env                        # Real keys (gitignored)
 ├── .env.example                # Placeholders only
 ├── vite.config.js              # Multi-page, target es2022, base: './'
@@ -119,7 +127,7 @@ palitrento2/
 | Table | Key Columns |
 |-------|-------------|
 | `stores` | `id`, `trn_code`, `business_name`, `trade_category`, `proprietor_name`, `contact_number`, `barangay`, `purok`, `landmark_reference`, `lat`, `lng`, `bmbe_registered`, `dti_registered`, `srp_compliant`, `verification_status`, `open_time`, `close_time`, `accepted_payments`, `storefront_image_url`, `permits_image_url`, `admin_notes`, `verified_at`, `verified_by`, `user_id`, `created_at` |
-| `products` | `id`, `store_id`, `name`, `category`, `unit`, `current_price`, `lgu_srp_ceiling`, `in_stock`, `quantity`, `image_url`, `created_at` |
+| `products` | `id`, `store_id`, `name`, `category`, `unit`, `current_price`, `lgu_srp_ceiling`, `in_stock`, `quantity`, `image_url`, `featured_until`, `created_at` |
 | `profiles` | `id` (FK auth.users), `full_name`, `role` (customer\|business_owner\|admin), `barangay`, `avatar_url`, `created_at` |
 | `orders` | `id`, `buyer_id`, `store_id`, `product_id`, `quantity`, `total_price`, `status`, `payment_method`, `notes`, `confirmed_at`, `ready_at`, `completed_at`, `created_at` |
 | `messages` | `id`, `order_id`, `sender_id`, `content`, `read_at`, `created_at` |
@@ -302,7 +310,7 @@ export default defineConfig({
 7. ✅ Pickup Orders (Reserve → Confirm → Ready → Complete)
 8. ✅ Buyer-Seller Chat (Realtime, optimistic UI, read receipts)
 9. ✅ Unread Message Badge (Real-time, cross-page, clears on chat open)
-10. ✅ **My Orders page** (`orders.html`) — Separate page, accessible via nav
+10. ✅ **My Orders page** (`orders.html`) — Customer order history; not linked from admin/business-owner navigation
 11. ✅ **Account page fix** — Removed Orders tab, now Profile only
 12. ✅ **Profile save bug fix** — Removed `email` from profiles select
 13. ✅ **Product detail redirect** → `orders.html` after reserve
@@ -314,9 +322,18 @@ export default defineConfig({
 19. ✅ **Settings page** — Profile, Notifications, Privacy, Security, Preferences, Danger Zone (`settings.html`, `js/settings.js`) (2026-11-13)
 20. ✅ **SMTP + Confirm email** — Supabase SMTP via Resend (`smtp.resend.com:587`), Confirm email ON, password reset enabled (2026-11-13)
 21. ✅ **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser` (2026-11-13)
+22. ✅ **Featured product promotions** — Demo listing/ad payment, `featured_until`, and featured sections on Home, Explore, and Products; Home carousel loops left and pauses on request (2026-11-13)
+23. ✅ **Role-aware navigation** — Business owners see **My Products** linking to `dashboard.html#tab-products`; customers retain **My Orders**; admins/business owners have no `orders.html` navigation link (2026-11-13)
+24. ✅ **Google OAuth account type** — New Google sign-ups choose Customer or Business owner; business owners continue to store setup (2026-11-13)
+25. ✅ **Seller chat customer name** — Secure participant-checked RPC allows the seller to see the buyer's name in an order chat (2026-11-13)
+26. ✅ **Admin title** — Page title and heading now say **Admin Dashboard** (2026-11-13)
+27. ✅ **Verification workflow decision** — The 15-day certificate-compliance workflow was undone; optional DTI/BMBE permit upload remains and the public badge says **Verified** (2026-11-13)
+28. ✅ **Recent bug fixes** — Store edits preserve existing TRN codes; seller Home navigation no longer loops to the dashboard; account deletion uses a server-side Edge Function (deployment unconfirmed); Email digest was removed from Notifications (2026-11-13)
 
 ### In Progress
-- (none — all current blockers resolved)
+- Confirm/apply the Google role-selection, customer-name chat, and featured-product Supabase SQL migrations on the connected project.
+- Confirm the `delete-account` Edge Function is deployed and test account deletion end to end.
+- Browser-test the seamless leftward featured-products loop; the production build passes, but the shared browser connection timed out.
 
 ### Known Issues (Resolved)
 1. ❌ Explore showed 8 fake stores → Fixed `.env` vs `.env.example`
@@ -325,16 +342,18 @@ export default defineConfig({
 4. ❌ Profile save shows error → Removed `email` from profiles select (doesn't exist)
 5. ❌ Chat badge not showing → Fixed badge always renders + query fix + realtime listener
 6. ❌ **Dashboard orders 400 error** → Removed `email` from profiles select in dashboard.js
-7. ❌ Product detail redirect → Now goes to `orders.html`
+7. ❌ Product detail redirect → Now goes to `orders.html` after reserve (customer flow)
+8. ❌ Missing `featured_until` column → Migration exists in `supabase/product-demo-payments.sql`; confirm it has been run on the connected Supabase project.
 
 ---
 
 ## 🎯 Next Up (Priority Order)
 
-1. **Price Broadcast Push** — Notify users when LGU posts new price caps
-2. **SMS OTP** — PhilSMS/Semaphore via Edge Function
-3. **Push Notifications** — Browser push for order updates
-4. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
+1. **Confirm Supabase setup** — Apply/verify `product-demo-payments.sql`, `google-auth-role.sql`, and `chat-customer-name.sql` as needed.
+2. **Price Broadcast Push** — Notify users when LGU posts new price caps
+3. **SMS OTP** — PhilSMS/Semaphore via Edge Function
+4. **Push Notifications** — Browser push for order updates
+5. **Offline Field Inspector** — IndexedDB + batch sync for LGU audits
 
 ---
 
@@ -353,5 +372,5 @@ export default defineConfig({
 ---
 
 > **Last updated:** 2026-11-13
-> **Current phase:** Core features complete — Product images ✅, QR Standee ✅, Resend verified ✅, Settings page ✅, SMTP/Confirm email ✅, Forgot password ✅. Next: Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector
-> **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the 'Where we stopped' section."
+> **Current phase:** Recent UI/auth updates are implemented and build-verified. Confirm the three Supabase migrations and browser-test the featured-product carousel. Then continue with Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.
+> **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the current-state and pending-check sections."

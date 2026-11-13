@@ -45,7 +45,8 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== 'in
     $('#board').innerHTML = capped.map(p => { const c = srp(p); return `<div class="prow">
   <div>${esc(p.name)}<div class="muted">Cap ${peso(p.lgu_srp_ceiling)} per ${UNITS[p.unit] || 'pc'}</div></div>
   <b>${peso(p.current_price)}</b><span class="pill ${c.cls}">${c.text}</span></div>`; }).join('') || '<p class="muted">No price advisories yet.</p>';
-    $('#featured').innerHTML = stores.slice(0, 6).map(storeCard).join('');
+    const featuredCards = stores.slice(0, 6).map(storeCard).join('');
+    $('#featured-track').innerHTML = featuredCards + featuredCards;
   }
 }
 

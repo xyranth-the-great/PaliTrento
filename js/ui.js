@@ -67,8 +67,6 @@ export function initializeFeaturedProductsCarousel(section) {
   const viewport = carousel.querySelector('.featured-products-viewport');
   const track = viewport.querySelector('.featured-products-grid');
   const controls = carousel.querySelector('[data-featured-controls]');
-  const previous = carousel.querySelector('[data-featured-prev]');
-  const next = carousel.querySelector('[data-featured-next]');
   const status = carousel.querySelector('[data-featured-status]');
   const toggle = carousel.querySelector('[data-featured-toggle]');
   const cards = Array.from(track.children);
@@ -85,8 +83,8 @@ export function initializeFeaturedProductsCarousel(section) {
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   let position = 0;
-  let direction = 1;
   let timer = null;
+  let loopResetTimer = null;
   let onScreen = !('IntersectionObserver' in window);
   let hovered = false;
   let focused = false;
@@ -101,26 +99,21 @@ export function initializeFeaturedProductsCarousel(section) {
     return slides.length > 1 && slides.length < configuredCount ? 1 : configuredCount;
   }
 
-  function maxPosition() {
-    return Math.max(0, slides.length - visibleCount());
-  }
-
   function update() {
     carousel.classList.toggle('is-sparse', slides.length > 0 && slides.length < configuredVisibleCount());
     const visible = visibleCount();
-    const max = maxPosition();
-    position = Math.min(position, max);
+    position = Math.min(position, slides.length);
     const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
     const step = (slides[0]?.getBoundingClientRect().width || 0) + gap;
     track.style.transform = `translate3d(${-position * step}px, 0, 0)`;
-    slides.forEach((slide, index) => {
-      slide.inert = index < position || index >= position + visible;
+    Array.from(track.children).forEach((slide, index) => {
+      slide.inert = slide.hasAttribute('data-featured-clone')
+        || index < position
+        || index >= position + visible;
     });
-    controls.hidden = max === 0;
-    previous.disabled = position === 0;
-    next.disabled = position === max;
+    controls.hidden = slides.length <= 1;
     status.textContent = slides.length
-      ? `${position + 1}-${Math.min(position + visible, slides.length)} of ${slides.length}`
+      ? `${(position % slides.length) + 1} of ${slides.length}`
       : '0 of 0';
     toggle.hidden = reduceMotion.matches;
     toggle.disabled = reduceMotion.matches;
@@ -133,7 +126,7 @@ export function initializeFeaturedProductsCarousel(section) {
     }
 
     if (
-      max > 0
+      slides.length > 1
       && !userPaused
       && !reduceMotion.matches
       && onScreen
@@ -145,32 +138,57 @@ export function initializeFeaturedProductsCarousel(section) {
     }
   }
 
-  function moveTo(nextPosition) {
-    const currentPosition = position;
-    position = Math.max(0, Math.min(nextPosition, maxPosition()));
-    if (position !== currentPosition) direction = position > currentPosition ? 1 : -1;
-    status.setAttribute('aria-live', 'polite');
+  function resetLoop() {
+    if (position !== slides.length) return;
+    clearTimeout(loopResetTimer);
+    loopResetTimer = null;
+    track.style.transition = 'none';
+    position = 0;
     update();
+    track.getBoundingClientRect();
+    track.style.removeProperty('transition');
+  }
+
+  function rebuildClones() {
+    track.style.transition = 'none';
+    track.querySelectorAll('[data-featured-clone]').forEach(clone => clone.remove());
+    if (slides.length > 1) {
+      for (let index = 0; index < visibleCount(); index += 1) {
+        const clone = slides[index % slides.length].cloneNode(true);
+        clone.dataset.featuredClone = 'true';
+        clone.setAttribute('aria-hidden', 'true');
+        clone.inert = true;
+        track.appendChild(clone);
+      }
+    }
+    if (position >= slides.length) position = 0;
+    update();
+    track.getBoundingClientRect();
+    track.style.removeProperty('transition');
   }
 
   function advanceAutomatically() {
-    const max = maxPosition();
-    if (position >= max) direction = -1;
-    else if (position <= 0) direction = 1;
-    position += direction;
     status.setAttribute('aria-live', 'off');
+    if (position >= slides.length - 1) {
+      position = slides.length;
+      update();
+      loopResetTimer = setTimeout(resetLoop, 300);
+      return;
+    }
+    position += 1;
     update();
   }
 
-  previous.addEventListener('click', () => moveTo(position - 1));
-  next.addEventListener('click', () => moveTo(position + 1));
+  track.addEventListener('transitionend', event => {
+    if (event.target === track && event.propertyName === 'transform') resetLoop();
+  });
   toggle.addEventListener('click', () => {
     userPaused = !userPaused;
     update();
   });
   document.addEventListener('visibilitychange', update);
   reduceMotion.addEventListener('change', update);
-  window.addEventListener('resize', update, { passive: true });
+  window.addEventListener('resize', rebuildClones, { passive: true });
 
   if (canHover) {
     carousel.addEventListener('pointerenter', () => {
@@ -202,7 +220,7 @@ export function initializeFeaturedProductsCarousel(section) {
     observer.observe(carousel);
   }
 
-  update();
+  rebuildClones();
 }
 
 // Simple person icon SVG (24x24, currentColor for palette)
