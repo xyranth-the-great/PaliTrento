@@ -1,6 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getPostLoginPath } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, onAuthStateChange } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
@@ -8,15 +8,12 @@ const googleBtn = $('#google-login-btn');
 
 async function init() {
   const session = await getSession();
-  let profile = null;
-  if (session) profile = await getCachedProfile(session.user.id);
-
   if (session) {
-    redirectAfterLogin(profile?.role || session.user.user_metadata?.role);
+    redirectAfterLogin(session.user.user_metadata?.role);
     return;
   }
 
-  renderChrome('login.html', session, profile);
+  renderChrome('login.html');
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Login is not available right now')}</p>`;
@@ -24,9 +21,19 @@ async function init() {
   }
 }
 
+let redirectStarted = false;
+
 function redirectAfterLogin(role) {
+  if (redirectStarted) return;
+  redirectStarted = true;
   window.location.replace(getPostLoginPath(role));
 }
+
+onAuthStateChange((event, session) => {
+  if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+    redirectAfterLogin(session.user.user_metadata?.role);
+  }
+});
 
 init();
 
