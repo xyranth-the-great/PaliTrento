@@ -246,6 +246,7 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
 .profile-photo-copy>.muted{margin:0 0 12px}
 .profile-photo-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .profile-photo-actions .btn{font-size:.9rem;padding:8px 14px;cursor:pointer}
+.profile-photo-button{display:inline-flex!important;align-items:center;justify-content:center;min-height:36px;margin:0;line-height:1.2}
 .profile-photo-actions input[type="file"]{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;clip-path:inset(50%)}
 #avatar-msg{min-height:1.2em;margin:8px 0 0;font-size:.85rem}
 .profile-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 20px;max-width:none}
