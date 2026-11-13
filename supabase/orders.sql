@@ -52,7 +52,14 @@ create policy "buyer read orders" on orders
 drop policy if exists "buyer create orders" on orders;
 create policy "buyer create orders" on orders
   for insert to authenticated
-  with check (auth.uid() = buyer_id);
+  with check (
+    auth.uid() = buyer_id
+    and not exists (
+      select 1 from stores
+      where stores.id = orders.store_id
+        and stores.user_id = auth.uid()
+    )
+  );
 
 -- Store owners can read orders for their store
 drop policy if exists "owner read orders" on orders;

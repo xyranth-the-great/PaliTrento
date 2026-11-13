@@ -68,6 +68,7 @@ function prefillForm(store) {
   $('#business_name').value = store.business_name ?? '';
   $('#trade_category').value = store.trade_category ?? '';
   $('#proprietor_name').value = store.proprietor_name ?? '';
+  $('#description').value = store.description ?? '';
   $('#contact_number').value = store.contact_number ?? '';
   $('#barangay').value = store.barangay ?? '';
   $('#purok').value = store.purok ?? '';
@@ -284,6 +285,7 @@ function buildReview() {
       <div><strong>Business name:</strong> ${esc(form.business_name.value)}</div>
       <div><strong>Category:</strong> ${esc(CATS[form.trade_category.value] || form.trade_category.value)}</div>
       <div><strong>Proprietor:</strong> ${esc(form.proprietor_name.value)}</div>
+      ${form.description.value.trim() ? `<div><strong>About:</strong> ${esc(form.description.value.trim())}</div>` : ''}
       <div><strong>Contact:</strong> ${esc(form.contact_number.value)}</div>
       <div><strong>Location:</strong> ${esc(form.barangay.value)}, ${esc(form.purok.value || '—')}</div>
       <div><strong>Landmark:</strong> ${esc(form.landmark_reference.value)}</div>
@@ -331,6 +333,7 @@ async function handleSubmit(e) {
       business_name: form.business_name.value.trim(),
       trade_category: form.trade_category.value,
       proprietor_name: form.proprietor_name.value.trim(),
+      description: form.description.value.trim() || null,
       contact_number: form.contact_number.value.trim(),
       barangay: form.barangay.value,
       purok: form.purok.value.trim() || null,

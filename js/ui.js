@@ -43,11 +43,17 @@ export const storeCard = s => `
   </a>`;
 export const productCard = (p, store) => {
   const c = srp(p);
-  return `<a class="card" href="product-detail.html?id=${encodeURIComponent(p.id)}" style="text-decoration:none;color:inherit;display:block">
-    <div class="row"><h3>${esc(p.name)}</h3>${p.in_stock ? '' : '<span class="pill bad">Out of stock</span>'}</div>
-    <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
-    ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
-    ${store ? `<p class="muted" style="margin-top:8px">Sold at <span style="color:var(--primary);font-weight:600">${esc(store.business_name)}</span></p>` : ''}
+  return `<a class="card product-card" href="product-detail.html?id=${encodeURIComponent(p.id)}">
+    <div class="product-card-media">${p.image_url
+      ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
+      : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
+    </div>
+    <div class="product-card-content">
+      <div class="row"><h3>${esc(p.name)}</h3>${p.in_stock ? '' : '<span class="pill bad">Out of stock</span>'}</div>
+      <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
+      ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
+      ${store ? `<p class="muted" style="margin-top:8px">Sold at <span style="color:var(--primary);font-weight:600">${esc(store.business_name)}</span></p>` : ''}
+    </div>
   </a>`;
 };
 

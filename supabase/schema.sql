@@ -24,6 +24,7 @@ create table if not exists stores (
   business_name text not null,
   trade_category text not null check (trade_category in ('SARI_SARI','CARINDERIA','FRESH_PRODUCE','PHARMACY','SERVICES','AGRI')),
   proprietor_name text,
+  description text,
   contact_number text,                          -- E.164, e.g. +639178894210
   barangay text not null,
   purok text,
@@ -42,6 +43,8 @@ create table if not exists stores (
 
 alter table stores
   add column if not exists user_id uuid references auth.users(id) on delete set null;
+alter table stores
+  add column if not exists description text;
 
 create table if not exists products (
   id uuid primary key default gen_random_uuid(),
