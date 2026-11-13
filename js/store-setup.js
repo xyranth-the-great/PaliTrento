@@ -416,7 +416,7 @@ async function handleSubmit(e) {
 
     const payments = Array.from(form.querySelectorAll('input[name="payments"]:checked')).map(cb => cb.value);
 
-    const { data: existing, error: existingError } = await supabase
+    const { data: matchingStore, error: existingError } = await supabase
       .from('stores')
       .select('*')
       .eq('user_id', session.user.id)
@@ -424,6 +424,8 @@ async function handleSubmit(e) {
 
     if (existingError) throw existingError;
 
+    const existing = matchingStore
+      ?? (currentStore?.user_id === session.user.id ? currentStore : null);
     isApprovedUpdate = existing?.verification_status === 'VERIFIED';
 
     const storeData = {
