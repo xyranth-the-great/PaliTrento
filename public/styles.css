@@ -121,6 +121,26 @@ a.card:hover{border-color:var(--primary)}
 .product-card-media img{display:block;width:100%;height:100%;object-fit:cover}
 .product-card-placeholder{display:grid;width:100%;height:100%;place-items:center;color:var(--muted);font-size:.85rem;font-weight:600}
 .product-card-content{padding:16px}
+.product-ad-action{display:grid;gap:6px;margin-bottom:12px}
+.product-ad-action .btn{justify-self:start;padding:6px 10px;font-size:.75rem}
+.featured-products-section{background:var(--card);border-block:1px solid var(--line)}
+.featured-products-section .sec-head{align-items:flex-start}
+.featured-products-section .sec-head h2{font-size:clamp(1.5rem,3vw,2rem)}
+.featured-badge{margin-bottom:8px}
+.demo-payment-panel{width:100%;max-width:460px;max-height:90vh;overflow:auto;padding:clamp(20px,5vw,32px);text-align:center}
+.demo-payment-panel h2{margin:0 0 8px;font-size:1.55rem}
+.demo-payment-provider{margin:0 0 8px;color:var(--primary);font-weight:700;font-size:.9rem}
+.demo-payment-panel #demo-payment-description{margin:0 auto 12px;max-width:38ch}
+.demo-payment-amount{margin:16px 0;font-size:1.65rem;font-weight:800;color:var(--primary-dark)}
+.demo-payment-code{width:min(100%,220px);margin:0 auto 12px;padding:12px;border:1px solid var(--line);border-radius:var(--r-lg);background:#fff}
+.demo-payment-code svg{display:block;width:100%;height:auto}
+.demo-payment-disclaimer{margin:0 auto 20px;max-width:40ch;color:var(--muted);font-size:.78rem}
+.demo-payment-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+.demo-payment-actions .btn{min-width:120px}
+.demo-payment-step[aria-live]{padding:28px 8px}
+.demo-payment-spinner{width:44px;height:44px;margin:0 auto 20px;border:4px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite}
+.demo-payment-success-mark{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 20px;border-radius:50%;background:var(--ok-bg);color:var(--ok);font-size:1.8rem;font-weight:800}
+@media(prefers-reduced-motion:reduce){.demo-payment-spinner{animation:none}}
 .product-detail-header{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:center;margin-bottom:24px}
 .product-detail-header.has-image{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
 .product-detail-image{aspect-ratio:4/3;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--muted-bg)}

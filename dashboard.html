@@ -181,6 +181,46 @@
   </div>
 </div>
 
+<!-- Simulated GCash checkout for the school demo. -->
+<div id="demo-payment-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="demo-payment-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1100;align-items:center;justify-content:center;padding:20px">
+  <div class="card demo-payment-panel">
+    <div id="demo-payment-qr" class="demo-payment-step">
+      <h2 id="demo-payment-title">Payment</h2>
+      <p class="demo-payment-provider">GCash demo checkout</p>
+      <p id="demo-payment-description" class="muted"></p>
+      <div class="demo-payment-amount" id="demo-payment-amount"></div>
+      <div id="demo-payment-code" class="demo-payment-code" aria-label="Decorative demo QR code"></div>
+      <p class="demo-payment-disclaimer">Demo illustration only. This is not a real GCash QR and no money will be charged.</p>
+      <div class="demo-payment-actions">
+        <button type="button" class="btn alt" id="demo-payment-cancel">Cancel</button>
+        <button type="button" class="btn" id="demo-payment-simulate">Simulate scan &amp; pay</button>
+      </div>
+    </div>
+
+    <div id="demo-payment-processing" class="demo-payment-step" style="display:none" aria-live="polite">
+      <div class="demo-payment-spinner" aria-hidden="true"></div>
+      <h2 tabindex="-1">Payment is being processed</h2>
+      <p class="muted">Completing your simulated GCash payment in <strong id="demo-payment-processing-count">3</strong> seconds.</p>
+    </div>
+
+    <div id="demo-payment-success" class="demo-payment-step" style="display:none" aria-live="polite">
+      <div class="demo-payment-success-mark" aria-hidden="true">✓</div>
+      <h2 tabindex="-1">Payment successful!</h2>
+      <p id="demo-payment-success-message" class="muted"></p>
+      <p class="muted">Returning to your dashboard in <strong id="demo-payment-success-count">5</strong> seconds.</p>
+    </div>
+
+    <div id="demo-payment-error" class="demo-payment-step" style="display:none" aria-live="assertive">
+      <h2 tabindex="-1">Couldn’t complete the demo</h2>
+      <p id="demo-payment-error-message" class="muted"></p>
+      <div class="demo-payment-actions">
+        <button type="button" class="btn alt" id="demo-payment-error-cancel">Cancel</button>
+        <button type="button" class="btn" id="demo-payment-retry">Try again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="js/dashboard.js"></script>
 </body>
 </html>

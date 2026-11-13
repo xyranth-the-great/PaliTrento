@@ -6,11 +6,15 @@ import { isSupabaseConfigured } from './auth.js';
 
 const modal = $('#product-modal');
 const productForm = $('#product-form');
+const demoPaymentModal = $('#demo-payment-modal');
 let currentStore = null;
 let currentProducts = [];
 let currentOrders = [];
 let editingProductId = null;
 let currentSession = null;
+let demoPaymentAction = null;
+let demoPaymentCancelAction = null;
+let paymentCountdownInterval = null;
 
 async function init() {
   if (!isSupabaseConfigured()) return;
@@ -304,6 +308,8 @@ function renderProducts() {
   list.innerHTML = currentProducts.map(p => {
     const s = srp(p);
     const hasImage = p.image_url && p.image_url.trim() !== '';
+    const featuredUntil = Date.parse(p.featured_until);
+    const isFeatured = featuredUntil > Date.now();
     const imageHtml = hasImage
       ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" style="width:100%;height:140px;object-fit:cover;border-radius:var(--r-md) var(--r-md) 0 0;margin-bottom:8px">`
       : `<div style="width:100%;height:140px;background:var(--muted-bg);border-radius:var(--r-md) var(--r-md) 0 0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem">No image</div>`;
@@ -318,6 +324,10 @@ function renderProducts() {
               <button class="btn alt" style="padding:4px 8px;font-size:.75rem" data-edit="${p.id}">Edit</button>
               <button class="btn alt" style="padding:4px 8px;font-size:.75rem;color:var(--bad)" data-delete="${p.id}">Delete</button>
             </div>
+          </div>
+          <div class="product-ad-action">
+            ${isFeatured ? `<span class="pill info">Featured until ${new Date(featuredUntil).toLocaleDateString('en-PH')}</span>` : '<span class="muted">Not featured on home</span>'}
+            <button type="button" class="btn alt" data-advertise="${p.id}">${isFeatured ? 'Extend ad' : 'Advertise'} · ₱20 / 7 days</button>
           </div>
           <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
@@ -337,6 +347,9 @@ function renderProducts() {
   });
   list.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', () => deleteProduct(btn.dataset.delete));
+  });
+  list.querySelectorAll('[data-advertise]').forEach(btn => {
+    btn.addEventListener('click', () => advertiseProduct(btn.dataset.advertise));
   });
 }
 
@@ -365,6 +378,11 @@ function bindEvents() {
 
   // Product form
   productForm?.addEventListener('submit', saveProduct);
+
+  $('#demo-payment-cancel')?.addEventListener('click', () => closeDemoPayment(true));
+  $('#demo-payment-error-cancel')?.addEventListener('click', () => closeDemoPayment(true));
+  $('#demo-payment-retry')?.addEventListener('click', () => showDemoPaymentStep('demo-payment-qr'));
+  $('#demo-payment-simulate')?.addEventListener('click', completeDemoPayment);
 }
 
 async function handleImageSelect(e) {
@@ -427,6 +445,7 @@ function openProductModal(productId = null) {
     const product = currentProducts.find(p => p.id === productId);
     if (product) {
       $('#modal-title').textContent = 'Edit Product';
+      $('#modal-save').textContent = 'Save changes';
       $('#product-id').value = product.id;
       $('#p-name').value = product.name;
       $('#p-category').value = product.category;
@@ -445,6 +464,7 @@ function openProductModal(productId = null) {
     }
   } else {
     $('#modal-title').textContent = 'Add Product';
+    $('#modal-save').textContent = 'Pay ₱5 & add product';
   }
 
   // New products must include a photo. Existing products can keep their current image.
@@ -488,103 +508,55 @@ async function saveProduct(e) {
     return;
   }
 
+  if (!editingProductId) {
+    startDemoPayment({
+      amount: 5,
+      title: 'Product listing fee',
+      description: `Pay the demo fee to publish “${productData.name}”.`,
+      successMessage: 'Your product has been added successfully.',
+      onCancel: () => {
+        modal.style.display = 'flex';
+        $('#p-name').focus();
+      },
+      onSuccess: async () => {
+        await createNewProduct(productData, imageFile);
+        closeModal();
+        await loadProducts(currentStore.id);
+      },
+    });
+    return;
+  }
+
   const saveBtn = $('#modal-save');
   saveBtn.disabled = true;
   saveBtn.textContent = 'Saving...';
 
   try {
-    let productId = editingProductId;
-    let error = null;
-
-    // For editing existing product: upload image first, then update
-    if (editingProductId) {
-      if (imageFile) {
-        const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, editingProductId, imageFile);
-        if (uploadError) throw uploadError;
-        // Update product with image URL
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({ image_url: url })
-          .eq('id', editingProductId);
-        if (updateError) throw updateError;
-      }
-
-      // Update other product data
-      const productData = {
-        name: $('#p-name').value.trim(),
-        category: $('#p-category').value,
-        unit: $('#p-unit').value,
-        current_price: parseFloat($('#p-price').value),
-        lgu_srp_ceiling: $('#p-srp').value ? parseFloat($('#p-srp').value) : null,
-        in_stock: $('#p-stock').value === 'true',
-        quantity: $('#p-quantity').value ? parseInt($('#p-quantity').value) : null,
-      };
-
-      const { error } = await supabase
+    if (imageFile) {
+      const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, editingProductId, imageFile);
+      if (uploadError) throw uploadError;
+      const { error: imageUpdateError } = await supabase
         .from('products')
-        .update({
-          name: productData.name,
-          category: productData.category,
-          unit: productData.unit,
-          current_price: productData.current_price,
-          lgu_srp_ceiling: productData.lgu_srp_ceiling,
-          in_stock: productData.in_stock,
-          quantity: productData.quantity,
-        })
+        .update({ image_url: url })
         .eq('id', editingProductId);
-
-      if (error) throw error;
-    } else {
-      // For new product: insert first, then handle image upload
-      const productData = {
-        store_id: currentStore.id,
-        name: $('#p-name').value.trim(),
-        category: $('#p-category').value,
-        unit: $('#p-unit').value,
-        current_price: parseFloat($('#p-price').value),
-        lgu_srp_ceiling: $('#p-srp').value ? parseFloat($('#p-srp').value) : null,
-        in_stock: $('#p-stock').value === 'true',
-        quantity: $('#p-quantity').value ? parseInt($('#p-quantity').value) : null,
-      };
-
-      if (!productData.name || !productData.category || !productData.unit || isNaN(productData.current_price)) {
-        alert('Please fill all required fields');
-        return;
-      }
-
-      const { data: newProduct, error: insertError } = await supabase
-        .from('products')
-        .insert({
-          store_id: productData.store_id,
-          name: productData.name,
-          category: productData.category,
-          unit: productData.unit,
-          current_price: productData.current_price,
-          lgu_srp_ceiling: productData.lgu_srp_ceiling,
-          in_stock: productData.in_stock,
-          quantity: productData.quantity,
-        })
-        .select('id')
-        .single();
-
-      if (insertError) throw insertError;
-
-      const newProductId = newProduct.id;
-
-      // Handle image upload for new product
-      if (imageFile) {
-        const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, newProductId, imageFile);
-        if (uploadError) throw uploadError;
-
-        // Update product with image URL
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({ image_url: url })
-          .eq('id', newProduct.id);
-        if (updateError) throw updateError;
-      }
+      if (imageUpdateError) throw imageUpdateError;
     }
 
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name: productData.name,
+        category: productData.category,
+        unit: productData.unit,
+        current_price: productData.current_price,
+        lgu_srp_ceiling: productData.lgu_srp_ceiling,
+        in_stock: productData.in_stock,
+        quantity: productData.quantity,
+      })
+      .eq('id', editingProductId)
+      .eq('store_id', currentStore.id);
+
+    if (error) throw error;
     closeModal();
     await loadProducts(currentStore.id);
   } catch (err) {
@@ -592,8 +564,193 @@ async function saveProduct(e) {
     alert(err?.message ? `Failed to save: ${err.message}` : 'Failed to save. Please try again.');
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = 'Save';
+    saveBtn.textContent = editingProductId ? 'Save changes' : 'Save';
   }
+}
+
+async function createNewProduct(productData, imageFile) {
+  const { data: newProduct, error: insertError } = await supabase
+    .from('products')
+    .insert(productData)
+    .select('id')
+    .single();
+
+  if (insertError) throw insertError;
+
+  try {
+    const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, newProduct.id, imageFile);
+    if (uploadError) throw uploadError;
+
+    const { error: imageUpdateError } = await supabase
+      .from('products')
+      .update({ image_url: url })
+      .eq('id', newProduct.id)
+      .eq('store_id', currentStore.id);
+
+    if (imageUpdateError) {
+      await deleteProductImage(currentSession.user.id, newProduct.id, url);
+      throw imageUpdateError;
+    }
+  } catch (err) {
+    const { error: rollbackError } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', newProduct.id)
+      .eq('store_id', currentStore.id);
+    if (rollbackError) console.error('Could not roll back incomplete product:', rollbackError);
+    throw err;
+  }
+}
+
+function advertiseProduct(productId) {
+  const product = currentProducts.find(item => item.id === productId);
+  if (!product || !currentStore) return;
+
+  startDemoPayment({
+    amount: 20,
+    title: 'Home page featured ad',
+    description: `Promote ${product.name} from ${currentStore.business_name} on the home page for 7 days.`,
+    successMessage: `${product.name} is now featured on the home page for 7 days.`,
+    onSuccess: async () => {
+      const previousEnd = Date.parse(product.featured_until);
+      const startsAt = Math.max(Date.now(), Number.isFinite(previousEnd) ? previousEnd : 0);
+      const featuredUntil = new Date(startsAt + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('products')
+        .update({ featured_until: featuredUntil })
+        .eq('id', product.id)
+        .eq('store_id', currentStore.id)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('The featured ad could not be saved.');
+      await loadProducts(currentStore.id);
+    },
+  });
+}
+
+function startDemoPayment({ amount, title, description, successMessage, onSuccess, onCancel }) {
+  demoPaymentAction = onSuccess;
+  demoPaymentCancelAction = onCancel || null;
+  $('#demo-payment-title').textContent = title;
+  $('#demo-payment-description').textContent = description;
+  $('#demo-payment-amount').textContent = peso(amount);
+  $('#demo-payment-success-message').textContent = successMessage;
+  $('#demo-payment-code').innerHTML = createDemoQrSvg();
+  $('#demo-payment-simulate').textContent = `Simulate scan & pay ${peso(amount)}`;
+
+  modal.style.display = 'none';
+  showDemoPaymentStep('demo-payment-qr');
+  demoPaymentModal.style.display = 'flex';
+  $('#demo-payment-simulate').focus();
+}
+
+function showDemoPaymentStep(stepId) {
+  ['demo-payment-qr', 'demo-payment-processing', 'demo-payment-success', 'demo-payment-error']
+    .forEach(id => { $(`#${id}`).style.display = id === stepId ? 'block' : 'none'; });
+  $(`#${stepId} h2`)?.focus();
+}
+
+function closeDemoPayment(cancelled = false) {
+  if (paymentCountdownInterval) {
+    clearInterval(paymentCountdownInterval);
+    paymentCountdownInterval = null;
+  }
+  demoPaymentModal.style.display = 'none';
+  const onCancel = demoPaymentCancelAction;
+  demoPaymentAction = null;
+  demoPaymentCancelAction = null;
+  if (cancelled) onCancel?.();
+}
+
+function runPaymentCountdown(element, seconds, onComplete) {
+  let remaining = seconds;
+  element.textContent = String(remaining);
+  paymentCountdownInterval = setInterval(() => {
+    remaining -= 1;
+    if (remaining === 0) {
+      clearInterval(paymentCountdownInterval);
+      paymentCountdownInterval = null;
+      onComplete();
+    } else {
+      element.textContent = String(remaining);
+    }
+  }, 1000);
+}
+
+function completeDemoPayment() {
+  $('#demo-payment-simulate').disabled = true;
+  showDemoPaymentStep('demo-payment-processing');
+  runPaymentCountdown($('#demo-payment-processing-count'), 3, async () => {
+    try {
+      await demoPaymentAction();
+      showDemoPaymentStep('demo-payment-success');
+      runPaymentCountdown($('#demo-payment-success-count'), 5, () => closeDemoPayment());
+    } catch (err) {
+      console.error('Demo payment completion error:', err);
+      $('#demo-payment-error-message').textContent = err?.message
+        ? `Could not save your product or ad. ${err.message}`
+        : 'Could not save your product or ad. Please try the simulated payment again.';
+      showDemoPaymentStep('demo-payment-error');
+      $('#demo-payment-simulate').disabled = false;
+    }
+  });
+}
+
+function createDemoQrSvg() {
+  const size = 21;
+  const quietZone = 4;
+  const modules = Array.from({ length: size }, () => Array(size).fill(false));
+  const reserved = new Set();
+  const rects = [];
+
+  function reserve(x, y) {
+    if (x >= 0 && x < size && y >= 0 && y < size) reserved.add(y * size + x);
+  }
+
+  function placeFinder(left, top) {
+    for (let y = top - 1; y <= top + 7; y += 1) {
+      for (let x = left - 1; x <= left + 7; x += 1) reserve(x, y);
+    }
+
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 0; x < 7; x += 1) {
+        modules[top + y][left + x] = x === 0 || x === 6 || y === 0 || y === 6
+          || (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+      }
+    }
+  }
+
+  placeFinder(0, 0);
+  placeFinder(size - 7, 0);
+  placeFinder(0, size - 7);
+
+  for (let index = 8; index < size - 8; index += 1) {
+    reserve(index, 6);
+    reserve(6, index);
+    modules[6][index] = index % 2 === 0;
+    modules[index][6] = index % 2 === 0;
+  }
+
+  let state = 0x6d2b79f5;
+  function nextModule() {
+    state ^= state << 13;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    return (state & 1) === 1;
+  }
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const position = y * size + x;
+      if (!reserved.has(position)) modules[y][x] = nextModule();
+      if (modules[y][x]) rects.push(`<rect x="${x + quietZone}" y="${y + quietZone}" width="1" height="1"/>`);
+    }
+  }
+
+  const viewSize = size + quietZone * 2;
+  return `<svg viewBox="0 0 ${viewSize} ${viewSize}" role="img" aria-label="Decorative, non-scannable demo QR code" shape-rendering="crispEdges"><rect width="${viewSize}" height="${viewSize}" fill="#fff"/><g fill="#14351f">${rects.join('')}</g><rect x="10" y="13" width="9" height="3" rx=".5" fill="#fff" stroke="#d7dfd9" stroke-width=".25"/><text x="14.5" y="15.1" fill="#14351f" font-family="Arial,sans-serif" font-size="1.5" font-weight="700" text-anchor="middle" letter-spacing=".12">DEMO</text></svg>`;
 }
 
 async function deleteProduct(productId) {

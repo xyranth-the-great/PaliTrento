@@ -55,9 +55,17 @@ create table if not exists products (
   current_price numeric(10,2) not null,
   lgu_srp_ceiling numeric(10,2),                -- null = no LGU cap for this item
   in_stock boolean not null default true,
+  quantity integer,
+  image_url text,
+  featured_until timestamptz,
   created_at timestamptz not null default now()
 );
+alter table products
+  add column if not exists quantity integer,
+  add column if not exists image_url text,
+  add column if not exists featured_until timestamptz;
 create index if not exists products_store_idx on products(store_id);
+create index if not exists products_featured_until_idx on products(featured_until) where featured_until is not null;
 create index if not exists stores_barangay_idx on stores(barangay);
 
 -- Row-level security: the public (anon key) may only READ.
@@ -65,4 +73,14 @@ alter table stores enable row level security;
 alter table products enable row level security;
 create policy "public read stores" on stores for select using (verification_status <> 'REJECTED');
 create policy "public read products" on products for select using (true);
--- No insert/update/delete policies yet: add owner/admin policies when login is built.
+drop policy if exists "owner manage own products" on products;
+create policy "owner manage own products" on products
+  for all to authenticated
+  using (exists (
+    select 1 from stores
+    where stores.id = products.store_id and stores.user_id = auth.uid()
+  ))
+  with check (exists (
+    select 1 from stores
+    where stores.id = products.store_id and stores.user_id = auth.uid()
+  ));

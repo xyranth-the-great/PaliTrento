@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, storeCard, srp, peso, UNITS, CATS } from './ui.js';
+import { renderChrome, $, esc, storeCard, productCard, srp, peso, UNITS, CATS } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile, getPostLoginPath } from './auth.js';
@@ -17,6 +17,17 @@ if (session && postLoginPath !== 'index.html') {
 
   $('#chips').innerHTML = Object.entries(CATS).map(([k, v]) => `<a class="chip" href="explore.html?cat=${k}">${v}</a>`).join('');
   const [stores, products] = await Promise.all([getStores(), getProducts()]);
+  const storeById = new Map(stores.map(store => [store.id, store]));
+  const promotedProducts = products
+    .filter(product => Date.parse(product.featured_until) > Date.now() && storeById.has(product.store_id))
+    .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));
+  if (promotedProducts.length) {
+    $('#featured-products').innerHTML = promotedProducts
+      .map(product => productCard(product, storeById.get(product.store_id)))
+      .join('');
+    $('#featured-products-section').style.display = 'block';
+  }
+
   const capped = products.filter(p => p.lgu_srp_ceiling != null).slice(0, 6);
   $('#board').innerHTML = capped.map(p => { const c = srp(p); return `<div class="prow">
   <div>${esc(p.name)}<div class="muted">Cap ${peso(p.lgu_srp_ceiling)} per ${UNITS[p.unit] || 'pc'}</div></div>
