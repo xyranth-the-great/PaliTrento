@@ -416,7 +416,7 @@ async function handleSubmit(e) {
   try {
     const payments = Array.from(form.querySelectorAll('input[name="payments"]:checked')).map(cb => cb.value);
 
-    const { data: existing, error: existingError } = await supabase
+    const { data: matchingStore, error: existingError } = await supabase
       .from('stores')
       .select('*')
       .eq('user_id', session.user.id)
@@ -424,16 +424,11 @@ async function handleSubmit(e) {
 
     if (existingError) throw existingError;
 
+    const existing = matchingStore
+      ?? (currentStore?.user_id === session.user.id ? currentStore : null);
     isApprovedUpdate = existing?.verification_status === 'VERIFIED';
-    let trnCode = existing?.trn_code;
-    if (!trnCode) {
-      const year = new Date().getFullYear();
-      const { data: countData } = await supabase
-        .from('stores')
-        .select('id', { count: 'exact', head: true });
-      const seq = String((countData?.count || 0) + 1).padStart(3, '0');
-      trnCode = `TRN-${year}-${seq}`;
-    }
+    const trnCode = existing?.trn_code
+      ?? `TRN-${new Date().getFullYear()}-${crypto.randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`;
 
     const storeData = {
       trn_code: trnCode,
