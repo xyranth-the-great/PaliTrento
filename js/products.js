@@ -1,4 +1,4 @@
-import { renderChrome, $, productCard, getActiveFeaturedProducts } from './ui.js';
+import { renderChrome, $, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel } from './ui.js';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile } from './auth.js';
 
@@ -33,3 +33,4 @@ function render() {
 $('#f').addEventListener('submit', e => e.preventDefault());
 ['q', 'cat', 'capped', 'stock'].forEach(id => $('#' + id).addEventListener('input', render));
 render();
+initializeFeaturedProductsCarousel($('#products-featured-products-section'));

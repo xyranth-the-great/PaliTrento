@@ -30,7 +30,17 @@
         <p class="muted featured-products-description">Promoted by local stores for a limited time.</p>
       </div>
     </div>
-    <div id="explore-featured-products" class="grid featured-products-grid" aria-label="Featured products"></div>
+    <div class="featured-products-carousel" data-featured-carousel role="region" aria-roledescription="carousel" aria-label="Featured products">
+      <div class="featured-products-viewport">
+        <div id="explore-featured-products" class="featured-products-grid"></div>
+      </div>
+      <div class="featured-products-controls" data-featured-controls hidden>
+        <button type="button" class="btn alt" data-featured-prev aria-label="Previous featured products">Previous</button>
+        <span data-featured-status aria-live="off"></span>
+        <button type="button" class="btn alt" data-featured-next aria-label="Next featured products">Next</button>
+        <button type="button" class="btn alt" data-featured-toggle aria-label="Pause automatic rotation">Pause</button>
+      </div>
+    </div>
   </div>
 </section>
 <section><div class="wrap">

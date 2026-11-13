@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, srp, peso, UNITS, CATS } from './ui.js';
+import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, srp, peso, UNITS, CATS } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile, getPostLoginPath } from './auth.js';
@@ -25,6 +25,7 @@ if (session && postLoginPath !== 'index.html') {
       .map(product => productCard(product, storeById.get(product.store_id)))
       .join('');
     $('#featured-products-section').style.display = 'block';
+    initializeFeaturedProductsCarousel($('#featured-products-section'));
   }
 
   const capped = products.filter(p => p.lgu_srp_ceiling != null).slice(0, 6);

@@ -1,4 +1,4 @@
-import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, isOpen, CATS, BARANGAYS } from './ui.js';
+import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS } from './ui.js';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile } from './auth.js';
 
@@ -16,6 +16,7 @@ if (promotedProducts.length) {
     .map(product => productCard(product, storeById.get(product.store_id)))
     .join('');
   $('#explore-featured-products-section').style.display = 'block';
+  initializeFeaturedProductsCarousel($('#explore-featured-products-section'));
 }
 
 const p = new URLSearchParams(location.search);
