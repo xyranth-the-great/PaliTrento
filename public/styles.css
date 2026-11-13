@@ -124,6 +124,8 @@ a.card:hover{border-color:var(--primary)}
 .product-ad-action{display:grid;gap:6px;margin-bottom:12px}
 .product-ad-action .btn{justify-self:start;padding:6px 10px;font-size:.75rem}
 .home-page main>section.featured-products-section{background:var(--amber-light);color:var(--ink);border-block:1px solid var(--line)}
+.home-page main>section.price-board-section{background:var(--bg);color:var(--ink)}
+.home-page .price-board-section .board{margin-top:0}
 .home-page .featured-products-section .sec-head{align-items:center}
 .home-page .featured-products-section .sec-head h2{font-size:clamp(1.5rem,3vw,2rem);color:var(--primary-dark)}
 .featured-products-description{margin:6px 0 0}
