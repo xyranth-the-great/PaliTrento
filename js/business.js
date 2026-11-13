@@ -23,12 +23,17 @@ if (!s) {
   const description = s.description?.trim();
   main.innerHTML = `
   <div class="bhead"><div class="wrap">
-    <p class="muted">${esc(CATS[s.trade_category])}</p>
-    <h1 style="font-size:clamp(2rem,4vw,2.8rem);margin:4px 0 12px">${esc(s.business_name)}</h1>
-    ${description ? `<p class="store-description">${esc(description)}</p>` : ''}
-    <div>${openPill(s)}${badges(s)}</div>
-    <p style="margin-top:16px"><a class="btn" href="tel:${esc(tel)}">Call ${esc(tel)}</a>
-    <a class="btn alt" href="https://www.openstreetmap.org/directions?to=${s.lat}%2C${s.lng}" target="_blank" rel="noopener">Get directions</a></p>
+    <div class="business-heading">
+      <div class="business-heading-copy">
+        <p class="muted">${esc(CATS[s.trade_category])}</p>
+        <h1 style="font-size:clamp(2rem,4vw,2.8rem);margin:4px 0 12px">${esc(s.business_name)}</h1>
+        ${description ? `<p class="store-description">${esc(description)}</p>` : ''}
+        <div>${openPill(s)}${badges(s)}</div>
+        <p style="margin-top:16px"><a class="btn" href="tel:${esc(tel)}">Call ${esc(tel)}</a>
+        <a class="btn alt" href="https://www.openstreetmap.org/directions?to=${s.lat}%2C${s.lng}" target="_blank" rel="noopener">Get directions</a></p>
+      </div>
+      ${s.storefront_image_url ? `<img class="business-storefront" src="${esc(s.storefront_image_url)}" alt="${esc(s.business_name)} storefront" loading="eager" decoding="async">` : ''}
+    </div>
   </div></div>
   <section><div class="wrap cols">
     <dl>
