@@ -159,6 +159,12 @@ export function getPostLoginPath(role) {
   return 'index.html';
 }
 
+export function getOAuthRedirectUrl() {
+  const redirectUrl = new URL('index.html', window.location.href);
+  redirectUrl.searchParams.set('auth_callback', '1');
+  return redirectUrl.href;
+}
+
 export function getAuthErrorMessage(error) {
   if (!error) return 'Something went wrong';
   const msg = error.message?.toLowerCase() ?? '';

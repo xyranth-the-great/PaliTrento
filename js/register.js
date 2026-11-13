@@ -1,6 +1,6 @@
 import { renderChrome, $, esc, BARANGAYS } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getOAuthRedirectUrl } from './auth.js';
 import { sendEmailOTP } from './email-otp.js';
 
 const form = $('#register-form');
@@ -52,11 +52,10 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const redirectUrl = new URL('index.html', window.location.href).href;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: getOAuthRedirectUrl(),
         },
       });
 

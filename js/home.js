@@ -7,8 +7,15 @@ const session = await getSession();
 let profile = null;
 if (session) profile = await getCachedProfile(session.user.id);
 const postLoginPath = getPostLoginPath(profile?.role || session?.user?.user_metadata?.role);
+const isAuthCallback = new URLSearchParams(window.location.search).get('auth_callback') === '1';
 
-if (session && postLoginPath !== 'index.html') {
+if (isAuthCallback) {
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('auth_callback');
+  window.history.replaceState(window.history.state, '', cleanUrl);
+}
+
+if (session && isAuthCallback && postLoginPath !== 'index.html') {
   window.location.replace(postLoginPath);
 } else {
   renderChrome('index.html', session, profile);
