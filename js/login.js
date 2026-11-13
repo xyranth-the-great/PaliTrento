@@ -10,11 +10,27 @@ async function init() {
   const session = await getSession();
   let profile = null;
   if (session) profile = await getCachedProfile(session.user.id);
+
+  if (session) {
+    redirectAfterLogin(profile?.role || session.user.user_metadata?.role);
+    return;
+  }
+
   renderChrome('login.html', session, profile);
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Login is not available right now')}</p>`;
     if (googleBtn) googleBtn.style.display = 'none';
+  }
+}
+
+function redirectAfterLogin(role) {
+  if (role === 'business_owner') {
+    window.location.replace('dashboard.html');
+  } else if (role === 'admin') {
+    window.location.replace('admin.html');
+  } else {
+    window.location.replace('index.html');
   }
 }
 
@@ -98,16 +114,8 @@ form.addEventListener('submit', async (e) => {
     }
 
     if (data.session) {
-      // Check user role for redirect
       const profile = await getCachedProfile(data.session.user.id);
-      const role = profile?.role || data.session.user.user_metadata?.role;
-      if (role === 'business_owner') {
-        window.location.href = 'dashboard.html';
-      } else if (role === 'admin') {
-        window.location.href = 'admin.html';
-      } else {
-        window.location.href = 'index.html';
-      }
+      redirectAfterLogin(profile?.role || data.session.user.user_metadata?.role);
     } else if (data.user && !data.user.email_confirmed_at) {
       showMsg('Account not confirmed. Please verify your email first.', 'warn');
     } else {
