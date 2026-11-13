@@ -76,11 +76,27 @@ function renderProduct() {
   const p = currentProduct;
   const s = currentStore;
   const srpInfo = srp(p);
+  const isOwnStoreProduct = !!currentSession && currentSession.user.id === s.user_id;
+  $('#reserve-card').style.display = isOwnStoreProduct ? 'none' : '';
+  $('#owner-product-note').style.display = isOwnStoreProduct ? 'block' : 'none';
 
   // Product info
   $('#p-name').textContent = p.name;
   $('#p-category').textContent = `${CATS[p.category] || p.category} • ${UNITS[p.unit] || p.unit}`;
   $('#p-price').textContent = peso(p.current_price);
+  if (p.image_url) {
+    const imageWrap = $('#p-image-wrap');
+    const image = $('#p-image');
+    image.src = p.image_url;
+    image.alt = p.name;
+    image.loading = 'eager';
+    image.addEventListener('error', () => {
+      imageWrap.style.display = 'none';
+      $('.product-detail-header').classList.remove('has-image');
+    }, { once: true });
+    imageWrap.style.display = 'block';
+    $('.product-detail-header').classList.add('has-image');
+  }
 
   // SRP badge
   const srpBadge = $('#p-srp-badge');
@@ -155,6 +171,12 @@ function createMap(lat, lng) {
 reserveForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   reserveMsg.style.display = 'none';
+
+  if (currentSession && currentStore && currentSession.user.id === currentStore.user_id) {
+    $('#reserve-card').style.display = 'none';
+    $('#owner-product-note').style.display = 'block';
+    return;
+  }
 
   if (!currentSession) {
     showMsg('Please log in to reserve', 'bad');

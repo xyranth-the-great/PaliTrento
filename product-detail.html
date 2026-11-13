@@ -19,14 +19,14 @@
   <a href="products.html" class="muted" style="display:inline-block;margin-bottom:16px;text-decoration:none">&larr; Back to products</a>
 
   <div id="product-content" style="display:none">
-    <!-- Product header -->
-    <div style="display:grid;grid-template-columns:1fr 280px;gap:24px;margin-bottom:24px">
-      <div>
+    <div class="product-detail-header">
+      <div class="product-detail-image" id="p-image-wrap" style="display:none">
+        <img id="p-image" alt="">
+      </div>
+      <div class="product-detail-intro">
         <h1 id="p-name" style="margin:0 0 8px"></h1>
         <p class="muted" id="p-category"></p>
-      </div>
-      <div style="text-align:right">
-        <div class="price" id="p-price" style="font-size:2rem"></div>
+        <div class="price" id="p-price" style="font-size:2rem;margin-top:20px"></div>
         <div id="p-srp-badge" style="margin-top:8px"></div>
       </div>
     </div>
@@ -61,7 +61,7 @@
     </div>
 
     <!-- Reserve form -->
-    <div class="card" style="padding:20px;background:var(--amber-light);border-color:var(--amber)">
+    <div class="card" id="reserve-card" style="padding:20px;background:var(--amber-light);border-color:var(--amber)">
       <h3 style="margin:0 0 16px">Reserve for Pickup</h3>
       <p class="muted" style="margin-bottom:16px">Enter quantity and choose payment method. Pay at the store when you pick up.</p>
 
@@ -96,6 +96,10 @@
       </form>
 
       <p id="reserve-msg" class="muted" style="margin-top:12px;min-height:1.5em"></p>
+    </div>
+    <div class="card" id="owner-product-note" style="display:none;padding:20px">
+      <h3 style="margin:0 0 8px">This is your product</h3>
+      <p class="muted" style="margin:0">You cannot reserve products listed by your own store.</p>
     </div>
   </div>
 

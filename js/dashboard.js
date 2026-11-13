@@ -65,6 +65,9 @@ function renderStoreCard(store) {
   $('#dash-category').textContent = `${CATS[store.trade_category] || store.trade_category} • ${store.barangay}, ${store.purok || '—'}`;
   $('#dash-location').textContent = `${store.landmark_reference} • ${store.lat}, ${store.lng}`;
   $('#dash-hours').textContent = `${store.open_time} – ${store.close_time}`;
+  const description = $('#dash-description');
+  description.textContent = store.description || '';
+  description.style.display = store.description?.trim() ? 'block' : 'none';
 
   const badgeContainer = $('#dash-badges');
   badgeContainer.innerHTML = badges(store);
