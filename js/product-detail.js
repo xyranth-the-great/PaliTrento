@@ -128,12 +128,36 @@ function renderProduct() {
   $('#store-badges').innerHTML = badges(s);
   $('#store-link').href = `business.html?trn=${encodeURIComponent(s.trn_code)}`;
   $('#store-landmark').textContent = s.landmark_reference;
+  renderPaymentOptions(s);
 
   // Map
   initMap(s.lat, s.lng);
 
   // Update total price
   updateTotal();
+}
+
+function renderPaymentOptions(store) {
+  const paymentSelect = reserveForm.payment_method;
+  const submitButton = reserveForm.querySelector('button[type="submit"]');
+  const acceptedPayments = Array.isArray(store.accepted_payments)
+    ? [...new Set(store.accepted_payments.filter(method => Object.prototype.hasOwnProperty.call(PAY, method)))]
+    : [];
+
+  paymentSelect.replaceChildren();
+
+  if (acceptedPayments.length === 0) {
+    paymentSelect.add(new Option('No payment methods available', ''));
+    paymentSelect.disabled = true;
+    submitButton.disabled = true;
+    showMsg('No payment methods are set for this store. Please contact the seller.', 'warn');
+    return;
+  }
+
+  paymentSelect.add(new Option('Choose a payment method', ''));
+  acceptedPayments.forEach(method => paymentSelect.add(new Option(PAY[method], method)));
+  paymentSelect.disabled = false;
+  submitButton.disabled = false;
 }
 
 function updateTotal() {
@@ -202,6 +226,11 @@ reserveForm.addEventListener('submit', async (e) => {
   }
 
   const paymentMethod = reserveForm.payment_method.value;
+  if (!Array.isArray(currentStore.accepted_payments) || !currentStore.accepted_payments.includes(paymentMethod)) {
+    showMsg('Choose a payment method accepted by this store.', 'bad');
+    return;
+  }
+
   const notes = reserveForm.notes.value.trim();
   const totalPrice = currentProduct.current_price * qty;
 
