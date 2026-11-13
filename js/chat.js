@@ -82,18 +82,17 @@ async function loadOrder() {
     return;
   }
 
-  // Fetch buyer profile separately if buyer
+  // The RPC only returns the buyer's name to participants in this order.
   let buyerProfile = null;
   if (order.buyer_id) {
-    const { data, error: profileError } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', order.buyer_id)
-      .single();
+    const { data: buyerName, error: profileError } = await supabase.rpc(
+      'get_order_customer_name',
+      { p_order_id: order.id },
+    );
     if (profileError) {
-      console.error('Profile query error:', profileError.message, profileError.code, profileError.details, profileError.hint);
+      console.error('Buyer name query error:', profileError.message, profileError.code, profileError.details, profileError.hint);
     } else {
-      buyerProfile = data;
+      buyerProfile = buyerName ? { full_name: buyerName } : null;
     }
   }
 
@@ -115,7 +114,7 @@ function renderOrderInfo(order, isBuyer) {
     chatSubtitle.textContent = `${product?.name || 'Product'} • ${order.quantity} × ${peso(product?.current_price || 0)} = ${peso(order.total_price)}`;
     backLink.href = 'account.html?tab=orders';
   } else {
-    chatTitle.textContent = `Chat with ${buyer?.full_name || 'Buyer'}`;
+    chatTitle.textContent = `Chat with ${buyer?.full_name || 'Customer'}`;
     chatSubtitle.textContent = `${product?.name || 'Product'} • Order ${order.id.slice(0,8)}`;
     backLink.href = 'dashboard.html';
   }
@@ -149,13 +148,16 @@ function renderMessages(messages) {
 
 function renderMessage(msg) {
   const isOwn = msg.sender_id === currentUserId;
+  const senderName = msg.sender_id === currentOrder?.stores?.user_id
+    ? 'Seller'
+    : currentOrder?.profiles?.full_name || 'Customer';
   const time = new Date(msg.created_at).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
   const readBadge = msg.read_at ? `<span class="pill ok" style="font-size:.6rem;margin-left:4px">Read</span>` : '';
 
   return `
     <div class="message ${isOwn ? 'own' : ''}" style="display:flex;flex-direction:column;${isOwn ? 'align-items:flex-end' : 'align-items:flex-start'};max-width:80%">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        ${!isOwn ? `<span class="muted" style="font-size:.7rem;font-weight:600">${msg.sender_id === currentOrder?.stores?.user_id ? 'Seller' : 'Buyer'}</span>` : ''}
+        ${!isOwn ? `<span class="muted" style="font-size:.7rem;font-weight:600">${esc(senderName)}</span>` : ''}
         <span class="muted" style="font-size:.7rem">${new Date(msg.created_at).toLocaleString('en-PH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
         ${isOwn ? readBadge : ''}
       </div>

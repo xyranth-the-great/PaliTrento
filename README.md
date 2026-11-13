@@ -18,6 +18,8 @@ For existing projects, run `supabase/remove-trike-cod.sql` to remove Trike COD f
 
 Account deletion uses the server-side `delete-account` Edge Function. Deploy it separately with `supabase functions deploy delete-account`; the function requires the Supabase URL, anon key, and service-role key in the Edge Function environment. Never expose the service-role key in the frontend.
 
+For the buyer's name to appear in seller chats, run `supabase/chat-customer-name.sql` after `supabase/orders.sql` and `supabase/chat.sql`. The function only exposes a buyer's name to participants in that order.
+
 ## Deploy to GitHub Pages
 The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
 
