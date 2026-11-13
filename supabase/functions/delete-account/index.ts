@@ -14,6 +14,21 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   })
 }
 
+function hasErrorCode(error: unknown, codes: string[]) {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && typeof error.code === 'string'
+    && codes.includes(error.code)
+}
+
+function isMissingBucketError(error: unknown) {
+  if (typeof error !== 'object' || error === null) return false
+  const statusCode = 'statusCode' in error ? error.statusCode : undefined
+  const message = 'message' in error && typeof error.message === 'string' ? error.message : ''
+  return (statusCode === 404 || statusCode === '404') && /bucket not found/i.test(message)
+}
+
 async function listFiles(
   supabase: ReturnType<typeof createClient>,
   bucket: string,
@@ -48,7 +63,16 @@ async function removeUserFiles(
   bucket: string,
   userId: string,
 ) {
-  const files = await listFiles(supabase, bucket, userId)
+  let files: string[]
+  try {
+    files = await listFiles(supabase, bucket, userId)
+  } catch (error) {
+    if (isMissingBucketError(error)) {
+      console.warn(`Skipping cleanup for missing storage bucket: ${bucket}`)
+      return
+    }
+    throw error
+  }
 
   for (let offset = 0; offset < files.length; offset += 100) {
     const { error } = await supabase.storage
@@ -108,19 +132,27 @@ serve(async (req) => {
       orderQuery = orderQuery.eq('buyer_id', user.id)
     }
     const { data: orders, error: ordersError } = await orderQuery
-    if (ordersError) throw new Error(`Failed to load orders: ${ordersError.message}`)
-
+    if (ordersError && !hasErrorCode(ordersError, ['PGRST205', '42P01'])) {
+      throw new Error(`Failed to load orders: ${ordersError.message}`)
+    }
+    if (ordersError) console.warn('Skipping order cleanup because the optional orders table is missing')
     const orderIds = (orders ?? []).map((order) => order.id)
     const { error: senderMessagesError } = await adminClient
       .from('messages')
       .delete()
       .eq('sender_id', user.id)
-    if (senderMessagesError) throw new Error(`Failed to delete sent messages: ${senderMessagesError.message}`)
+    if (senderMessagesError && !hasErrorCode(senderMessagesError, ['PGRST205', '42P01'])) {
+      throw new Error(`Failed to delete sent messages: ${senderMessagesError.message}`)
+    }
+    const messagesTableExists = !senderMessagesError
+    if (senderMessagesError) console.warn('Skipping message cleanup because the optional messages table is missing')
 
-    if (orderIds.length) {
+    if (messagesTableExists && orderIds.length) {
       const { error } = await adminClient.from('messages').delete().in('order_id', orderIds)
       if (error) throw new Error(`Failed to delete order messages: ${error.message}`)
+    }
 
+    if (orderIds.length) {
       const { error: deleteOrdersError } = await adminClient.from('orders').delete().in('id', orderIds)
       if (deleteOrdersError) throw new Error(`Failed to delete orders: ${deleteOrdersError.message}`)
     }
@@ -133,7 +165,10 @@ serve(async (req) => {
       .from('stores')
       .update({ verified_by: null })
       .eq('verified_by', user.id)
-    if (auditError) throw new Error(`Failed to clear store audit references: ${auditError.message}`)
+    if (auditError && !hasErrorCode(auditError, ['PGRST204', '42703'])) {
+      throw new Error(`Failed to clear store audit references: ${auditError.message}`)
+    }
+    if (auditError) console.warn('Skipping store audit cleanup because the optional verified_by column is missing')
 
     const { error: storeDeleteError } = await adminClient
       .from('stores')
@@ -145,14 +180,20 @@ serve(async (req) => {
       .from('advisories')
       .update({ created_by: null })
       .eq('created_by', user.id)
-    if (advisoryError) throw new Error(`Failed to clear advisory ownership: ${advisoryError.message}`)
+    if (advisoryError && !hasErrorCode(advisoryError, ['PGRST204', 'PGRST205', '42703', '42P01'])) {
+      throw new Error(`Failed to clear advisory ownership: ${advisoryError.message}`)
+    }
+    if (advisoryError) console.warn('Skipping advisory cleanup because the optional schema is missing')
 
     if (user.email) {
       const { error: otpError } = await adminClient
         .from('email_otp_codes')
         .delete()
         .eq('email', user.email.trim().toLowerCase())
-      if (otpError) throw new Error(`Failed to delete email verification data: ${otpError.message}`)
+      if (otpError && !hasErrorCode(otpError, ['PGRST204', 'PGRST205', '42703', '42P01'])) {
+        throw new Error(`Failed to delete email verification data: ${otpError.message}`)
+      }
+      if (otpError) console.warn('Skipping email verification cleanup because the optional schema is missing')
     }
 
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id)
@@ -161,6 +202,7 @@ serve(async (req) => {
     return jsonResponse({ success: true })
   } catch (error) {
     console.error('Account deletion failed:', error)
-    return jsonResponse({ error: 'Account deletion failed. Your account may still be active.' }, 500)
+    const message = error instanceof Error ? error.message : 'Unexpected server error'
+    return jsonResponse({ error: `Account deletion failed: ${message}` }, 500)
   }
 })

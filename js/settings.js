@@ -546,7 +546,18 @@ $('#delete-account-btn').addEventListener('click', async () => {
     const { data, error } = await supabase.functions.invoke('delete-account', {
       body: { confirmation: 'DELETE' },
     });
-    if (error) throw error;
+    if (error) {
+      let message = error.message;
+      if (error.context instanceof Response) {
+        try {
+          const responseBody = await error.context.clone().json();
+          if (typeof responseBody?.error === 'string') message = responseBody.error;
+        } catch (responseError) {
+          console.warn('Could not read account deletion error response:', responseError);
+        }
+      }
+      throw new Error(message);
+    }
     if (data?.success !== true) throw new Error(data?.error || 'Account deletion failed');
 
     accountDeletionInProgress = true;
@@ -558,7 +569,8 @@ $('#delete-account-btn').addEventListener('click', async () => {
     window.location.replace('index.html');
   } catch (err) {
     console.error('Delete account error:', err);
-    alert('Failed to delete account. Please contact support.');
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    alert(`Failed to delete account: ${message}`);
   }
 });
 
