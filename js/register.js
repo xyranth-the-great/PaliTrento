@@ -165,7 +165,13 @@ form.addEventListener('submit', async (e) => {
 
     if (error) {
       console.error('[Register] OTP error:', error);
-      showMsg('Failed to send verification code. Please try again.', 'bad');
+      sessionStorage.removeItem('pending_registration');
+      showMsg(
+        error.code === 'EMAIL_ALREADY_REGISTERED'
+          ? error.message
+          : 'Failed to send verification code. Please try again.',
+        'bad'
+      );
       return;
     }
 

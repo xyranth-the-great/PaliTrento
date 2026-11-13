@@ -134,7 +134,13 @@ form.addEventListener('submit', async (e) => {
     submitBtn.textContent = 'Create account & continue';
 
     if (error) {
-      showMsg('Failed to send verification code. Please try again.', 'bad');
+      sessionStorage.removeItem('pending_registration');
+      showMsg(
+        error.code === 'EMAIL_ALREADY_REGISTERED'
+          ? error.message
+          : 'Failed to send verification code. Please try again.',
+        'bad'
+      );
       return;
     }
 
