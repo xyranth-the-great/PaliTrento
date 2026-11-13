@@ -1,6 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getPostLoginPath } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
@@ -25,13 +25,7 @@ async function init() {
 }
 
 function redirectAfterLogin(role) {
-  if (role === 'business_owner') {
-    window.location.replace('dashboard.html');
-  } else if (role === 'admin') {
-    window.location.replace('admin.html');
-  } else {
-    window.location.replace('index.html');
-  }
+  window.location.replace(getPostLoginPath(role));
 }
 
 init();
@@ -48,7 +42,7 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const redirectUrl = new URL('login.html', window.location.href).href;
+      const redirectUrl = new URL('index.html', window.location.href).href;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
