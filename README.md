@@ -18,20 +18,6 @@ For existing projects, run `supabase/remove-trike-cod.sql` to remove Trike COD f
 
 Account deletion uses the server-side `delete-account` Edge Function. Deploy it separately with `supabase functions deploy delete-account`; the function requires the Supabase URL, anon key, and service-role key in the Edge Function environment. Never expose the service-role key in the frontend.
 
-## Seller certificate compliance
-Run `supabase/certification-compliance.sql` after `supabase/schema.sql` for a new project, or after `supabase/store-submission.sql` and `supabase/store-product-approval.sql` for an existing project. It creates private certificate storage, review records, compliance deadlines, and policies that hide suspended stores and products.
-
-Deploy `manage-certifications` with `supabase functions deploy manage-certifications --no-verify-jwt`. The function verifies user tokens and admin roles itself. Configure the Resend key and a strong cron secret with `supabase secrets set RESEND_API_KEY="<resend-key>" COMPLIANCE_CRON_SECRET="<random-secret>"`; do not expose either secret in the frontend.
-
-To enable automatic deadline enforcement, create the Vault secrets in the SQL Editor (use your project URL and the same random secret configured above):
-
-```sql
-select vault.create_secret('https://<project-ref>.supabase.co', 'palitrento_project_url');
-select vault.create_secret('<COMPLIANCE_CRON_SECRET>', 'palitrento_compliance_cron_secret');
-```
-
-Then run `supabase/certification-compliance-cron.sql`. This schedules a check every five minutes using Supabase `pg_cron`, `pg_net`, and Vault. Use **Notify current sellers** on the admin verification page to start existing sellers' 15-day periods; new stores receive their deadline when submitted.
-
 ## Deploy to GitHub Pages
 The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
 
