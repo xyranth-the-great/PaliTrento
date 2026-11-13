@@ -381,48 +381,6 @@ $('#save-password-btn').addEventListener('click', async () => {
   }
 });
 
-// ===== Active Sessions =====
-async function loadSessions() {
-  const listEl = $('#sessions-list');
-  if (!supabase || !currentSession) {
-    listEl.innerHTML = '<p class="muted">Unable to load sessions</p>';
-    return;
-  }
-
-  try {
-    // Get sessions from Supabase (requires service role, so we'll show current session only)
-    listEl.innerHTML = `
-      <div class="session-item" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:8px">
-        <div>
-          <strong>Current session</strong>
-          <div class="muted" style="font-size:.85rem">This device • Active now</div>
-        </div>
-        <span class="pill ok">Current</span>
-      </div>
-      <p class="muted" style="font-size:.85rem">Note: Only the current session is shown. Use "Log out of all other devices" to revoke all sessions.</p>
-    `;
-  } catch {
-    listEl.innerHTML = '<p class="muted">Failed to load sessions</p>';
-  }
-}
-
-loadSessions();
-
-$('#revoke-all-btn').addEventListener('click', async () => {
-  if (!confirm('Log out of all devices except this one? You will need to log in again on other devices.')) return;
-  if (!supabase) return;
-
-  try {
-    const { error } = await supabase.auth.signOut({ scope: 'global' });
-    if (error) throw error;
-    clearProfileCache();
-    window.location.href = 'login.html';
-  } catch (err) {
-    console.error('Global sign out error:', err);
-    alert('Failed to revoke sessions. Please try again.');
-  }
-});
-
 // ===== Export/Download Data =====
 $('#export-data-btn').addEventListener('click', async () => {
   if (!supabase || !currentSession) return alert('Not available');
