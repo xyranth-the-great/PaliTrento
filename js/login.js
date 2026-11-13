@@ -1,6 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, onAuthStateChange } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
@@ -49,11 +49,10 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const redirectUrl = new URL('index.html', window.location.href).href;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: getOAuthRedirectUrl(),
         },
       });
 
