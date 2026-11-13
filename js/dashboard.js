@@ -100,10 +100,21 @@ function renderStoreCard(store) {
   pill.textContent = statusLabels[store.verification_status] || store.verification_status;
   badgeContainer.appendChild(pill);
 
+  const canManageProducts = store.verification_status === 'VERIFIED';
+  const addProductButton = $('#add-product-btn');
+  addProductButton.disabled = !canManageProducts;
+  addProductButton.title = canManageProducts ? '' : 'Available after LGU approval';
+  const approvalNotice = $('#product-approval-notice');
+  approvalNotice.style.display = canManageProducts ? 'none' : 'block';
+  approvalNotice.className = `pill ${statusColors[store.verification_status] || 'warn'}`;
+  approvalNotice.textContent = store.verification_status === 'PENDING'
+    ? 'Your store is awaiting LGU approval. You can view existing products, but adding, editing, or advertising products will be available after approval. Products are not shown to customers before approval.'
+    : `Your store is not yet approved (${statusLabels[store.verification_status] || store.verification_status}). Product management and public listings are available after LGU approval.`;
+
   // Show standee button for verified stores
   const standeeBtn = $('#standee-btn');
   if (standeeBtn) {
-    standeeBtn.style.display = 'inline-flex';
+    standeeBtn.style.display = canManageProducts ? 'inline-flex' : 'none';
     standeeBtn.href = `standee.html?storeId=${store.id}`;
   }
 }
@@ -321,13 +332,15 @@ function renderProducts() {
           <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
             <h3 style="margin:0;font-size:1rem">${esc(p.name)}</h3>
             <div style="display:flex;gap:4px">
-              <button class="btn alt" style="padding:4px 8px;font-size:.75rem" data-edit="${p.id}">Edit</button>
-              <button class="btn alt" style="padding:4px 8px;font-size:.75rem;color:var(--bad)" data-delete="${p.id}">Delete</button>
+              ${currentStore?.verification_status === 'VERIFIED' ? `
+                <button class="btn alt" style="padding:4px 8px;font-size:.75rem" data-edit="${p.id}">Edit</button>
+                <button class="btn alt" style="padding:4px 8px;font-size:.75rem;color:var(--bad)" data-delete="${p.id}">Delete</button>
+              ` : ''}
             </div>
           </div>
           <div class="product-ad-action">
             ${isFeatured ? `<span class="pill info">Featured until ${new Date(featuredUntil).toLocaleDateString('en-PH')}</span>` : '<span class="muted">Not featured on home</span>'}
-            <button type="button" class="btn alt" data-advertise="${p.id}">${isFeatured ? 'Extend ad' : 'Advertise'} · ₱20 / 7 days</button>
+            ${currentStore?.verification_status === 'VERIFIED' ? `<button type="button" class="btn alt" data-advertise="${p.id}">${isFeatured ? 'Extend ad' : 'Advertise'} · ₱20 / 7 days</button>` : ''}
           </div>
           <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
@@ -431,6 +444,11 @@ function switchTab(tab) {
 }
 
 function openProductModal(productId = null) {
+  if (currentStore?.verification_status !== 'VERIFIED') {
+    alert('Products can be added or managed after your store is approved by the LGU.');
+    return;
+  }
+
   editingProductId = productId;
   productForm.reset();
   $('#product-id').value = '';
@@ -483,6 +501,10 @@ async function saveProduct(e) {
   e.preventDefault();
 
   if (!currentStore) return;
+  if (currentStore.verification_status !== 'VERIFIED') {
+    alert('Products can be added or managed after your store is approved by the LGU.');
+    return;
+  }
 
   const imageFile = $('#p-image')?.files?.[0] ?? null;
 
@@ -569,6 +591,10 @@ async function saveProduct(e) {
 }
 
 async function createNewProduct(productData, imageFile) {
+  if (currentStore?.verification_status !== 'VERIFIED') {
+    throw new Error('Products can be added after your store is approved by the LGU.');
+  }
+
   const { data: newProduct, error: insertError } = await supabase
     .from('products')
     .insert(productData)
@@ -603,6 +629,11 @@ async function createNewProduct(productData, imageFile) {
 }
 
 function advertiseProduct(productId) {
+  if (currentStore?.verification_status !== 'VERIFIED') {
+    alert('Products can be advertised after your store is approved by the LGU.');
+    return;
+  }
+
   const product = currentProducts.find(item => item.id === productId);
   if (!product || !currentStore) return;
 
@@ -758,6 +789,11 @@ function createDemoQrSvg() {
 }
 
 async function deleteProduct(productId) {
+  if (currentStore?.verification_status !== 'VERIFIED') {
+    alert('Products can be managed after your store is approved by the LGU.');
+    return;
+  }
+
   if (!confirm('Delete this product?')) return;
 
   try {

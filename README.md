@@ -13,6 +13,8 @@ Tara, Palit Ta sa Trento! Vite + vanilla JS + Supabase + Leaflet.
 The anon key is safe to expose. Security comes from the row-level security rules in `schema.sql`.
 
 For an existing project, run `supabase/store-submission.sql` in the SQL Editor to add store-submission columns and owner permissions.
+Run `supabase/store-product-approval.sql` as well to restrict product publishing to LGU-verified stores.
+For existing projects, run `supabase/remove-trike-cod.sql` to remove Trike COD from saved store payment preferences.
 
 Account deletion uses the server-side `delete-account` Edge Function. Deploy it separately with `supabase functions deploy delete-account`; the function requires the Supabase URL, anon key, and service-role key in the Edge Function environment. Never expose the service-role key in the frontend.
 

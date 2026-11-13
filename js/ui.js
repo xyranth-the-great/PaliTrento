@@ -7,7 +7,7 @@ export const peso = n => '₱' + Number(n).toLocaleString('en-PH', { minimumFrac
 
 export const CATS = { SARI_SARI: 'Sari-sari store', CARINDERIA: 'Carinderia', FRESH_PRODUCE: 'Fresh produce', PHARMACY: 'Pharmacy', SERVICES: 'Services', PRODUCT: 'Product', AGRI: 'Agri supply' };
 export const UNITS = { KG: 'kg', PC: 'pc', POUCH: 'pouch', BOTTLE: 'bottle', SACK_25KG: '25-kg sack', TIE: 'tie' };
-export const PAY = { CASH: 'Cash', GCASH: 'GCash', TRIKE_COD: 'Trike COD' };
+export const PAY = { CASH: 'Cash', GCASH: 'GCash' };
 // Check this list against the official PSGC barangay list for Trento before launch.
 export const BARANGAYS = ['Basa','Cebolin','Cuevas','Kapatungan','Langasian','Manat','Pangyan','Poblacion','Pulang Lupa','Salvacion','San Ignacio','San Isidro','San Roque','Santa Maria','Sto. Niño','Tudela'];
 

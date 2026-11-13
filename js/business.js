@@ -16,7 +16,9 @@ if (!s) {
   main.innerHTML = '<section><div class="wrap"><div class="empty"><h1 style="font-size:1.6rem">We could not find that business</h1><p><a class="btn" href="explore.html">Browse all stores</a></p></div></div></section>';
 } else {
   document.title = `${s.business_name} | PaliTrento`;
-  const prods = (await getProducts()).filter(p => p.store_id === s.id);
+  const prods = s.verification_status === 'VERIFIED'
+    ? (await getProducts()).filter(p => p.store_id === s.id)
+    : [];
   const tel = s.contact_number;
   const description = s.description?.trim();
   main.innerHTML = `
@@ -34,7 +36,7 @@ if (!s) {
       <dt>Hours</dt><dd>${hours(s)}, daily</dd>
       <dt>Address</dt><dd>${esc(s.purok)}, ${esc(s.barangay)}, Trento</dd>
       <dt>Landmark</dt><dd>${esc(s.landmark_reference)}</dd>
-      <dt>Accepts</dt><dd>${(s.accepted_payments || []).map(x => PAY[x]).join(', ')}</dd>
+      <dt>Accepts</dt><dd>${(s.accepted_payments || []).filter(x => Object.prototype.hasOwnProperty.call(PAY, x)).map(x => PAY[x]).join(', ') || '—'}</dd>
       <dt>Store ID</dt><dd>${esc(s.trn_code)}</dd>
     </dl>
     <div id="mini" class="mini" role="img" aria-label="Map showing ${esc(s.business_name)}"></div>

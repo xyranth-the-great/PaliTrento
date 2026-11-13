@@ -104,7 +104,7 @@ function renderStoreInfo() {
   $('#standee-address').textContent = addressParts;
   $('#standee-hours').textContent = `${hours(s)} • ${isOpen(s) ? 'Open now' : 'Closed'}`;
 
-  const payments = (s.accepted_payments || []).map(p => PAY[p] || p).join(', ');
+  const payments = (s.accepted_payments || []).filter(p => Object.prototype.hasOwnProperty.call(PAY, p)).map(p => PAY[p]).join(', ');
   $('#standee-payments').textContent = payments || '—';
 
   // Storefront image
@@ -388,7 +388,7 @@ async function generatePDF(options) {
 
   // Payment Methods
   if (document.getElementById('includePayments')?.checked) {
-    const payments = (currentStore.accepted_payments || []).map(p => PAY[p] || p).join(', ') || '—';
+    const payments = (currentStore.accepted_payments || []).filter(p => Object.prototype.hasOwnProperty.call(PAY, p)).map(p => PAY[p]).join(', ') || '—';
     currentY = pdfGenerator.addText('Accepted Payments:', margin, currentY, { fontSize: 10, fontStyle: 'bold', color: '#1f4d2e' });
     currentY = pdfGenerator.addText(payments, margin, currentY + 3, { fontSize: 10 }) + 6;
   }

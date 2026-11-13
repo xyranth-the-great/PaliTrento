@@ -79,7 +79,14 @@ create index if not exists stores_barangay_idx on stores(barangay);
 alter table stores enable row level security;
 alter table products enable row level security;
 create policy "public read stores" on stores for select using (verification_status <> 'REJECTED');
-create policy "public read products" on products for select using (true);
+drop policy if exists "public read products" on products;
+create policy "public read products" on products
+  for select to anon, authenticated
+  using (exists (
+    select 1 from stores
+    where stores.id = products.store_id
+      and stores.verification_status = 'VERIFIED'
+  ));
 
 -- Store owner & admin policies for stores
 create or replace function public.is_admin()
@@ -140,13 +147,46 @@ create policy "owner delete store images" on storage.objects for delete to authe
   );
 
 drop policy if exists "owner manage own products" on products;
-create policy "owner manage own products" on products
-  for all to authenticated
+drop policy if exists "owner read own products" on products;
+create policy "owner read own products" on products
+  for select to authenticated
   using (exists (
     select 1 from stores
     where stores.id = products.store_id and stores.user_id = auth.uid()
+  ));
+
+drop policy if exists "verified owner insert products" on products;
+create policy "verified owner insert products" on products
+  for insert to authenticated
+  with check (exists (
+    select 1 from stores
+    where stores.id = products.store_id
+      and stores.user_id = auth.uid()
+      and stores.verification_status = 'VERIFIED'
+  ));
+
+drop policy if exists "verified owner update products" on products;
+create policy "verified owner update products" on products
+  for update to authenticated
+  using (exists (
+    select 1 from stores
+    where stores.id = products.store_id
+      and stores.user_id = auth.uid()
+      and stores.verification_status = 'VERIFIED'
   ))
   with check (exists (
     select 1 from stores
-    where stores.id = products.store_id and stores.user_id = auth.uid()
+    where stores.id = products.store_id
+      and stores.user_id = auth.uid()
+      and stores.verification_status = 'VERIFIED'
+  ));
+
+drop policy if exists "verified owner delete products" on products;
+create policy "verified owner delete products" on products
+  for delete to authenticated
+  using (exists (
+    select 1 from stores
+    where stores.id = products.store_id
+      and stores.user_id = auth.uid()
+      and stores.verification_status = 'VERIFIED'
   ));

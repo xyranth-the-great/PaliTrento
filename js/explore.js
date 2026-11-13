@@ -9,7 +9,8 @@ renderChrome('explore.html', session, profile);
 
 const [stores, products] = await Promise.all([getStores(), getProducts()]);
 const storeById = new Map(stores.map(store => [store.id, store]));
-const promotedProducts = getActiveFeaturedProducts(products)
+const approvedProducts = products.filter(product => storeById.has(product.store_id));
+const promotedProducts = getActiveFeaturedProducts(approvedProducts)
   .filter(product => storeById.has(product.store_id));
 if (promotedProducts.length) {
   $('#explore-featured-products').innerHTML = promotedProducts
@@ -25,7 +26,7 @@ $('#brgy').insertAdjacentHTML('beforeend', BARANGAYS.map(b => `<option>${b}</opt
 $('#q').value = p.get('q') || ''; $('#cat').value = p.get('cat') || ''; $('#brgy').value = p.get('brgy') || '';
 function render() {
   const q = $('#q').value.trim().toLowerCase(), cat = $('#cat').value, br = $('#brgy').value;
-  const hit = new Set(products.filter(x => q && x.name.toLowerCase().includes(q)).map(x => x.store_id));
+  const hit = new Set(approvedProducts.filter(x => q && x.name.toLowerCase().includes(q)).map(x => x.store_id));
   const out = stores.filter(s =>
     (!q || s.business_name.toLowerCase().includes(q) || CATS[s.trade_category].toLowerCase().includes(q) || s.barangay.toLowerCase().includes(q) || hit.has(s.id)) &&
     (!cat || s.trade_category === cat) && (!br || s.barangay === br) &&
