@@ -83,7 +83,8 @@ function prefillForm(store) {
     $('#storefront-upload').style.display = 'none';
   }
 
-  if (store.accepted_payments) {
+  if (Array.isArray(store.accepted_payments)) {
+    form.querySelectorAll('input[name="payments"]').forEach(cb => { cb.checked = false; });
     store.accepted_payments.forEach(p => {
       const cb = form.querySelector(`input[name="payments"][value="${p}"]`);
       if (cb) cb.checked = true;
