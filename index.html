@@ -13,6 +13,23 @@
 <body class="home-page">
 <div id="chrome-top"></div>
 <main>
+<section id="google-role-choice" class="wrap" hidden style="max-width:560px;padding-top:48px;padding-bottom:48px">
+  <div class="card" style="padding:24px">
+    <h1>Choose your account type</h1>
+    <p class="muted">Select how you want to use PaliTrento.</p>
+    <form id="google-role-form" style="display:grid;gap:16px">
+      <fieldset>
+        <legend>I am a</legend>
+        <div class="checks">
+          <label><input type="radio" name="account_role" value="customer" required> Customer</label>
+          <label><input type="radio" name="account_role" value="business_owner" required> Business owner</label>
+        </div>
+      </fieldset>
+      <button type="submit" class="btn">Continue</button>
+    </form>
+    <p id="google-role-message" class="muted" role="status" aria-live="polite" style="margin-top:16px"></p>
+  </div>
+</section>
 <div class="hero"><div class="wrap">
   <h1 id="home-tagline">Tara, Palit Ta sa Trento!</h1>
   <p class="lead">Find the sari-sari store, market stall, pharmacy or repair shop nearest you, and check today&#39;s prices before you go.</p>

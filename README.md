@@ -20,6 +20,8 @@ Account deletion uses the server-side `delete-account` Edge Function. Deploy it 
 
 For the buyer's name to appear in seller chats, run `supabase/chat-customer-name.sql` after `supabase/orders.sql` and `supabase/chat.sql`. The function only exposes a buyer's name to participants in that order.
 
+For new Google sign-ups to choose a customer or business-owner account, run `supabase/google-auth-role.sql` in the Supabase SQL Editor after `supabase/schema.sql`.
+
 ## Deploy to GitHub Pages
 The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
 

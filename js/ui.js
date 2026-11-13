@@ -207,18 +207,22 @@ const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 export function renderChrome(active, session = null, profile = null) {
   const role = profile?.role ?? session?.user?.user_metadata?.role;
+  const isBusinessOwner = role === 'business_owner';
+  const isAdmin = role === 'admin';
   const isLoggedInBuyer = !!session && role !== 'admin';
-  const isCustomerOrBusinessOwner = !!session && ['customer', 'business_owner'].includes(role);
-  const showOrdersLink = !['login.html', 'register.html'].includes(active)
-    && (isCustomerOrBusinessOwner
+  const showOrdersLink = !isBusinessOwner
+    && !isAdmin
+    && !['login.html', 'register.html'].includes(active)
+    && (!!session && role === 'customer'
       || (!['explore.html', 'map.html', 'products.html'].includes(active)
         && (active !== 'index.html' || isLoggedInBuyer)));
   const links = [
     ['index.html', 'Home'],
-    ...(role === 'admin' ? [['admin.html', 'Admin Dashboard']] : []),
+    ...(isAdmin ? [['admin.html', 'Admin Dashboard']] : []),
     ['explore.html', 'Explore'],
     ['map.html', 'Map'],
     ['products.html', 'Products'],
+    ...(isBusinessOwner ? [['dashboard.html#tab-products', 'My Products']] : []),
     ...(showOrdersLink ? [['orders.html', 'My Orders']] : [])
   ];
   let authLinks;
@@ -239,8 +243,8 @@ export function renderChrome(active, session = null, profile = null) {
       extraLinks = `<a href="admin.html" class="avatar-dropdown-item" role="menuitem">Admin Dashboard</a>`;
     }
 
-    // My Orders for all logged-in users (links to separate orders page)
-    const ordersLink = isAdmin
+    // Keep order history available to customers, but not sellers or admins.
+    const ordersLink = isBusinessOwner || isAdmin
       ? ''
       : `<a href="orders.html" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 

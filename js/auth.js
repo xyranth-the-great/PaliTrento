@@ -165,6 +165,16 @@ export function getOAuthRedirectUrl() {
   return redirectUrl.href;
 }
 
+export function isNewGoogleAccount(user) {
+  if (user?.app_metadata?.provider !== 'google') return false;
+
+  const createdAt = Date.parse(user.created_at ?? '');
+  const lastSignInAt = Date.parse(user.last_sign_in_at ?? '');
+  return Number.isFinite(createdAt)
+    && Number.isFinite(lastSignInAt)
+    && Math.abs(lastSignInAt - createdAt) <= 2 * 60 * 1000;
+}
+
 export function getAuthErrorMessage(error) {
   if (!error) return 'Something went wrong';
   const msg = error.message?.toLowerCase() ?? '';
