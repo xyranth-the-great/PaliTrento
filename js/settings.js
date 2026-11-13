@@ -79,7 +79,7 @@ async function loadSettings() {
   // Load avatar
   updateAvatarPreview(currentProfile?.avatar_url ?? null);
 
-  // Load saved preferences from localStorage
+  // Load saved notification and privacy preferences from localStorage
   loadPreferences();
 
   contentEl.style.display = 'block';
@@ -281,23 +281,6 @@ function loadPreferences() {
     });
   } catch {}
 
-  // Preferences
-  try {
-    const stored = localStorage.getItem('palitrento_preferences');
-    const prefs = stored ? JSON.parse(stored) : {
-      language: 'en',
-      currency: 'PHP',
-      theme: 'system',
-      autoplay: false,
-      reduce_motion: false
-    };
-    $('#pref-language').value = prefs.language;
-    $('#pref-currency').value = prefs.currency;
-    $('#pref-theme').value = prefs.theme;
-    $('#pref-autoplay').checked = prefs.autoplay;
-    $('#pref-reduce-motion').checked = prefs.reduce_motion;
-    applyTheme(prefs.theme);
-  } catch {}
 }
 
 function saveNotifications() {
@@ -328,30 +311,6 @@ function savePrivacy() {
 }
 
 $('#save-privacy-btn').addEventListener('click', savePrivacy);
-
-// ===== Preferences =====
-function savePreferences() {
-  const prefs = {
-    language: $('#pref-language').value,
-    currency: $('#pref-currency').value,
-    theme: $('#pref-theme').value,
-    autoplay: $('#pref-autoplay').checked,
-    reduce_motion: $('#pref-reduce-motion').checked
-  };
-  localStorage.setItem('palitrento_preferences', JSON.stringify(prefs));
-  applyTheme(prefs.theme);
-  showMsg('Preferences saved', 'ok');
-}
-
-function applyTheme(theme) {
-  if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-}
-
-$('#save-preferences-btn').addEventListener('click', savePreferences);
 
 // ===== Security: Change Password =====
 const securityMsg = $('#security-msg');
