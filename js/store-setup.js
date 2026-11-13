@@ -11,6 +11,7 @@ const submitBtn = $('#submit-btn');
 let currentStep = 1;
 let map = null;
 let marker = null;
+let mapError = null;
 let storefrontUrl = null;
 let permitsUrl = null;
 
@@ -41,23 +42,29 @@ async function init() {
   brgySelect.innerHTML = '<option value="">Choose barangay</option>' +
     BARANGAYS.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
 
+  // Bind controls before loading remote data so failures cannot leave the buttons inert.
+  bindEvents();
+
   // Check if returning user has existing store
-  const { data: existingStore } = await supabase
+  const { data: existingStore, error: storeError } = await supabase
     .from('stores')
     .select('*')
     .eq('user_id', session.user.id)
     .maybeSingle();
 
-  if (existingStore) {
-    // Pre-fill form
-    prefillForm(existingStore);
+  if (storeError) throw storeError;
+
+  try {
+    await initMap(existingStore?.lat ?? 8.0733, existingStore?.lng ?? 125.8689);
+  } catch (error) {
+    mapError = error;
+    console.error('Store setup map error:', error);
+    showMsg('The map could not be loaded. Check your connection and refresh to set your store location.', 'bad');
   }
 
-  // Init map (default to Trento center)
-  initMap(8.0733, 125.8689); // Trento, Agusan del Sur approx
-
-  // Bind events
-  bindEvents();
+  if (existingStore) {
+    prefillForm(existingStore);
+  }
 
   // URL step parameter
   const urlStep = parseInt(new URLSearchParams(window.location.search).get('step')) || 1;
@@ -83,34 +90,36 @@ function prefillForm(store) {
     });
   }
 
-  if (store.lat && store.lng) {
+  if (store.lat != null && store.lng != null) {
     $('#lat').value = store.lat;
     $('#lng').value = store.lng;
-    if (marker) marker.setLatLng([store.lat, store.lng]);
-    else addMarker(store.lat, store.lng);
-    map.setView([store.lat, store.lng], 17);
+    if (map) {
+      addMarker(store.lat, store.lng);
+      map.setView([store.lat, store.lng], 17);
+    }
   }
 }
 
 function initMap(lat, lng) {
-  // Check if Leaflet is loaded
-  if (typeof L === 'undefined') {
-    // Load Leaflet dynamically
+  if (typeof L !== 'undefined') {
+    return Promise.resolve(createMap(lat, lng));
+  }
+
+  return new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
     script.crossOrigin = 'anonymous';
-    script.onload = () => createMap(lat, lng);
+    script.onload = () => {
+      try {
+        resolve(createMap(lat, lng));
+      } catch (error) {
+        reject(error);
+      }
+    };
+    script.onerror = () => reject(new Error('Could not load the map library.'));
     document.head.appendChild(script);
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
-    link.crossOrigin = 'anonymous';
-    document.head.appendChild(link);
-  } else {
-    createMap(lat, lng);
-  }
+  });
 }
 
 function createMap(lat, lng) {
@@ -120,24 +129,38 @@ function createMap(lat, lng) {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  map.on('click', (e) => addMarker(e.latlng.lat, e.latlng.lng));
+  map.on('click', (e) => addMarker(e.latlng.lat, e.latlng.lng, true));
+  mapError = null;
+  return map;
 }
 
-function addMarker(lat, lng) {
+function addMarker(lat, lng, notify = false) {
+  if (!map) {
+    showMsg(mapError
+      ? 'The map is unavailable. Check your connection and refresh to try again.'
+      : 'The map is still loading. Please wait a moment and try again.', 'bad');
+    return false;
+  }
+
   if (marker) marker.remove();
   marker = L.marker([lat, lng], { draggable: true }).addTo(map);
   marker.on('dragend', (e) => {
     const pos = e.target.getLatLng();
     $('#lat').value = pos.lat.toFixed(6);
     $('#lng').value = pos.lng.toFixed(6);
+    showMsg('Store location updated.', 'ok');
   });
   $('#lat').value = lat.toFixed(6);
   $('#lng').value = lng.toFixed(6);
+  if (notify) showMsg('Store location selected.', 'ok');
+  return true;
 }
 
 function bindEvents() {
   // Step navigation
-  $('#next-1')?.addEventListener('click', () => validateStep1() && goToStep(2));
+  $('#next-1')?.addEventListener('click', () => {
+    if (validateStep1()) goToStep(2);
+  });
   $('#next-2')?.addEventListener('click', () => goToStep(3));
   $('#back-2')?.addEventListener('click', () => goToStep(1));
   $('#back-3')?.addEventListener('click', () => goToStep(2));
@@ -145,7 +168,13 @@ function bindEvents() {
   // Location buttons
   $('#use-my-location')?.addEventListener('click', useMyLocation);
   $('#pick-on-map')?.addEventListener('click', () => {
-    showMsg('Click on the map to set location', 'info');
+    if (!map) {
+      showMsg(mapError
+        ? 'The map is unavailable. Check your connection and refresh to try again.'
+        : 'The map is still loading. Please wait a moment and try again.', 'bad');
+      return;
+    }
+    showMsg('Click the map or drag the marker to set your store location.', 'info');
   });
 
   // Photo uploads
@@ -202,19 +231,33 @@ async function handleFileSelect(type, file) {
 }
 
 function useMyLocation() {
-  if (!navigator.geolocation) {
-    showMsg('Geolocation not supported', 'bad');
+  if (!map) {
+    showMsg(mapError
+      ? 'The map is unavailable. Check your connection and refresh to try again.'
+      : 'The map is still loading. Please wait a moment and try again.', 'bad');
     return;
   }
-  showMsg('Getting your location...', 'info');
+
+  if (!navigator.geolocation) {
+    showMsg('Location access is not supported by this browser.', 'bad');
+    return;
+  }
+  showMsg('Requesting your location. Allow location access if prompted.', 'info');
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude } = pos.coords;
-      addMarker(latitude, longitude);
-      map.setView([latitude, longitude], 17);
-      showMsg('Location set!', 'ok');
+      if (addMarker(latitude, longitude)) {
+        map.setView([latitude, longitude], 17);
+      }
     },
-    (err) => showMsg('Failed to get location: ' + err.message, 'bad'),
+    (err) => {
+      const message = err.code === err.PERMISSION_DENIED
+        ? 'Location permission was denied. Allow it in your browser settings or choose a location on the map.'
+        : err.code === err.POSITION_UNAVAILABLE
+          ? 'Your current location is unavailable. Choose a location on the map instead.'
+          : 'Location request timed out. Try again or choose a location on the map.';
+      showMsg(message, 'bad');
+    },
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
@@ -230,7 +273,11 @@ function validateStep1() {
     }
   }
   if (!$('#lat').value || !$('#lng').value) {
-    showMsg('Please set your store location on the map', 'bad');
+    showMsg(mapError
+      ? 'The map is unavailable. Check your connection and refresh to set your store location.'
+      : !map
+        ? 'The map is still loading. Please wait a moment and try again.'
+        : 'Please set your store location on the map.', 'bad');
     return false;
   }
   const payments = Array.from(form.querySelectorAll('input[name="payments"]:checked')).map(cb => cb.value);
@@ -246,9 +293,12 @@ function goToStep(step) {
   if (step === 3) buildReview();
 
   currentStep = step;
+  msgEl.textContent = '';
+  msgEl.className = 'muted';
   Object.entries(steps).forEach(([num, el]) => {
     el.style.display = num == step ? 'block' : 'none';
   });
+  $('.setup-progress').setAttribute('aria-valuenow', String(step));
 
   // Update progress indicator
   [1, 2, 3].forEach(n => {
@@ -388,6 +438,10 @@ async function handleSubmit(e) {
 function showMsg(text, type) {
   msgEl.textContent = text;
   msgEl.className = `pill ${type}`;
+  msgEl.style.display = 'block';
 }
 
-init();
+init().catch((error) => {
+  console.error('Store setup initialization error:', error);
+  showMsg('Could not load your store details. Please refresh and try again.', 'bad');
+});
