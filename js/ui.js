@@ -68,11 +68,9 @@ export function initializeFeaturedProductsCarousel(section) {
   const track = viewport.querySelector('.featured-products-grid');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  // Detect touch capability - disable marquee animation on touch devices
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const useMarquee = !isTouchDevice && !reduceMotion.matches;
 
-  console.log('[FeaturedCarousel] Touch device:', isTouchDevice, '| Using marquee:', useMarquee);
+  console.log('[FeaturedCarousel] Touch device:', isTouchDevice, '| Reduced motion:', reduceMotion.matches);
 
   // Get original cards
   const originalCards = Array.from(track.children);
@@ -92,9 +90,9 @@ export function initializeFeaturedProductsCarousel(section) {
     return slide;
   });
 
-  // Clone slides until track is at least 2x viewport width for seamless marquee (only if using marquee)
+  // Clone slides until track is at least 2x viewport width for seamless marquee (ALL devices)
   function ensureClones() {
-    if (!useMarquee) return;
+    if (reduceMotion.matches) return;
     const viewportWidth = viewport.getBoundingClientRect().width;
     if (viewportWidth <= 0) return;
 
@@ -121,7 +119,7 @@ export function initializeFeaturedProductsCarousel(section) {
 
   // Calculate marquee shift for ONE SET (original cards) for seamless looping
   function calculateShift() {
-    if (!useMarquee) return;
+    if (reduceMotion.matches) return;
     const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
     const firstSlide = slides[0].getBoundingClientRect();
     const lastOriginalSlide = slides[originalCards.length - 1].getBoundingClientRect();
@@ -130,36 +128,67 @@ export function initializeFeaturedProductsCarousel(section) {
     console.log('[FeaturedCarousel] Shift set to:', distance, 'px (for', originalCards.length, 'cards)');
   }
 
-  // Initial setup
-  if (useMarquee) {
+  // Initial setup - ALWAYS create clones and start marquee (unless reduced motion)
+  if (!reduceMotion.matches) {
     ensureClones();
     calculateShift();
+    track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
   }
 
   // Recalculate on resize
   if ('ResizeObserver' in window) {
     new ResizeObserver(() => {
-      if (useMarquee) {
+      if (!reduceMotion.matches) {
         ensureClones();
         calculateShift();
       }
     }).observe(viewport);
   } else {
     window.addEventListener('resize', () => {
-      if (useMarquee) {
+      if (!reduceMotion.matches) {
         ensureClones();
         calculateShift();
       }
     }, { passive: true });
   }
 
-  // Start marquee animation (desktop only)
-  if (useMarquee) {
-    track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
+  // ===== TOUCH/MOBILE: Pause marquee during touch, resume after =====
+  if (isTouchDevice && !reduceMotion.matches) {
+    let touchTimer = null;
+    let isTouching = false;
+
+    function pauseMarquee() {
+      track.classList.add('marquee-paused');
+    }
+
+    function resumeMarquee() {
+      track.classList.remove('marquee-paused');
+    }
+
+    viewport.addEventListener('touchstart', () => {
+      isTouching = true;
+      pauseMarquee();
+      if (touchTimer) clearTimeout(touchTimer);
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', () => {
+      if (touchTimer) clearTimeout(touchTimer);
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', () => {
+      isTouching = false;
+      // Resume after a short delay to let native momentum finish
+      touchTimer = setTimeout(resumeMarquee, 300);
+    }, { passive: true });
+
+    viewport.addEventListener('touchcancel', () => {
+      isTouching = false;
+      touchTimer = setTimeout(resumeMarquee, 300);
+    }, { passive: true });
   }
 
-  // ===== DRAG TO SCROLL (desktop only, with momentum) =====
-  if (!isTouchDevice) {
+  // ===== DESKTOP: Drag to scroll with momentum =====
+  if (!isTouchDevice && !reduceMotion.matches) {
     let isDragging = false;
     let velocity = 0;
     let animationFrame = null;
@@ -186,7 +215,7 @@ export function initializeFeaturedProductsCarousel(section) {
       animationFrame = requestAnimationFrame(animateMomentum);
     }
 
-    viewport.addEventListener('pointerdown', (e) => {
+    viewport.addEventEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest('a, button, input, select, textarea')) return;
 
@@ -230,18 +259,20 @@ export function initializeFeaturedProductsCarousel(section) {
     }, { passive: false });
   }
 
-  // Keyboard: pause on focus (desktop only)
-  if (!isTouchDevice) {
-    viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
-    viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
-  }
+  // Keyboard: pause on focus
+  viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
+  viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
 
   // Respect reduced motion
   reduceMotion.addEventListener('change', () => {
     if (reduceMotion.matches) {
       track.style.animation = 'none';
-    } else if (!isTouchDevice) {
+    } else {
       track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
+      if (!isTouchDevice) {
+        ensureClones();
+        calculateShift();
+      }
     }
   });
 
