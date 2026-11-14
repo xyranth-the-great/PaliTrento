@@ -53,6 +53,11 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== 'in
 
 function showGoogleRoleChoice(activeSession) {
   const roleChoice = $('#google-role-choice');
+  const chromeTop = $('#chrome-top');
+
+  // Hide chrome-top (navigation) for clean role choice page
+  if (chromeTop) chromeTop.style.display = 'none';
+
   for (const child of document.querySelector('main').children) {
     child.hidden = child !== roleChoice;
   }
@@ -61,6 +66,10 @@ function showGoogleRoleChoice(activeSession) {
   const form = $('#google-role-form');
   const message = $('#google-role-message');
   const submitButton = form.querySelector('button[type="submit"]');
+
+  function restoreChrome() {
+    if (chromeTop) chromeTop.style.display = '';
+  }
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -94,6 +103,8 @@ function showGoogleRoleChoice(activeSession) {
       message.className = 'pill bad';
       submitButton.disabled = false;
       submitButton.textContent = 'Continue';
+      // Show chrome again on error so user can navigate away if needed
+      restoreChrome();
     }
   });
 }

@@ -11,10 +11,10 @@
             "id": "fcfd7326636e1c50",
             "type": "leaf",
             "state": {
-              "type": "empty",
+              "type": "graph",
               "state": {},
-              "icon": "lucide-file",
-              "title": "New tab"
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
             }
           }
         ]
@@ -184,17 +184,22 @@
       "bases:Create new base": false
     }
   },
-  "active": "1525b2751f80e691",
+  "active": "fcfd7326636e1c50",
   "lastOpenFiles": [
+    "PaliTrento Project.md.tmp.20236.10f85daffdab",
+    "PaliTrento Project.md.tmp.20236.1c1d1246c633",
+    "PaliTrento Project.md.tmp.20236.d03cb2305b65",
+    "CLAUDE.md.tmp.20236.e8ec321a5b8e",
+    "HANDOFF_README.md.tmp.20236.344f796ee82e",
+    "Untitled.canvas",
+    "CLAUDE.md.tmp.23564.f14fae1fa575",
+    "CLAUDE.md",
+    "CLAUDE.md.tmp.23564.edf915a4c588",
+    "HANDOFF_README.md.tmp.23564.94a64fa412b5",
+    "README.md.tmp.23564.1621698bc007",
     "Claude.md.tmp.2040.452e66e5f253",
     "HANDOFF_README.md.tmp.2040.3b9408510b5e",
     "Untitled 1.canvas",
-    "Untitled.canvas",
-    "README.md.tmp.29324.4e37a9e23fab",
-    "Claude.md.tmp.29324.4310bf39a7ba",
-    "Claude.md.tmp.29324.cc8fbbc9c061",
-    "Claude.md.tmp.29324.07e17e0197f1",
-    "HANDOFF_README.md.tmp.29324.ad5b496d7812",
     "PaliTrento Project.md",
     "README.md",
     "HANDOFF_README.md",

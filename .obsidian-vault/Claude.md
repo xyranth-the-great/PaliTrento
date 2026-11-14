@@ -122,6 +122,16 @@ Featured products are available on **Home, Explore, and Products**. All three ca
 Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
 No pause/play button — cleaner UI.
 
+**Carousel improvements (2026-11-14):**
+- **Unified marquee implementation** across all carousels: Featured products (Home, Explore, Products) + Stores near center (Home)
+- **Mobile behavior fixed**: continuous marquee runs; pauses on `touchstart`, resumes 300ms after `touchend` (lets native momentum finish). Clones created for infinite seamless loop. No more “reset glitch” when scrolling.
+- **Desktop behavior**: continuous marquee + click-drag to scroll with momentum deceleration; pauses on hover/focus/drag
+- **All devices**: scroll-snap alignment, `prefers-reduced-motion` respected (animation disabled, native scroll only)
+- **Cards further reduced**: gap 12px, padding 10px, title 0.85rem, price 0.9rem, badges 0.65rem
+- **Edge-to-edge**: carousel breaks out of `.wrap` with 24px side padding (`padding: 0 var(--pad); margin: 0 calc(var(--pad) * -1)`); headings stay contained in `.wrap`
+- **Bantay Presyo** and **Stores near the center** confirmed working with seed data (7 VERIFIED stores, products with price caps)
+- **Typo fixed**: `viewport.addEventEventListener` → `viewport.addEventListener` in desktop drag handler
+
 Verified: `npm run build` passes. Headless Chrome confirmed continuous movement, looping, and Pause behavior with reduced motion disabled; reduced motion correctly suppresses the movement. Check actual promoted products at desktop/mobile sizes. If the UI shows “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.
 
 6. Data model (implemented in supabase/schema.sql)
@@ -219,3 +229,5 @@ Subsequent sessions: built email OTP auth, avatar upload, merchant onboarding, d
 Current next steps: Confirm the Supabase migrations and `delete-account` Edge Function deployment noted in section 5, then visually check the featured carousel with real products on desktop and mobile.
 2026-11-13 update: Updated seller/admin navigation, Google OAuth role choice, chat customer-name display, featured-product placement and smooth left-loop carousel. Removed Email digest and rolled back the 15-day certificate-compliance workflow. See section 5 for migration and deployment checks.
 2026-11-14 update: Replaced the carousel's six-second card stepping with a continuous seamless loop. Headless Chrome verified motion, repeat, and pause; default reduced-motion preference keeps it static, as intended. Actual product data still needs desktop/mobile visual checking.
+2026-11-14 (later): **Carousel unification & fixes** — Unified marquee implementation across all carousels (Featured products on Home/Explore/Products + Stores near center on Home). Mobile behavior fixed: continuous marquee pauses on `touchstart`, resumes 300ms after `touchend` (lets native momentum finish); clones created for infinite seamless loop — no more "reset glitch". Desktop: continuous marquee + click-drag with momentum. Cards further reduced (gap 12px, padding 10px, compact typography). Edge-to-edge layout with headings in `.wrap`, carousel breaking out with 24px side padding. Bantay Presyo and Stores carousel confirmed working. Fixed typo `addEventEventListener` → `addEventListener`.
+2026-11-14 (end of session): **Google OAuth role selection fix** — Identified that a DB trigger auto-creates the profile with default `role='customer'` before user chooses account type. The RPC `complete_google_account_registration` failed to update `role` because `schema.sql` column grant only allowed `full_name, barangay`. Added `supabase/fix-google-role-grant.sql` with `grant update (full_name, barangay, role) on profiles to authenticated;` — run this in Supabase SQL Editor to fix.

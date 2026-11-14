@@ -24,6 +24,15 @@ The anon key is safe to expose. Security comes from the row-level security rules
 - Seller store edits preserve the existing TRN code, the seller Home link no longer reloads the dashboard, the Admin Dashboard title was simplified, and Email digest was removed from Notifications.
 - Account deletion is implemented through a server-side `delete-account` Edge Function; confirm it is deployed and working before relying on it in production.
 
+## Carousel improvements (2026-11-14 later)
+- **Featured products carousels** (Home, Explore, Products) and **Stores near center** (Home) now all use unified marquee implementation
+- **Mobile**: continuous marquee runs; pauses on `touchstart`, resumes 300ms after `touchend` (lets native momentum finish). Clones created for infinite seamless loop.
+- **Desktop**: continuous marquee + click-drag to scroll with momentum deceleration; pauses on hover/focus/drag
+- **All devices**: scroll-snap alignment, `prefers-reduced-motion` respected (animation disabled, native scroll only)
+- **Cards**: further reduced — gap 12px, padding 10px, title 0.85rem, price 0.9rem, badges 0.65rem
+- **Edge-to-edge**: carousel breaks out of `.wrap` with 24px side padding; headings stay contained
+- **Bantay Presyo** and **Stores near the center** confirmed working with seed data
+
 Run `supabase/product-demo-payments.sql` on the connected Supabase project for the `featured_until` column. Run `supabase/google-auth-role.sql` after `supabase/schema.sql` to enable Google account role selection. Run `supabase/chat-customer-name.sql` after `supabase/orders.sql` and `supabase/chat.sql` to enable customer names in seller chat. Confirm these migrations are applied to the production project.
 Carousel verification: production build passed; headless Chrome confirmed motion, looping, and Pause behavior with motion enabled, and confirmed reduced-motion behavior. Still visually check actual promoted products on desktop and mobile. If the page says “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.
 
