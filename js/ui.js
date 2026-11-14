@@ -68,43 +68,148 @@ export function initializeFeaturedProductsCarousel(section) {
   const track = viewport.querySelector('.featured-products-grid');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+  // Get original cards
+  const originalCards = Array.from(track.children);
+  if (originalCards.length <= 1) return;
+
+  console.log('[FeaturedCarousel] Initializing with', originalCards.length, 'cards');
+
   // Wrap each card in a slide div for scroll-snap
-  const cards = Array.from(track.children);
-  cards.forEach((card, index) => {
+  const slides = originalCards.map((card, index) => {
     const slide = document.createElement('div');
     slide.className = 'featured-products-slide';
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${index + 1} of ${cards.length}`);
+    slide.setAttribute('aria-label', `${index + 1} of ${originalCards.length}`);
     track.replaceChild(slide, card);
     slide.appendChild(card);
+    return slide;
   });
 
-  // Calculate marquee shift for seamless looping
-  function calculateShift() {
-    if (cards.length <= 1) return;
+  // Clone slides until track is at least 2x viewport width for seamless marquee
+  function ensureClones() {
+    const viewportWidth = viewport.getBoundingClientRect().width;
+    if (viewportWidth <= 0) return;
+
     const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
-    const firstCard = cards[0].getBoundingClientRect();
-    const lastCard = cards[cards.length - 1].getBoundingClientRect();
-    const distance = lastCard.right - firstCard.left + gap;
-    track.style.setProperty('--marquee-shift', `-${distance}px`);
+    let trackWidth = 0;
+    track.querySelectorAll('.featured-products-slide').forEach(slide => {
+      trackWidth += slide.getBoundingClientRect().width + gap;
+    });
+    trackWidth -= gap;
+
+    // Clone until we have at least 2x viewport width
+    let cloneIndex = 0;
+    while (trackWidth < viewportWidth * 2 && cloneIndex < originalCards.length * 10) {
+      const originalSlide = slides[cloneIndex % originalCards.length];
+      const clone = originalSlide.cloneNode(true);
+      clone.setAttribute('aria-hidden', 'true');
+      clone.inert = true;
+      track.appendChild(clone);
+      trackWidth += originalSlide.getBoundingClientRect().width + gap;
+      cloneIndex++;
+    }
+    console.log('[FeaturedCarousel] Cloned', cloneIndex, 'slides, trackWidth:', trackWidth, 'viewportWidth:', viewportWidth);
   }
 
-  // Initial calculation
+  // Calculate marquee shift for ONE SET (original cards) for seamless looping
+  function calculateShift() {
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    const firstSlide = slides[0].getBoundingClientRect();
+    const lastOriginalSlide = slides[originalCards.length - 1].getBoundingClientRect();
+    const distance = lastOriginalSlide.right - firstSlide.left + gap;
+    track.style.setProperty('--marquee-shift', `-${distance}px`);
+    console.log('[FeaturedCarousel] Shift set to:', distance, 'px (for', originalCards.length, 'cards)');
+  }
+
+  // Initial setup
+  ensureClones();
   calculateShift();
 
   // Recalculate on resize
   if ('ResizeObserver' in window) {
-    new ResizeObserver(calculateShift).observe(viewport);
+    new ResizeObserver(() => {
+      ensureClones();
+      calculateShift();
+    }).observe(viewport);
   } else {
-    window.addEventListener('resize', calculateShift, { passive: true });
+    window.addEventListener('resize', () => {
+      ensureClones();
+      calculateShift();
+    }, { passive: true });
   }
 
-  // Pause animation on hover/touch (for swipe interaction)
-  let isInteracting = false;
-  viewport.addEventListener('pointerdown', () => { isInteracting = true; track.classList.add('marquee-paused'); }, { passive: true });
-  viewport.addEventListener('pointerup', () => { isInteracting = false; track.classList.remove('marquee-paused'); });
-  viewport.addEventListener('pointerleave', () => { if (isInteracting) { isInteracting = false; track.classList.remove('marquee-paused'); } });
+  // ===== DRAG TO SCROLL (with momentum) =====
+  let isDragging = false;
+  let velocity = 0;
+  let animationFrame = null;
+  let wasAnimating = false;
+
+  function stopMarquee() {
+    wasAnimating = !track.classList.contains('marquee-paused');
+    if (wasAnimating) track.classList.add('marquee-paused');
+  }
+
+  function resumeMarquee() {
+    if (wasAnimating) track.classList.remove('marquee-paused');
+    wasAnimating = false;
+  }
+
+  function animateMomentum() {
+    if (Math.abs(velocity) < 0.5) {
+      velocity = 0;
+      resumeMarquee();
+      return;
+    }
+    viewport.scrollLeft += velocity;
+    velocity *= 0.95;
+    animationFrame = requestAnimationFrame(animateMomentum);
+  }
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('a, button, input, select, textarea')) return;
+
+    isDragging = true;
+    let lastX = e.clientX;
+    let lastTime = performance.now();
+    velocity = 0;
+    stopMarquee();
+    viewport.style.scrollBehavior = 'auto';
+    viewport.style.cursor = 'grabbing';
+    viewport.setPointerCapture(e.pointerId);
+    e.preventDefault();
+
+    function onMove(e) {
+      if (!isDragging) return;
+      const now = performance.now();
+      const deltaX = e.clientX - lastX;
+      const deltaTime = now - lastTime;
+      velocity = deltaX / deltaTime * 16;
+      viewport.scrollLeft -= deltaX;
+      lastX = e.clientX;
+      lastTime = now;
+    }
+
+    function onUp(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      viewport.style.scrollBehavior = '';
+      viewport.style.cursor = '';
+      viewport.releasePointerCapture(e.pointerId);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      animateMomentum();
+    }
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, { passive: false });
+
+  // Keyboard: pause on focus
   viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
   viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
 
@@ -116,6 +221,12 @@ export function initializeFeaturedProductsCarousel(section) {
   // Hide controls (we removed pause/play button)
   const controls = carousel.querySelector('[data-featured-controls]');
   if (controls) controls.style.display = 'none';
+
+  // Debug
+  setTimeout(() => {
+    const computed = getComputedStyle(track);
+    console.log('[FeaturedCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'));
+  }, 1000);
 }
 
 export function initializeStoresCarousel(carousel) {
@@ -123,26 +234,37 @@ export function initializeStoresCarousel(carousel) {
   const track = viewport.querySelector('.carousel-track');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+  // Get original cards (before wrapping) - HTML already duplicates them (6×2=12)
+  const allCards = Array.from(track.children);
+  if (allCards.length <= 1) return;
+
+  // The first half is the "original set", second half is the duplicate for looping
+  const originalCount = allCards.length / 2;
+  const originalCards = allCards.slice(0, originalCount);
+
+  console.log('[StoresCarousel] Initializing with', originalCount, 'original cards (total:', allCards.length, ')');
+
   // Wrap each card in a slide div for scroll-snap
-  const cards = Array.from(track.children);
-  cards.forEach((card, index) => {
+  const slides = allCards.map((card, index) => {
     const slide = document.createElement('div');
     slide.className = 'carousel-slide';
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${index + 1} of ${cards.length}`);
+    slide.setAttribute('aria-label', `${(index % originalCount) + 1} of ${originalCount}`);
     track.replaceChild(slide, card);
     slide.appendChild(card);
+    return slide;
   });
 
-  // Calculate marquee shift for seamless looping
+  // Calculate marquee shift for ONE SET (originalCount cards) for seamless looping
   function calculateShift() {
-    if (cards.length <= 1) return;
     const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
-    const firstCard = cards[0].getBoundingClientRect();
-    const lastCard = cards[cards.length - 1].getBoundingClientRect();
-    const distance = lastCard.right - firstCard.left + gap;
+    const firstSlide = slides[0].getBoundingClientRect();
+    const lastOriginalSlide = slides[originalCount - 1].getBoundingClientRect();
+    const distance = lastOriginalSlide.right - firstSlide.left + gap;
     track.style.setProperty('--marquee-shift', `-${distance}px`);
+    console.log('[StoresCarousel] Shift set to:', distance, 'px (for', originalCount, 'cards)');
+    console.log('[StoresCarousel] Track children:', track.children.length, '| firstSlide.left:', firstSlide.left, '| lastOriginalSlide.right:', lastOriginalSlide.right);
   }
 
   // Initial calculation
@@ -155,11 +277,89 @@ export function initializeStoresCarousel(carousel) {
     window.addEventListener('resize', calculateShift, { passive: true });
   }
 
-  // Pause animation on hover/touch (for swipe interaction)
-  let isInteracting = false;
-  viewport.addEventListener('pointerdown', () => { isInteracting = true; track.classList.add('marquee-paused'); }, { passive: true });
-  viewport.addEventListener('pointerup', () => { isInteracting = false; track.classList.remove('marquee-paused'); });
-  viewport.addEventListener('pointerleave', () => { if (isInteracting) { isInteracting = false; track.classList.remove('marquee-paused'); } });
+  // ===== DRAG TO SCROLL (with momentum) =====
+  let isDragging = false;
+  let startX = 0;
+  let startScrollLeft = 0;
+  let lastX = 0;
+  let lastTime = 0;
+  let velocity = 0;
+  let animationFrame = null;
+  let wasAnimating = false;
+
+  function stopMarquee() {
+    wasAnimating = !track.classList.contains('marquee-paused');
+    if (wasAnimating) track.classList.add('marquee-paused');
+  }
+
+  function resumeMarquee() {
+    if (wasAnimating) track.classList.remove('marquee-paused');
+    wasAnimating = false;
+  }
+
+  function animateMomentum() {
+    if (Math.abs(velocity) < 0.5) {
+      velocity = 0;
+      resumeMarquee();
+      return;
+    }
+    viewport.scrollLeft += velocity;
+    velocity *= 0.95; // friction
+    animationFrame = requestAnimationFrame(animateMomentum);
+  }
+
+  // Use viewport for drag events, but prevent default on card links
+  viewport.addEventListener('pointerdown', (e) => {
+    console.log('[StoresCarousel] pointerdown', e.target.tagName, e.target.className);
+    if (e.button !== 0) return; // only left click/touch
+    // Don't drag if clicking on a link/button
+    if (e.target.closest('a, button, input, select, textarea')) return;
+
+    isDragging = true;
+    startX = e.clientX;
+    startScrollLeft = viewport.scrollLeft;
+    lastX = e.clientX;
+    lastTime = performance.now();
+    velocity = 0;
+    stopMarquee();
+    viewport.style.scrollBehavior = 'auto';
+    viewport.style.cursor = 'grabbing';
+    viewport.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }, { passive: false });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const now = performance.now();
+    const deltaX = e.clientX - lastX;
+    const deltaTime = now - lastTime;
+    velocity = deltaX / deltaTime * 16; // px per frame
+    viewport.scrollLeft -= deltaX;
+    lastX = e.clientX;
+    lastTime = now;
+  }, { passive: true });
+
+  window.addEventListener('pointerup', (e) => {
+    if (!isDragging) return;
+    console.log('[StoresCarousel] pointerup');
+    isDragging = false;
+    viewport.style.scrollBehavior = '';
+    viewport.style.cursor = '';
+    viewport.releasePointerCapture(e.pointerId);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    animateMomentum();
+  });
+
+  window.addEventListener('pointercancel', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    viewport.style.scrollBehavior = '';
+    viewport.style.cursor = '';
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    animateMomentum();
+  });
+
+  // Keyboard: pause on focus
   viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
   viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
 
@@ -167,6 +367,12 @@ export function initializeStoresCarousel(carousel) {
   reduceMotion.addEventListener('change', () => {
     track.style.animation = reduceMotion.matches ? 'none' : '';
   });
+
+  // Debug: log animation state
+  setTimeout(() => {
+    const computed = getComputedStyle(track);
+    console.log('[StoresCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'));
+  }, 1000);
 }
 
 // Simple person icon SVG (24x24, currentColor for palette)
