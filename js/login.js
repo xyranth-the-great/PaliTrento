@@ -7,6 +7,12 @@ const msgEl = $('#login-message');
 const googleBtn = $('#google-login-btn');
 
 async function init() {
+  const accountNotice = sessionStorage.getItem('palitrento_account_notice');
+  if (accountNotice) {
+    sessionStorage.removeItem('palitrento_account_notice');
+    showMsg(accountNotice, 'bad');
+  }
+
   const session = await getSession();
   if (session) {
     redirectAfterLogin(session.user.user_metadata?.role);
@@ -30,7 +36,7 @@ function redirectAfterLogin(role) {
 }
 
 onAuthStateChange((event, session) => {
-  if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN')) {
+  if (session && event === 'SIGNED_IN') {
     redirectAfterLogin(session.user.user_metadata?.role);
   }
 });

@@ -36,6 +36,8 @@ async function loadAccount() {
   const profile = await getCachedProfile(session.user.id);
   renderChrome('/account/', session, profile);
 
+  await loadWarnings(session.user.id);
+
   // Fetch fresh profile for the form
   currentProfile = await getCachedProfile(session.user.id);
 
@@ -56,6 +58,25 @@ async function loadAccount() {
   updateAvatarPreview(currentProfile?.avatar_url ?? null);
 
   contentEl.style.display = 'block';
+}
+
+async function loadWarnings(userId) {
+  const warningsEl = $('#account-warnings');
+  const { data, error } = await supabase
+    .from('account_moderation_actions')
+    .select('id, reason, created_at')
+    .eq('target_user_id', userId)
+    .eq('action', 'warn')
+    .order('created_at', { ascending: false });
+
+  if (error || !data?.length) return;
+  warningsEl.innerHTML = `<strong>Account warnings</strong>${data.map((warning) => `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--warn)">
+      <span>${esc(warning.reason)}</span><br>
+      <small>${esc(new Date(warning.created_at).toLocaleDateString('en-PH', { dateStyle: 'medium' }))}</small>
+    </div>
+  `).join('')}`;
+  warningsEl.style.display = 'block';
 }
 
 function updateAvatarPreview(url) {

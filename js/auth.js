@@ -8,6 +8,21 @@ const UNREAD_CACHE_KEY = 'palitrento_unread_counts';
 export async function getSession() {
   if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('account_status, suspended_until, suspension_reason')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    const isSuspended = profile?.account_status === 'suspended'
+      && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
+    if (isSuspended) {
+      sessionStorage.setItem('palitrento_account_notice', profile.suspension_reason || 'Your account is suspended. Contact PaliTrento administrators for help.');
+      clearProfileCache();
+      await supabase.auth.signOut({ scope: 'local' });
+      return null;
+    }
+  }
   return session;
 }
 
@@ -178,6 +193,9 @@ export function isNewGoogleAccount(user) {
 export function getAuthErrorMessage(error) {
   if (!error) return 'Something went wrong';
   const msg = error.message?.toLowerCase() ?? '';
+  if (msg.includes('banned') || msg.includes('suspended')) {
+    return 'This account is suspended. Contact PaliTrento administrators for help.';
+  }
   if (msg.includes('invalid login credentials') || msg.includes('wrong password') || msg.includes('invalid email or password')) {
     return 'Wrong email or password';
   }

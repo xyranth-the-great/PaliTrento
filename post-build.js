@@ -8,7 +8,7 @@ const outDir = process.argv[2] || 'dist';
 const pages = [
   'index', 'explore', 'map', 'products', 'business', 'register', 'login',
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
-  'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports',
+  'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
   'reset-password', 'terms-and-agreement', 'advisories'
 ];
@@ -17,7 +17,7 @@ const pages = [
 const directoryPages = new Set([
   'explore', 'map', 'products', 'business', 'register', 'login',
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
-  'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports',
+  'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
   'reset-password', 'terms-and-agreement', 'advisories'
 ]);
