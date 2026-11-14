@@ -1,5 +1,4 @@
 import '../css/styles.css';
-import { getTotalUnreadCount, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, startUnreadListener } from './auth.js';
 import logoUrl from '../logo.png';
 export const $ = (s, r = document) => r.querySelector(s);
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -439,7 +438,7 @@ const PERSON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 // Chevron down SVG
 const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
 
-export function renderChrome(active, session = null, profile = null) {
+export function renderChrome(active, session = null, profile = null, userId = null) {
   const role = profile?.role ?? session?.user?.user_metadata?.role;
   const isBusinessOwner = role === 'business_owner';
   const isAdmin = role === 'admin';
@@ -482,16 +481,10 @@ export function renderChrome(active, session = null, profile = null) {
       ? ''
       : `<a href="/orders/" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 
-    // Get cached unread count
-    const unreadCounts = getCachedUnreadCounts();
-    const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
-    const unreadBadge = `<span class="avatar-unread-badge" id="avatar-unread-badge" style="display:${totalUnread > 0 ? 'flex' : 'none'}">${totalUnread > 9 ? '9+' : totalUnread}</span>`;
-
     authLinks = `
       <div class="avatar-menu" id="avatar-menu">
         <a href="${isBusinessOwner ? '/dashboard/' : isAdmin ? '/admin/' : '/account/'}" class="avatar-btn"${active === '/account/' || active === '/dashboard/' || active === '/admin/' ? ' aria-current="page"' : ''} aria-label="My account" aria-haspopup="true" aria-expanded="false">
           ${avatarHtml}
-          ${unreadBadge}
           <span class="avatar-chevron">${CHEVRON_SVG}</span>
         </a>
         <div class="avatar-dropdown" role="menu" aria-label="Account options">
@@ -510,6 +503,7 @@ export function renderChrome(active, session = null, profile = null) {
     authLinks = `<a href="/login/"${active === '/login/' ? ' aria-current="page"' : ''}>Log in</a>
        <a href="/register/"${active === '/register/' ? ' aria-current="page"' : ''}>Register</a>`;
   }
+
   const top = $('#chrome-top');
   if (top) top.outerHTML = `<header id="chrome-top" class="top"><div class="wrap">
     <a class="logo" href="/" aria-label="PaliTrento home">
@@ -523,8 +517,6 @@ export function renderChrome(active, session = null, profile = null) {
   // Initialize avatar dropdown after DOM update
   if (session) {
     initAvatarDropdown();
-    // Start global unread message listener
-    startUnreadListener(session.user.id).catch(console.error);
   }
 }
 
@@ -534,37 +526,6 @@ function initAvatarDropdown() {
   const dropdown = menu?.querySelector('.avatar-dropdown');
   const logoutBtn = menu?.querySelector('#avatar-logout-btn');
   if (!menu || !btn || !dropdown) return;
-
-  const badge = $('#avatar-unread-badge');
-  console.log('Badge element:', badge);
-
-  function updateBadge(counts) {
-    console.log('updateBadge called with:', counts);
-    if (!badge) {
-      console.log('Badge element not found!');
-      return;
-    }
-    const total = Object.values(counts).reduce((sum, c) => sum + c, 0);
-    console.log('Total unread:', total);
-    if (total > 0) {
-      badge.textContent = total > 9 ? '9+' : total;
-      badge.style.display = 'flex';
-      console.log('Badge shown:', badge.textContent);
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-
-  // Listen for unread count changes
-  window.addEventListener('unread-count-changed', (e) => {
-    console.log('unread-count-changed event:', e.detail);
-    updateBadge(e.detail);
-  });
-
-  // Initial badge update
-  const counts = getCachedUnreadCounts();
-  console.log('Initial counts:', counts);
-  updateBadge(counts);
 
   let isOpen = false;
 

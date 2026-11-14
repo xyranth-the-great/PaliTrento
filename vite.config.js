@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
+import fs from 'node:fs';
 
 const pages = [
   'index', 'explore', 'map', 'products', 'business', 'register', 'login',
@@ -24,9 +25,32 @@ for (const page of pages) {
   input[page] = resolve(__dirname, `${page}.html`);
 }
 
+// Dev middleware to serve clean URLs (e.g., /explore/ -> explore.html)
+function cleanUrlsDevMiddleware() {
+  return {
+    name: 'clean-urls-dev',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url.split('?')[0];
+        // Skip if already has extension or is asset/api
+        if (url.includes('.') || url.startsWith('/@') || url.startsWith('/api/') || url.startsWith('/node_modules/')) {
+          return next();
+        }
+        // Check if it's a clean URL that maps to a directory page
+        const cleanPath = url.replace(/^\/+|\/+$/g, ''); // remove leading/trailing slashes
+        if (directoryPages.has(cleanPath)) {
+          req.url = `/${cleanPath}.html`;
+        }
+        next();
+      });
+    }
+  };
+}
+
 export default defineConfig({
   base: './',
   publicDir: 'public',
+  plugins: [cleanUrlsDevMiddleware()],
   server: {
     watch: {
       ignored: ['**/.obsidian-vault/**']

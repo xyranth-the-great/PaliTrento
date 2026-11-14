@@ -400,3 +400,5 @@ html.dark .modal .card{background:var(--card)}
 html.dark .side{background:var(--bg);border-color:var(--line)}
 html.dark .side .card{border-color:var(--line)}
 html.dark .side .card[aria-pressed=true]{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary)}
+
+@keyframes badgePop { from { transform:scale(0) } to { transform:scale(1) } }
