@@ -68,6 +68,12 @@ export function initializeFeaturedProductsCarousel(section) {
   const track = viewport.querySelector('.featured-products-grid');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
+  // Detect touch capability - disable marquee animation on touch devices
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const useMarquee = !isTouchDevice && !reduceMotion.matches;
+
+  console.log('[FeaturedCarousel] Touch device:', isTouchDevice, '| Using marquee:', useMarquee);
+
   // Get original cards
   const originalCards = Array.from(track.children);
   if (originalCards.length <= 1) return;
@@ -86,8 +92,9 @@ export function initializeFeaturedProductsCarousel(section) {
     return slide;
   });
 
-  // Clone slides until track is at least 2x viewport width for seamless marquee
+  // Clone slides until track is at least 2x viewport width for seamless marquee (only if using marquee)
   function ensureClones() {
+    if (!useMarquee) return;
     const viewportWidth = viewport.getBoundingClientRect().width;
     if (viewportWidth <= 0) return;
 
@@ -114,6 +121,7 @@ export function initializeFeaturedProductsCarousel(section) {
 
   // Calculate marquee shift for ONE SET (original cards) for seamless looping
   function calculateShift() {
+    if (!useMarquee) return;
     const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
     const firstSlide = slides[0].getBoundingClientRect();
     const lastOriginalSlide = slides[originalCards.length - 1].getBoundingClientRect();
@@ -123,99 +131,118 @@ export function initializeFeaturedProductsCarousel(section) {
   }
 
   // Initial setup
-  ensureClones();
-  calculateShift();
+  if (useMarquee) {
+    ensureClones();
+    calculateShift();
+  }
 
   // Recalculate on resize
   if ('ResizeObserver' in window) {
     new ResizeObserver(() => {
-      ensureClones();
-      calculateShift();
+      if (useMarquee) {
+        ensureClones();
+        calculateShift();
+      }
     }).observe(viewport);
   } else {
     window.addEventListener('resize', () => {
-      ensureClones();
-      calculateShift();
+      if (useMarquee) {
+        ensureClones();
+        calculateShift();
+      }
     }, { passive: true });
   }
 
-  // ===== DRAG TO SCROLL (with momentum) =====
-  let isDragging = false;
-  let velocity = 0;
-  let animationFrame = null;
-  let wasAnimating = false;
-
-  function stopMarquee() {
-    wasAnimating = !track.classList.contains('marquee-paused');
-    if (wasAnimating) track.classList.add('marquee-paused');
+  // Start marquee animation (desktop only)
+  if (useMarquee) {
+    track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
   }
 
-  function resumeMarquee() {
-    if (wasAnimating) track.classList.remove('marquee-paused');
-    wasAnimating = false;
-  }
+  // ===== DRAG TO SCROLL (desktop only, with momentum) =====
+  if (!isTouchDevice) {
+    let isDragging = false;
+    let velocity = 0;
+    let animationFrame = null;
+    let wasAnimating = false;
 
-  function animateMomentum() {
-    if (Math.abs(velocity) < 0.5) {
+    function stopMarquee() {
+      wasAnimating = !track.classList.contains('marquee-paused');
+      if (wasAnimating) track.classList.add('marquee-paused');
+    }
+
+    function resumeMarquee() {
+      if (wasAnimating) track.classList.remove('marquee-paused');
+      wasAnimating = false;
+    }
+
+    function animateMomentum() {
+      if (Math.abs(velocity) < 0.5) {
+        velocity = 0;
+        resumeMarquee();
+        return;
+      }
+      viewport.scrollLeft += velocity;
+      velocity *= 0.95;
+      animationFrame = requestAnimationFrame(animateMomentum);
+    }
+
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('a, button, input, select, textarea')) return;
+
+      isDragging = true;
+      let lastX = e.clientX;
+      let lastTime = performance.now();
       velocity = 0;
-      resumeMarquee();
-      return;
-    }
-    viewport.scrollLeft += velocity;
-    velocity *= 0.95;
-    animationFrame = requestAnimationFrame(animateMomentum);
+      stopMarquee();
+      viewport.style.scrollBehavior = 'auto';
+      viewport.style.cursor = 'grabbing';
+      viewport.setPointerCapture(e.pointerId);
+      e.preventDefault();
+
+      function onMove(e) {
+        if (!isDragging) return;
+        const now = performance.now();
+        const deltaX = e.clientX - lastX;
+        const deltaTime = now - lastTime;
+        velocity = deltaX / deltaTime * 16;
+        viewport.scrollLeft -= deltaX;
+        lastX = e.clientX;
+        lastTime = now;
+      }
+
+      function onUp(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        viewport.style.scrollBehavior = '';
+        viewport.style.cursor = '';
+        viewport.releasePointerCapture(e.pointerId);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        animateMomentum();
+      }
+
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    }, { passive: false });
   }
 
-  viewport.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    if (e.target.closest('a, button, input, select, textarea')) return;
-
-    isDragging = true;
-    let lastX = e.clientX;
-    let lastTime = performance.now();
-    velocity = 0;
-    stopMarquee();
-    viewport.style.scrollBehavior = 'auto';
-    viewport.style.cursor = 'grabbing';
-    viewport.setPointerCapture(e.pointerId);
-    e.preventDefault();
-
-    function onMove(e) {
-      if (!isDragging) return;
-      const now = performance.now();
-      const deltaX = e.clientX - lastX;
-      const deltaTime = now - lastTime;
-      velocity = deltaX / deltaTime * 16;
-      viewport.scrollLeft -= deltaX;
-      lastX = e.clientX;
-      lastTime = now;
-    }
-
-    function onUp(e) {
-      if (!isDragging) return;
-      isDragging = false;
-      viewport.style.scrollBehavior = '';
-      viewport.style.cursor = '';
-      viewport.releasePointerCapture(e.pointerId);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-      animateMomentum();
-    }
-
-    window.addEventListener('pointermove', onMove, { passive: true });
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-  }, { passive: false });
-
-  // Keyboard: pause on focus
-  viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
-  viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
+  // Keyboard: pause on focus (desktop only)
+  if (!isTouchDevice) {
+    viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
+    viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
+  }
 
   // Respect reduced motion
   reduceMotion.addEventListener('change', () => {
-    track.style.animation = reduceMotion.matches ? 'none' : '';
+    if (reduceMotion.matches) {
+      track.style.animation = 'none';
+    } else if (!isTouchDevice) {
+      track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
+    }
   });
 
   // Hide controls (we removed pause/play button)
@@ -225,7 +252,7 @@ export function initializeFeaturedProductsCarousel(section) {
   // Debug
   setTimeout(() => {
     const computed = getComputedStyle(track);
-    console.log('[FeaturedCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'));
+    console.log('[FeaturedCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'), '| Touch:', isTouchDevice);
   }, 1000);
 }
 
