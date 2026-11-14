@@ -7,7 +7,7 @@ import { getSession, getCachedProfile } from './auth.js';
 const session = await getSession();
 let profile = null;
 if (session) profile = await getCachedProfile(session.user.id);
-renderChrome('map.html', session, profile);
+renderChrome('/map/', session, profile);
 
 const stores = (await getStores()).filter(s => s.lat && s.lng);
 const COLORS = { SARI_SARI: '#2d6a42', PHARMACY: '#1f4d2e', AGRI: '#7a4a1e', CARINDERIA: '#b3412c', FRESH_PRODUCE: '#1d6a3d', SERVICES: '#3b7a4c' };

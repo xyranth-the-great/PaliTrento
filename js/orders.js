@@ -17,14 +17,14 @@ async function loadOrders() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
   currentSession = session;
 
   const profile = await getCachedProfile(session.user.id);
-  renderChrome('orders.html', session, profile);
+  renderChrome('/orders/', session, profile);
 
   try {
     const { data: orders, error } = await supabase
@@ -54,7 +54,7 @@ function renderOrders() {
   if (!container) return;
 
   if (currentOrders.length === 0) {
-    container.innerHTML = '<p class="muted" style="text-align:center;padding:24px">No orders yet. <a href="products.html">Start shopping</a></p>';
+    container.innerHTML = '<p class="muted" style="text-align:center;padding:24px">No orders yet. <a href="/products/">Start shopping</a></p>';
     return;
   }
 

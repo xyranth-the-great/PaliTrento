@@ -31,12 +31,12 @@ async function init() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
   let profile = await getCachedProfile(session.user.id);
-  renderChrome('store-setup.html', session, profile);
+  renderChrome('/store-setup/', session, profile);
 
   // Populate barangay
   const brgySelect = $('#barangay');
@@ -410,7 +410,7 @@ async function handleSubmit(e) {
   try {
     const session = await getSession();
     if (!session) {
-      window.location.href = 'login.html';
+      window.location.href = '/login/';
       return;
     }
 
@@ -479,7 +479,7 @@ async function handleSubmit(e) {
     submitBtn.disabled = true;
     submitBtn.textContent = isApprovedUpdate ? 'Changes saved' : 'Submitted';
 
-    setTimeout(() => window.location.href = 'dashboard.html', 2000);
+    setTimeout(() => window.location.href = '/dashboard/', 2000);
   } catch (err) {
     console.error('Submit error:', err);
     const detail = getSubmitErrorMessage(err);

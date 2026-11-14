@@ -27,14 +27,14 @@ async function loadAccount() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
   currentSession = session;
 
   const profile = await getCachedProfile(session.user.id);
-  renderChrome('account.html', session, profile);
+  renderChrome('/account/', session, profile);
 
   // Fetch fresh profile for the form
   currentProfile = await getCachedProfile(session.user.id);
@@ -120,7 +120,7 @@ avatarInput.addEventListener('change', async (e) => {
       timestamp: Date.now(),
       userId: currentSession.user.id
     }));
-    renderChrome('account.html', currentSession, currentProfile);
+    renderChrome('/account/', currentSession, currentProfile);
 
     showAvatarMsg('Photo updated', 'ok');
   } catch (err) {
@@ -162,7 +162,7 @@ avatarRemove.addEventListener('click', async () => {
       timestamp: Date.now(),
       userId: currentSession.user.id
     }));
-    renderChrome('account.html', currentSession, currentProfile);
+    renderChrome('/account/', currentSession, currentProfile);
 
     showAvatarMsg('Photo removed', 'ok');
   } catch (err) {
@@ -216,7 +216,7 @@ form.addEventListener('submit', async (e) => {
     }));
 
     showMsg('Saved', 'ok');
-    renderChrome('account.html', currentSession, currentProfile);
+    renderChrome('/account/', currentSession, currentProfile);
   } catch (err) {
     console.error('Profile update exception:', err);
     showMsg('Something went wrong. Please try again.', 'bad');
@@ -240,13 +240,13 @@ $('#logout-btn').addEventListener('click', async () => {
   }
 
   clearProfileCache();
-  window.location.href = 'index.html';
+  window.location.href = '/';
 });
 
 onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || !session) {
     clearProfileCache();
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
   }
 });
 

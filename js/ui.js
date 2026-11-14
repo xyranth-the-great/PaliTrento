@@ -446,18 +446,18 @@ export function renderChrome(active, session = null, profile = null) {
   const isLoggedInBuyer = !!session && role !== 'admin';
   const showOrdersLink = !isBusinessOwner
     && !isAdmin
-    && !['login.html', 'register.html'].includes(active)
+    && !['/login/', '/register/'].includes(active)
     && (!!session && role === 'customer'
-      || (!['explore.html', 'map.html', 'products.html'].includes(active)
-        && (active !== 'index.html' || isLoggedInBuyer)));
+      || (!['/explore/', '/map/', '/products/'].includes(active)
+        && (active !== '/' || isLoggedInBuyer)));
   const links = [
-    ['index.html', 'Home'],
-    ...(isAdmin ? [['admin.html', 'Admin Dashboard']] : []),
-    ['explore.html', 'Explore'],
-    ['map.html', 'Map'],
-    ['products.html', 'Products'],
+    ['/', 'Home'],
+    ...(isAdmin ? [['/admin/', 'Admin Dashboard']] : []),
+    ['/explore/', 'Explore'],
+    ['/map/', 'Map'],
+    ['/products/', 'Products'],
     ...(isBusinessOwner ? [['dashboard.html#tab-products', 'My Products']] : []),
-    ...(showOrdersLink ? [['orders.html', 'My Orders']] : [])
+    ...(showOrdersLink ? [['/orders/', 'My Orders']] : [])
   ];
   let authLinks;
   if (session) {
@@ -472,15 +472,15 @@ export function renderChrome(active, session = null, profile = null) {
 
     let extraLinks = '';
     if (isBusinessOwner) {
-      extraLinks = `<a href="dashboard.html" class="avatar-dropdown-item" role="menuitem">Dashboard</a>`;
+      extraLinks = `<a href="/dashboard/" class="avatar-dropdown-item" role="menuitem">Dashboard</a>`;
     } else if (isAdmin) {
-      extraLinks = `<a href="admin.html" class="avatar-dropdown-item" role="menuitem">Admin Dashboard</a>`;
+      extraLinks = `<a href="/admin/" class="avatar-dropdown-item" role="menuitem">Admin Dashboard</a>`;
     }
 
     // Keep order history available to customers, but not sellers or admins.
     const ordersLink = isBusinessOwner || isAdmin
       ? ''
-      : `<a href="orders.html" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
+      : `<a href="/orders/" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 
     // Get cached unread count
     const unreadCounts = getCachedUnreadCounts();
@@ -489,7 +489,7 @@ export function renderChrome(active, session = null, profile = null) {
 
     authLinks = `
       <div class="avatar-menu" id="avatar-menu">
-        <a href="${isBusinessOwner ? 'dashboard.html' : isAdmin ? 'admin.html' : 'account.html'}" class="avatar-btn"${active === 'account.html' || active === 'dashboard.html' || active === 'admin.html' ? ' aria-current="page"' : ''} aria-label="My account" aria-haspopup="true" aria-expanded="false">
+        <a href="${isBusinessOwner ? '/dashboard/' : isAdmin ? '/admin/' : '/account/'}" class="avatar-btn"${active === '/account/' || active === '/dashboard/' || active === '/admin/' ? ' aria-current="page"' : ''} aria-label="My account" aria-haspopup="true" aria-expanded="false">
           ${avatarHtml}
           ${unreadBadge}
           <span class="avatar-chevron">${CHEVRON_SVG}</span>
@@ -501,18 +501,18 @@ export function renderChrome(active, session = null, profile = null) {
           </div>
           ${extraLinks}
           ${ordersLink}
-          <a href="account.html" class="avatar-dropdown-item" role="menuitem">My Account</a>
-          <a href="settings.html" class="avatar-dropdown-item" role="menuitem">Settings</a>
+          <a href="/account/" class="avatar-dropdown-item" role="menuitem">My Account</a>
+          <a href="/settings/" class="avatar-dropdown-item" role="menuitem">Settings</a>
           <button type="button" class="avatar-dropdown-item avatar-dropdown-logout" role="menuitem" id="avatar-logout-btn">Log out</button>
         </div>
       </div>`;
   } else {
-    authLinks = `<a href="login.html"${active === 'login.html' ? ' aria-current="page"' : ''}>Log in</a>
-       <a href="register.html"${active === 'register.html' ? ' aria-current="page"' : ''}>Register</a>`;
+    authLinks = `<a href="/login/"${active === '/login/' ? ' aria-current="page"' : ''}>Log in</a>
+       <a href="/register/"${active === '/register/' ? ' aria-current="page"' : ''}>Register</a>`;
   }
   const top = $('#chrome-top');
   if (top) top.outerHTML = `<header id="chrome-top" class="top"><div class="wrap">
-    <a class="logo" href="index.html" aria-label="PaliTrento home">
+    <a class="logo" href="/" aria-label="PaliTrento home">
       <span class="logo-word"><span class="logo-pali">Pali</span><span class="logo-inline-mark"><img class="logo-mark" src="${logoUrl}" alt="" aria-hidden="true"></span><span class="logo-rento">rento</span></span>
     </a>
     <nav aria-label="Main">${links.map(([h, t]) => `<a href="${h}"${h === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}${authLinks}</nav></div></header>`;
@@ -620,7 +620,7 @@ function initAvatarDropdown() {
     closeDropdown();
     const { signOut } = await import('./auth.js');
     const { error } = await signOut();
-    if (!error) window.location.href = 'index.html';
+    if (!error) window.location.href = '/';
   });
 
   // Handle window resize

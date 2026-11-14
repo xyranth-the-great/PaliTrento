@@ -25,7 +25,7 @@ emailInput.addEventListener('blur', () => {
 
   lastWarnedEmail = email;
   const loginLink = document.createElement('a');
-  loginLink.href = 'login.html';
+  loginLink.href = '/login/';
   loginLink.textContent = 'Log in instead';
   emailWarning.replaceChildren(document.createTextNode('Already have an account? '), loginLink);
   emailWarning.className = 'email-warning is-hint';
@@ -86,7 +86,7 @@ async function init() {
   const session = await getSession();
   let profile = null;
   if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('register.html', session, profile);
+  renderChrome('/register/', session, profile);
 
   // Populate barangay dropdown
   const brgySelect = $('#barangay');

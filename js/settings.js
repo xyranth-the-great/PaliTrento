@@ -57,13 +57,13 @@ async function loadSettings() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
   currentSession = session;
   currentProfile = await getCachedProfile(session.user.id);
-  renderChrome('settings.html', session, currentProfile);
+  renderChrome('/settings/', session, currentProfile);
 
   // Populate barangay dropdown
   const brgySelect = $('#set-barangay');
@@ -143,7 +143,7 @@ $('#avatar-input').addEventListener('change', async (e) => {
       timestamp: Date.now(),
       userId: currentSession.user.id
     }));
-    renderChrome('settings.html', currentSession, currentProfile);
+    renderChrome('/settings/', currentSession, currentProfile);
 
     showAvatarMsg('Photo updated', 'ok');
   } catch (err) {
@@ -180,7 +180,7 @@ $('#avatar-remove').addEventListener('click', async () => {
       timestamp: Date.now(),
       userId: currentSession.user.id
     }));
-    renderChrome('settings.html', currentSession, currentProfile);
+    renderChrome('/settings/', currentSession, currentProfile);
 
     showAvatarMsg('Photo removed', 'ok');
   } catch (err) {
@@ -234,7 +234,7 @@ $('#profile-form').addEventListener('submit', async (e) => {
     }));
 
     showMsg('Profile saved', 'ok');
-    renderChrome('settings.html', currentSession, currentProfile);
+    renderChrome('/settings/', currentSession, currentProfile);
   } catch (err) {
     console.error('Profile update exception:', err);
     showMsg('Something went wrong. Please try again.', 'bad');
@@ -481,7 +481,7 @@ $('#delete-account-btn').addEventListener('click', async () => {
     clearProfileCache();
 
     alert('Your account and data have been permanently deleted.');
-    window.location.replace('index.html');
+    window.location.replace('/');
   } catch (err) {
     console.error('Delete account error:', err);
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -536,11 +536,11 @@ $('#delete-store-btn').addEventListener('click', async () => {
         timestamp: Date.now(),
         userId: currentSession.user.id
       }));
-      renderChrome('settings.html', currentSession, currentProfile);
+      renderChrome('/settings/', currentSession, currentProfile);
     }
 
     alert('Store deleted successfully');
-    window.location.href = 'account.html';
+    window.location.href = '/account/';
   } catch (err) {
     console.error('Delete store error:', err);
     alert('Failed to delete store. Please contact support.');
@@ -551,7 +551,7 @@ $('#delete-store-btn').addEventListener('click', async () => {
 onAuthStateChange((event, session) => {
   if (event === 'SIGNED_OUT' || !session) {
     clearProfileCache();
-    if (!accountDeletionInProgress) window.location.href = 'login.html';
+    if (!accountDeletionInProgress) window.location.href = '/login/';
   }
 });
 

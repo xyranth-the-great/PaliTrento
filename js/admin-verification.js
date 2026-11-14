@@ -18,17 +18,17 @@ async function init() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
   const profile = await getCachedProfile(session.user.id);
   if (!profile || profile.role !== 'admin') {
-    window.location.href = 'index.html';
+    window.location.href = '/';
     return;
   }
 
-  renderChrome('admin-verification.html', session, profile);
+  renderChrome('/admin-verification/', session, profile);
 
   // Populate barangay filter
   const brgySelect = $('#filter-barangay');

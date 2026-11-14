@@ -13,7 +13,7 @@ async function init() {
     return;
   }
 
-  renderChrome('login.html');
+  renderChrome('/login/');
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Login is not available right now')}</p>`;

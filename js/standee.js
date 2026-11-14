@@ -30,14 +30,14 @@ async function init() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
   currentSession = session;
 
   let profile = await getCachedProfile(session.user.id);
-  renderChrome('standee.html', session, profile);
+  renderChrome('/standee/', session, profile);
 
   if (!storeId) {
     // Fallback: try to find store owned by current user
@@ -122,7 +122,7 @@ function renderStoreInfo() {
 async function initQRCode() {
   console.log('[Standee] Generating QR code...');
   // Generate QR code for the store's business page
-  const businessUrl = `${window.location.origin}${window.location.pathname.replace('standee.html', '')}business.html?trn=${encodeURIComponent(currentStore.trn_code)}`;
+  const businessUrl = `${window.location.origin}${window.location.pathname.replace('/standee/', '')}business.html?trn=${encodeURIComponent(currentStore.trn_code)}`;
   console.log('[Standee] Business URL:', businessUrl);
 
   try {

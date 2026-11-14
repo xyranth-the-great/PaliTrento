@@ -154,13 +154,13 @@ export function getLoginUnavailableMessage() {
 }
 
 export function getPostLoginPath(role) {
-  if (role === 'business_owner') return 'dashboard.html';
-  if (role === 'admin') return 'admin.html';
-  return 'index.html';
+  if (role === 'business_owner') return '/dashboard/';
+  if (role === 'admin') return '/admin/';
+  return '/';
 }
 
 export function getOAuthRedirectUrl() {
-  const redirectUrl = new URL('index.html', window.location.href);
+  const redirectUrl = new URL('/', window.location.href);
   redirectUrl.searchParams.set('auth_callback', '1');
   return redirectUrl.href;
 }

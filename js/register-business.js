@@ -60,7 +60,7 @@ async function init() {
   const session = await getSession();
   let profile = null;
   if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('register-business.html', session, profile);
+  renderChrome('/register-business/', session, profile);
 
   // Populate barangay dropdown
   const brgySelect = $('#barangay');

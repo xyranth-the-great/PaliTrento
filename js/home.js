@@ -41,10 +41,10 @@ if (isAuthCallback) {
   }
 }
 
-if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== 'index.html') {
+if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/') {
   window.location.replace(postLoginPath);
 } else {
-  renderChrome('index.html', session, profile);
+  renderChrome('/', session, profile);
 
   if (needsGoogleRoleChoice) {
     showGoogleRoleChoice(session);
@@ -122,7 +122,7 @@ function showGoogleRoleChoice(activeSession) {
       // Clear the role choice flag - user has chosen
       sessionStorage.removeItem('palitrento_google_role_pending');
 
-      const destination = role === 'business_owner' ? 'store-setup.html?step=1' : 'index.html';
+      const destination = role === 'business_owner' ? 'store-setup.html?step=1' : '/';
       window.location.replace(destination);
     } catch (error) {
       console.error('Google account type save error:', error);

@@ -29,7 +29,7 @@ async function init() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
 
@@ -37,7 +37,7 @@ async function init() {
   currentUserId = session.user.id;
 
   let profile = await getCachedProfile(session.user.id);
-  renderChrome('chat.html', session, profile);
+  renderChrome('/chat/', session, profile);
 
   if (!orderId) {
     showError('No order specified');
@@ -116,7 +116,7 @@ function renderOrderInfo(order, isBuyer) {
   } else {
     chatTitle.textContent = `Chat with ${buyer?.full_name || 'Customer'}`;
     chatSubtitle.textContent = `${product?.name || 'Product'} • Order ${order.id.slice(0,8)}`;
-    backLink.href = 'dashboard.html';
+    backLink.href = '/dashboard/';
   }
 }
 

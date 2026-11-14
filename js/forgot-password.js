@@ -9,7 +9,7 @@ async function init() {
   const session = await getSession();
   let profile = null;
   if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('forgot-password.html', session, profile);
+  renderChrome('/forgot-password/', session, profile);
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Password reset is not available right now')}</p>`;
@@ -41,7 +41,7 @@ form.addEventListener('submit', async (e) => {
 
   try {
     // Supabase only redirects to URLs on its allowlist; use the canonical HTTPS production URL.
-    const redirectUrl = new URL('reset-password.html', window.location.href);
+    const redirectUrl = new URL('/reset-password/', window.location.href);
     if (['palitrento.online', 'www.palitrento.online'].includes(redirectUrl.hostname)) {
       redirectUrl.href = 'https://palitrento.online/reset-password.html';
     }

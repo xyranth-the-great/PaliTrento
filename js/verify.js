@@ -28,7 +28,7 @@ async function init() {
   const session = await getSession();
   let profile = null;
   if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('verify.html', session, profile);
+  renderChrome('/verify/', session, profile);
 
   if (!email) {
     showMsg('No email provided. Please register again.', 'bad');
@@ -145,7 +145,7 @@ form.addEventListener('submit', async (e) => {
         const { full_name, password, role, barangay } = JSON.parse(pendingData);
         // Use supabase to sign up
         const { supabase } = await import('./supabase.js');
-        const redirectUrl = new URL('login.html', window.location.href).href;
+        const redirectUrl = new URL('/login/', window.location.href).href;
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -188,7 +188,7 @@ form.addEventListener('submit', async (e) => {
       }
     }
 
-    const finalRedirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : 'login.html';
+    const finalRedirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : '/login/';
     setTimeout(() => window.location.href = finalRedirectUrl, 1500);
   } catch (err) {
     console.error('Verify error:', err);

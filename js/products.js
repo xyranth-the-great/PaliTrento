@@ -5,7 +5,7 @@ import { getSession, getCachedProfile } from './auth.js';
 const session = await getSession();
 let profile = null;
 if (session) profile = await getCachedProfile(session.user.id);
-renderChrome('products.html', session, profile);
+renderChrome('/products/', session, profile);
 
 const [stores, products] = await Promise.all([getStores(), getProducts()]);
 const byId = Object.fromEntries(stores.map(s => [s.id, s]));

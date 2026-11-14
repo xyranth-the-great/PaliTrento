@@ -21,13 +21,13 @@ async function init() {
 
   const session = await getSession();
   if (!session) {
-    window.location.href = 'login.html';
+    window.location.href = '/login/';
     return;
   }
   currentSession = session;
 
   let profile = await getCachedProfile(session.user.id);
-  renderChrome('dashboard.html', session, profile);
+  renderChrome('/dashboard/', session, profile);
 
   // Load store
   await loadStore(session.user.id);
@@ -377,7 +377,7 @@ function bindEvents() {
 
   // Edit store
   $('#edit-store-btn')?.addEventListener('click', () => {
-    window.location.href = 'store-setup.html';
+    window.location.href = '/store-setup/';
   });
 
   // Modal

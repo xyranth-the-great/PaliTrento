@@ -108,7 +108,7 @@ form.addEventListener('submit', async (e) => {
     console.log('[ResetPassword] Password updated successfully');
     showMsg('Password updated. Please log in with your new password.', 'ok');
     setTimeout(() => {
-      window.location.href = 'login.html';
+      window.location.href = '/login/';
     }, 2000);
   } catch (err) {
     submitBtn.disabled = false;

@@ -13,7 +13,7 @@ const trn = new URLSearchParams(location.search).get('trn');
 const s = trn && await getStore(trn);
 const main = $('#main');
 if (!s) {
-  main.innerHTML = '<section><div class="wrap"><div class="empty"><h1 style="font-size:1.6rem">We could not find that business</h1><p><a class="btn" href="explore.html">Browse all stores</a></p></div></div></section>';
+  main.innerHTML = '<section><div class="wrap"><div class="empty"><h1 style="font-size:1.6rem">We could not find that business</h1><p><a class="btn" href="/explore/">Browse all stores</a></p></div></div></section>';
 } else {
   document.title = `${s.business_name} | PaliTrento`;
   const prods = s.verification_status === 'VERIFIED'

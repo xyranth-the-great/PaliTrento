@@ -30,7 +30,7 @@ async function init() {
 
   let profile = null;
   if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('product-detail.html', session, profile);
+  renderChrome('/product-detail/', session, profile);
 
   if (!productId) {
     showError('No product specified');
@@ -258,7 +258,7 @@ reserveForm.addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Reserved';
 
-    setTimeout(() => window.location.href = 'orders.html', 2000);
+    setTimeout(() => window.location.href = '/orders/', 2000);
   } catch (err) {
     console.error('Reserve error:', err);
     showMsg('Failed to reserve. Please try again.', 'bad');
