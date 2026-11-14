@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, srp, peso, UNITS, CATS } from './ui.js';
+import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache } from './auth.js';
@@ -47,6 +47,7 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== 'in
   <b>${peso(p.current_price)}</b><span class="pill ${c.cls}">${c.text}</span></div>`; }).join('') || '<p class="muted">No price advisories yet.</p>';
     const featuredCards = stores.slice(0, 6).map(storeCard).join('');
     $('#featured-track').innerHTML = featuredCards + featuredCards;
+    initializeStoresCarousel($('#featured-carousel'));
   }
 }
 

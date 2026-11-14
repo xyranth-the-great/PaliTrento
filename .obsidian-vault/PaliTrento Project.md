@@ -4,7 +4,7 @@ tags: [project, marketplace, municipality, trento, agusan-del-sur, supabase, vit
 status: active
 priority: high
 created: 2026-11-10
-updated: 2026-11-13
+updated: 2026-11-14
 github: https://github.com/xyranth-the-great/PaliTrento
 supabase-project: xcbkpknsieawtzyfwrff
 custom-domain: palitrento.online
@@ -322,18 +322,19 @@ export default defineConfig({
 19. ✅ **Settings page** — Profile, Notifications, Privacy, Security, Preferences, Danger Zone (`settings.html`, `js/settings.js`) (2026-11-13)
 20. ✅ **SMTP + Confirm email** — Supabase SMTP via Resend (`smtp.resend.com:587`), Confirm email ON, password reset enabled (2026-11-13)
 21. ✅ **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser` (2026-11-13)
-22. ✅ **Featured product promotions** — Demo listing/ad payment, `featured_until`, and featured sections on Home, Explore, and Products; Home carousel loops left and pauses on request (2026-11-13)
+22. ✅ **Featured product promotions** — Demo listing/ad payment, `featured_until`, and featured sections on Home, Explore, and Products; Home carousel scrolls continuously left in a seamless loop and pauses on request (2026-11-13)
 23. ✅ **Role-aware navigation** — Business owners see **My Products** linking to `dashboard.html#tab-products`; customers retain **My Orders**; admins/business owners have no `orders.html` navigation link (2026-11-13)
 24. ✅ **Google OAuth account type** — New Google sign-ups choose Customer or Business owner; business owners continue to store setup (2026-11-13)
 25. ✅ **Seller chat customer name** — Secure participant-checked RPC allows the seller to see the buyer's name in an order chat (2026-11-13)
 26. ✅ **Admin title** — Page title and heading now say **Admin Dashboard** (2026-11-13)
 27. ✅ **Verification workflow decision** — The 15-day certificate-compliance workflow was undone; optional DTI/BMBE permit upload remains and the public badge says **Verified** (2026-11-13)
 28. ✅ **Recent bug fixes** — Store edits preserve existing TRN codes; seller Home navigation no longer loops to the dashboard; account deletion uses a server-side Edge Function (deployment unconfirmed); Email digest was removed from Notifications (2026-11-13)
+29. ✅ **Continuous featured carousel** — Replaced six-second one-card steps with a seamless, continuous leftward loop; pauses on hover/focus or when offscreen/hidden, and respects reduced-motion settings (2026-11-14)
 
 ### In Progress
 - Confirm/apply the Google role-selection, customer-name chat, and featured-product Supabase SQL migrations on the connected project.
 - Confirm the `delete-account` Edge Function is deployed and test account deletion end to end.
-- Browser-test the seamless leftward featured-products loop; the production build passes, but the shared browser connection timed out.
+- Production build and headless Chrome checks passed for carousel movement, looping, and Pause behavior. Visually check actual promoted products on desktop and mobile.
 
 ### Known Issues (Resolved)
 1. ❌ Explore showed 8 fake stores → Fixed `.env` vs `.env.example`
@@ -371,6 +372,6 @@ export default defineConfig({
 
 ---
 
-> **Last updated:** 2026-11-13
-> **Current phase:** Recent UI/auth updates are implemented and build-verified. Confirm the three Supabase migrations and browser-test the featured-product carousel. Then continue with Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.
+> **Last updated:** 2026-11-14
+> **Current phase:** Confirm the three Supabase migrations and `delete-account` Edge Function deployment; visually check the featured carousel with actual products on desktop/mobile. Then continue with Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the current-state and pending-check sections."

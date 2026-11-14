@@ -1,19 +1,20 @@
 # PaliTrento: Handoff README
 
-> Date written: 2026-11-10. Updated: 2026-11-13. Paste this whole file into a new chat and say:
+> Date written: 2026-11-10. Updated: 2026-11-14. Paste this whole file into a new chat and say:
 > "Read this and continue from the current-state and pending-check sections."
 
 ---
 
-## Current state (2026-11-13)
+## Current state (2026-11-14)
 
 - Business owners see **My Products**, linking to `dashboard.html#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
 - New Google OAuth accounts are offered **Customer** or **Business owner** after sign-in. Customers continue to Home; business owners continue to store setup. Run `supabase/google-auth-role.sql` in the connected Supabase project for role persistence.
-- Featured products appear on Home, Explore, and Products. The Home carousel moves left in a loop, one card at a time; it pauses on hover/focus or when offscreen, includes Pause/Play, and respects reduced-motion settings. Previous/Next buttons were removed.
+- Featured products appear on Home, Explore, and Products. The Home carousel now scrolls continuously left in a seamless loop; this replaces the previous six-second, one-card-at-a-time stepping. It pauses on hover/focus or when offscreen/hidden, includes Pause/Play, and respects reduced-motion settings. A single featured product stays static. Previous/Next buttons were removed.
 - Sellers can see the customer's name in order chat through `supabase/chat-customer-name.sql`; run it after `orders.sql` and `chat.sql`.
 - Certificate-compliance enforcement was undone. Keep the optional DTI/BMBE permit flow and the public badge wording **Verified**; do not restore the 15-day suspension workflow.
 - Fixed seller store editing to preserve the existing TRN code, fixed the seller Home navigation loop, removed Email digest from Notifications, and implemented server-side account deletion. Confirm the `delete-account` Edge Function is deployed before relying on account deletion.
-- **Pending production checks:** confirm `product-demo-payments.sql`, `google-auth-role.sql`, and `chat-customer-name.sql` have been applied to the correct Supabase project. The carousel build passes, but the latest browser connection timed out, so visually test its loop.
+- **Carousel verification:** `npm run build` passed. Headless Chrome confirmed continuous movement, looping, and Pause behavior with reduced motion disabled; the default test environment reported reduced motion and correctly kept the carousel still. Actual promoted products still need a visual check on desktop/mobile. If the UI says “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.
+- **Pending production checks:** confirm `product-demo-payments.sql`, `google-auth-role.sql`, and `chat-customer-name.sql` have been applied to the correct Supabase project.
 
 ---
 
@@ -364,6 +365,7 @@ export default defineConfig({
 11. **2026-11-13:** Created Settings page (`settings.html`, `js/settings.js`) with 6 tabs: Profile (avatar, name, barangay), Notifications (6 toggles), Privacy (5 toggles + data export), Security (password change, active sessions), Preferences (language, theme, reduce motion), Danger Zone (delete account, delete store).
 12. **2026-11-13:** Configured Supabase SMTP via Resend (`smtp.resend.com:587`, user `resend`, pass `re_...`). Enabled Confirm email in Supabase Auth. Password reset and email confirmations now work via Supabase SMTP. Updated Edge Function `send-email-otp` to v6 with production sender.
 13. **2026-11-13:** Added featured-product promotion and a smooth left-loop carousel; added Google OAuth role choice, seller chat customer-name display, and role-aware My Products navigation. Updated the Admin Dashboard title, removed Email digest, and rolled back the 15-day certificate-compliance workflow. Fixed seller store edits to preserve TRN and seller Home navigation. Implemented the account-deletion Edge Function; deployment status still needs confirmation.
+14. **2026-11-14:** Fixed the featured carousel after it was reported as not working: replaced six-second card-by-card stepping with a continuous seamless loop. Headless Chrome verified movement, looping, and Pause; reduced-motion preference intentionally keeps it still. Build passed; check real featured products on desktop/mobile.
 
 ---
 
@@ -391,7 +393,7 @@ export default defineConfig({
 ## 11. What to do in a new chat
 
 1. **Paste this README** and say: "Read this and continue from the current-state and pending-check sections."
-2. Start by confirming the listed Supabase migrations and Edge Function deployment, then browser-test the featured carousel.
+2. Start by confirming the listed Supabase migrations and Edge Function deployment, then check the featured carousel with actual products on desktop and mobile.
 3. You guide me step by step — one command/click at a time.
 4. When code is needed, write a ready-to-paste instruction for **Claude Code** (my coding agent in VS Code).
 

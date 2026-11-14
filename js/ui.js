@@ -66,11 +66,11 @@ export function initializeFeaturedProductsCarousel(section) {
   const carousel = section.querySelector('[data-featured-carousel]');
   const viewport = carousel.querySelector('.featured-products-viewport');
   const track = viewport.querySelector('.featured-products-grid');
-  const controls = carousel.querySelector('[data-featured-controls]');
-  const status = carousel.querySelector('[data-featured-status]');
-  const toggle = carousel.querySelector('[data-featured-toggle]');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Wrap each card in a slide div for scroll-snap
   const cards = Array.from(track.children);
-  const slides = cards.map((card, index) => {
+  cards.forEach((card, index) => {
     const slide = document.createElement('div');
     slide.className = 'featured-products-slide';
     slide.setAttribute('role', 'group');
@@ -78,149 +78,95 @@ export function initializeFeaturedProductsCarousel(section) {
     slide.setAttribute('aria-label', `${index + 1} of ${cards.length}`);
     track.replaceChild(slide, card);
     slide.appendChild(card);
-    return slide;
   });
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-  let position = 0;
-  let timer = null;
-  let loopResetTimer = null;
-  let onScreen = !('IntersectionObserver' in window);
-  let hovered = false;
-  let focused = false;
-  let userPaused = false;
 
-  function configuredVisibleCount() {
-    return Number.parseInt(getComputedStyle(carousel).getPropertyValue('--featured-visible'), 10) || 1;
-  }
-
-  function visibleCount() {
-    const configuredCount = configuredVisibleCount();
-    return slides.length > 1 && slides.length < configuredCount ? 1 : configuredCount;
-  }
-
-  function update() {
-    carousel.classList.toggle('is-sparse', slides.length > 0 && slides.length < configuredVisibleCount());
-    const visible = visibleCount();
-    position = Math.min(position, slides.length);
+  // Calculate marquee shift for seamless looping
+  function calculateShift() {
+    if (cards.length <= 1) return;
     const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
-    const step = (slides[0]?.getBoundingClientRect().width || 0) + gap;
-    track.style.transform = `translate3d(${-position * step}px, 0, 0)`;
-    Array.from(track.children).forEach((slide, index) => {
-      slide.inert = slide.hasAttribute('data-featured-clone')
-        || index < position
-        || index >= position + visible;
-    });
-    controls.hidden = slides.length <= 1;
-    status.textContent = slides.length
-      ? `${(position % slides.length) + 1} of ${slides.length}`
-      : '0 of 0';
-    toggle.hidden = reduceMotion.matches;
-    toggle.disabled = reduceMotion.matches;
-    toggle.textContent = userPaused ? 'Play' : 'Pause';
-    toggle.setAttribute('aria-label', userPaused ? 'Resume automatic rotation' : 'Pause automatic rotation');
-
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-
-    if (
-      slides.length > 1
-      && !userPaused
-      && !reduceMotion.matches
-      && onScreen
-      && !document.hidden
-      && !hovered
-      && !focused
-    ) {
-      timer = setTimeout(advanceAutomatically, 6000);
-    }
+    const firstCard = cards[0].getBoundingClientRect();
+    const lastCard = cards[cards.length - 1].getBoundingClientRect();
+    const distance = lastCard.right - firstCard.left + gap;
+    track.style.setProperty('--marquee-shift', `-${distance}px`);
   }
 
-  function resetLoop() {
-    if (position !== slides.length) return;
-    clearTimeout(loopResetTimer);
-    loopResetTimer = null;
-    track.style.transition = 'none';
-    position = 0;
-    update();
-    track.getBoundingClientRect();
-    track.style.removeProperty('transition');
+  // Initial calculation
+  calculateShift();
+
+  // Recalculate on resize
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(calculateShift).observe(viewport);
+  } else {
+    window.addEventListener('resize', calculateShift, { passive: true });
   }
 
-  function rebuildClones() {
-    track.style.transition = 'none';
-    track.querySelectorAll('[data-featured-clone]').forEach(clone => clone.remove());
-    if (slides.length > 1) {
-      for (let index = 0; index < visibleCount(); index += 1) {
-        const clone = slides[index % slides.length].cloneNode(true);
-        clone.dataset.featuredClone = 'true';
-        clone.setAttribute('aria-hidden', 'true');
-        clone.inert = true;
-        track.appendChild(clone);
-      }
-    }
-    if (position >= slides.length) position = 0;
-    update();
-    track.getBoundingClientRect();
-    track.style.removeProperty('transition');
-  }
+  // Pause animation on hover/touch (for swipe interaction)
+  let isInteracting = false;
+  viewport.addEventListener('pointerdown', () => { isInteracting = true; track.classList.add('marquee-paused'); }, { passive: true });
+  viewport.addEventListener('pointerup', () => { isInteracting = false; track.classList.remove('marquee-paused'); });
+  viewport.addEventListener('pointerleave', () => { if (isInteracting) { isInteracting = false; track.classList.remove('marquee-paused'); } });
+  viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
+  viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
 
-  function advanceAutomatically() {
-    status.setAttribute('aria-live', 'off');
-    if (position >= slides.length - 1) {
-      position = slides.length;
-      update();
-      loopResetTimer = setTimeout(resetLoop, 300);
-      return;
-    }
-    position += 1;
-    update();
-  }
-
-  track.addEventListener('transitionend', event => {
-    if (event.target === track && event.propertyName === 'transform') resetLoop();
-  });
-  toggle.addEventListener('click', () => {
-    userPaused = !userPaused;
-    update();
-  });
-  document.addEventListener('visibilitychange', update);
-  reduceMotion.addEventListener('change', update);
-  window.addEventListener('resize', rebuildClones, { passive: true });
-
-  if (canHover) {
-    carousel.addEventListener('pointerenter', () => {
-      hovered = true;
-      update();
-    });
-    carousel.addEventListener('pointerleave', () => {
-      hovered = false;
-      update();
-    });
-  }
-
-  carousel.addEventListener('focusin', () => {
-    focused = true;
-    update();
-  });
-  carousel.addEventListener('focusout', event => {
-    if (!carousel.contains(event.relatedTarget)) {
-      focused = false;
-      update();
-    }
+  // Respect reduced motion
+  reduceMotion.addEventListener('change', () => {
+    track.style.animation = reduceMotion.matches ? 'none' : '';
   });
 
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver(([entry]) => {
-      onScreen = entry.isIntersecting;
-      update();
-    }, { threshold: 0.1 });
-    observer.observe(carousel);
+  // Hide controls (we removed pause/play button)
+  const controls = carousel.querySelector('[data-featured-controls]');
+  if (controls) controls.style.display = 'none';
+}
+
+export function initializeStoresCarousel(carousel) {
+  const viewport = carousel.querySelector('.carousel-viewport');
+  const track = viewport.querySelector('.carousel-track');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Wrap each card in a slide div for scroll-snap
+  const cards = Array.from(track.children);
+  cards.forEach((card, index) => {
+    const slide = document.createElement('div');
+    slide.className = 'carousel-slide';
+    slide.setAttribute('role', 'group');
+    slide.setAttribute('aria-roledescription', 'slide');
+    slide.setAttribute('aria-label', `${index + 1} of ${cards.length}`);
+    track.replaceChild(slide, card);
+    slide.appendChild(card);
+  });
+
+  // Calculate marquee shift for seamless looping
+  function calculateShift() {
+    if (cards.length <= 1) return;
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    const firstCard = cards[0].getBoundingClientRect();
+    const lastCard = cards[cards.length - 1].getBoundingClientRect();
+    const distance = lastCard.right - firstCard.left + gap;
+    track.style.setProperty('--marquee-shift', `-${distance}px`);
   }
 
-  rebuildClones();
+  // Initial calculation
+  calculateShift();
+
+  // Recalculate on resize
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(calculateShift).observe(viewport);
+  } else {
+    window.addEventListener('resize', calculateShift, { passive: true });
+  }
+
+  // Pause animation on hover/touch (for swipe interaction)
+  let isInteracting = false;
+  viewport.addEventListener('pointerdown', () => { isInteracting = true; track.classList.add('marquee-paused'); }, { passive: true });
+  viewport.addEventListener('pointerup', () => { isInteracting = false; track.classList.remove('marquee-paused'); });
+  viewport.addEventListener('pointerleave', () => { if (isInteracting) { isInteracting = false; track.classList.remove('marquee-paused'); } });
+  viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
+  viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
+
+  // Respect reduced motion
+  reduceMotion.addEventListener('change', () => {
+    track.style.animation = reduceMotion.matches ? 'none' : '';
+  });
 }
 
 // Simple person icon SVG (24x24, currentColor for palette)

@@ -1,6 +1,6 @@
 PaliTrento: Project Context for Claude Code
 
-Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-13.
+Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-14.
 
 **Custom Domain:** `palitrento.online` (configured 2026-11-12)
 
@@ -117,9 +117,9 @@ Store → products link: products.store_id === stores.id. In seed data ids are s
 Open/closed is computed client-side from open_time / close_time and the visitor's local clock.
 All user/DB strings go through esc() before innerHTML.
 New Google OAuth accounts are offered Customer or Business owner registration; role saving requires `supabase/google-auth-role.sql`. Seller order chat can display the customer's name through `supabase/chat-customer-name.sql`.
-Featured products are available on Home, Explore, and Products. The Home carousel moves left in a loop, pauses on hover/focus or when offscreen, retains Pause/Play, and respects reduced motion. A single featured product remains static; Previous/Next controls are removed.
+Featured products are available on Home, Explore, and Products. The Home carousel scrolls continuously left in a seamless loop (not a six-second step between cards), pauses on hover/focus or when offscreen/hidden, retains Pause/Play, and respects reduced motion. A single featured product remains static; Previous/Next controls are removed.
 
-Verified: npm install && npm run build succeeds. Not yet verified in a browser; run npm run dev and click through every page.
+Verified: `npm run build` passes. Headless Chrome confirmed continuous movement, looping, and Pause behavior with reduced motion disabled; reduced motion correctly suppresses the movement. Check actual promoted products at desktop/mobile sizes. If the UI shows “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.
 
 6. Data model (implemented in supabase/schema.sql)
 
@@ -183,7 +183,7 @@ GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SU
 
 Apply/confirm the three migrations listed in section 5 for featured products, Google role selection, and seller chat customer names.
 Confirm the `delete-account` Edge Function is deployed; test account deletion end to end.
-Browser-test the featured carousel loop, including wraparound, sparse lists, pause behavior, and reduced-motion behavior. The production build passes; the latest browser connection timed out.
+Headless Chrome verified continuous carousel movement, looping, and Pause behavior; check the real featured products at desktop and mobile sizes.
 Continue longer-term work only after checking current code and production state: SMS login, push notifications, offline field inspection, price broadcasts, and other roadmap features.
 
 10. Working conventions for Claude Code
@@ -213,5 +213,6 @@ Subsequent sessions: built email OTP auth, avatar upload, merchant onboarding, d
 2026-11-12 (later): Implemented QR Standee PDF in `standee.html` — A5/A4 printable store signage.
 2026-11-13: Created Settings page (`settings.html`, `js/settings.js`) — 6 tabs: Profile, Notifications, Privacy, Security, Preferences, Danger Zone.
 2026-11-13: Configured Supabase SMTP via Resend (`smtp.resend.com:587`), enabled Confirm email. Password reset and email confirmations now work.
-Current next steps: Confirm the Supabase migrations and `delete-account` Edge Function deployment noted in section 5, then browser-test the featured carousel loop.
+Current next steps: Confirm the Supabase migrations and `delete-account` Edge Function deployment noted in section 5, then visually check the featured carousel with real products on desktop and mobile.
 2026-11-13 update: Updated seller/admin navigation, Google OAuth role choice, chat customer-name display, featured-product placement and smooth left-loop carousel. Removed Email digest and rolled back the 15-day certificate-compliance workflow. See section 5 for migration and deployment checks.
+2026-11-14 update: Replaced the carousel's six-second card stepping with a continuous seamless loop. Headless Chrome verified motion, repeat, and pause; default reduced-motion preference keeps it static, as intended. Actual product data still needs desktop/mobile visual checking.
