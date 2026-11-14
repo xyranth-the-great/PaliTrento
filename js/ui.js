@@ -456,7 +456,7 @@ export function renderChrome(active, session = null, profile = null) {
     ['/explore/', 'Explore'],
     ['/map/', 'Map'],
     ['/products/', 'Products'],
-    ...(isBusinessOwner ? [['dashboard.html#tab-products', 'My Products']] : []),
+    ...(isBusinessOwner ? [['/dashboard/#tab-products', 'My Products']] : []),
     ...(showOrdersLink ? [['/orders/', 'My Orders']] : [])
   ];
   let authLinks;

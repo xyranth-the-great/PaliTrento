@@ -126,7 +126,7 @@ function renderProduct() {
   $('#store-location').textContent = `${s.barangay}, ${s.purok || '—'}`;
   $('#store-hours').textContent = `${hours(s)} • ${isOpen(s) ? 'Open now' : 'Closed'}`;
   $('#store-badges').innerHTML = badges(s);
-  $('#store-link').href = `business.html?trn=${encodeURIComponent(s.trn_code)}`;
+  $('#store-link').href = `/business/?trn=${encodeURIComponent(s.trn_code)}`;
   $('#store-landmark').textContent = s.landmark_reference;
   renderPaymentOptions(s);
 

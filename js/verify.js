@@ -178,7 +178,7 @@ form.addEventListener('submit', async (e) => {
           return;
         }
 
-        const finalRedirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : 'login.html?verified=1';
+        const finalRedirectUrl = nextPage === 'store-setup' ? '/store-setup/?step=1' : 'login.html?verified=1';
         setTimeout(() => window.location.href = finalRedirectUrl, 1500);
         return;
       } else {
@@ -188,7 +188,7 @@ form.addEventListener('submit', async (e) => {
       }
     }
 
-    const finalRedirectUrl = nextPage === 'store-setup' ? 'store-setup.html?step=1' : '/login/';
+    const finalRedirectUrl = nextPage === 'store-setup' ? '/store-setup/?step=1' : '/login/';
     setTimeout(() => window.location.href = finalRedirectUrl, 1500);
   } catch (err) {
     console.error('Verify error:', err);

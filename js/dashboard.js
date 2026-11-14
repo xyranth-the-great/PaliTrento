@@ -115,7 +115,7 @@ function renderStoreCard(store) {
   const standeeBtn = $('#standee-btn');
   if (standeeBtn) {
     standeeBtn.style.display = canManageProducts ? 'inline-flex' : 'none';
-    standeeBtn.href = `standee.html?storeId=${store.id}`;
+    standeeBtn.href = `/standee/?storeId=${store.id}`;
   }
 }
 
@@ -247,23 +247,23 @@ function renderOrders() {
       actions = `
         <button class="btn ok" style="padding:6px 12px;font-size:.8rem" data-confirm="${o.id}">Confirm</button>
         <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel</button>
-        <a href="chat.html?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
+        <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'CONFIRMED') {
       actions = `
         <button class="btn ok" style="padding:6px 12px;font-size:.8rem" data-ready="${o.id}">Mark Ready</button>
         <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel</button>
-        <a href="chat.html?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
+        <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'READY_FOR_PICKUP') {
       actions = `
         <button class="btn ok" style="padding:6px 12px;font-size:.8rem" data-complete="${o.id}">Complete</button>
-        <a href="chat.html?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
+        <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'COMPLETED') {
       actions = `
         <span class="pill ok">Completed</span>
-        <a href="chat.html?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
+        <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'CANCELLED') {
       actions = '<span class="pill bad">Cancelled</span>';

@@ -177,7 +177,7 @@ form.addEventListener('submit', async (e) => {
     }
 
     // Redirect to verify page
-    const verifyUrl = `verify.html?email=${encodeURIComponent(email)}&purpose=verify`;
+    const verifyUrl = `/verify/?email=${encodeURIComponent(email)}&purpose=verify`;
     console.log('[Register] Redirecting to:', verifyUrl);
     window.location.href = verifyUrl;
   } catch (err) {

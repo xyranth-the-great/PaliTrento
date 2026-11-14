@@ -16,7 +16,7 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, att
 const markers = {};
 stores.forEach(s => {
   markers[s.id] = L.circleMarker([s.lat, s.lng], { radius: 9, color: '#fff', weight: 2, fillColor: COLORS[s.trade_category] || '#1f4d2e', fillOpacity: 1 })
-    .addTo(map).bindPopup(`<strong>${esc(s.business_name)}</strong><br>${esc(CATS[s.trade_category])}<br><a href="business.html?trn=${encodeURIComponent(s.trn_code)}">View details</a>`)
+    .addTo(map).bindPopup(`<strong>${esc(s.business_name)}</strong><br>${esc(CATS[s.trade_category])}<br><a href="/business/?trn=${encodeURIComponent(s.trn_code)}">View details</a>`)
     .on('click', () => mark(s.id));
 });
 $('#list').innerHTML = stores.map(s => `<button class="card" data-id="${s.id}" aria-pressed="false">

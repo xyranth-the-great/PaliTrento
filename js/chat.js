@@ -112,7 +112,7 @@ function renderOrderInfo(order, isBuyer) {
   if (isBuyer) {
     chatTitle.textContent = `Chat with ${store?.business_name || 'Seller'}`;
     chatSubtitle.textContent = `${product?.name || 'Product'} • ${order.quantity} × ${peso(product?.current_price || 0)} = ${peso(order.total_price)}`;
-    backLink.href = 'account.html?tab=orders';
+    backLink.href = '/orders/';
   } else {
     chatTitle.textContent = `Chat with ${buyer?.full_name || 'Customer'}`;
     chatSubtitle.textContent = `${product?.name || 'Product'} • Order ${order.id.slice(0,8)}`;

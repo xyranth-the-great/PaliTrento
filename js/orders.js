@@ -90,7 +90,7 @@ function renderOrders() {
           <span class="pill ${color}" style="font-size:.75rem;white-space:nowrap">${label}</span>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
-          <a href="chat.html?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
+          <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
         </div>
         <p class="muted" style="margin:8px 0 0;font-size:.75rem">Ordered: ${new Date(o.created_at).toLocaleString('en-PH')}</p>
         ${o.notes ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Notes: ${esc(o.notes)}</p>` : ''}

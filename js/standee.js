@@ -53,7 +53,7 @@ async function init() {
       return;
     }
     // Use this store's ID
-    window.history.replaceState(null, '', `standee.html?storeId=${userStore.id}`);
+    window.history.replaceState(null, '', `/standee/?storeId=${userStore.id}`);
     await loadStore(userStore.id);
   } else {
     await loadStore();
@@ -122,7 +122,7 @@ function renderStoreInfo() {
 async function initQRCode() {
   console.log('[Standee] Generating QR code...');
   // Generate QR code for the store's business page
-  const businessUrl = `${window.location.origin}${window.location.pathname.replace('/standee/', '')}business.html?trn=${encodeURIComponent(currentStore.trn_code)}`;
+  const businessUrl = `${window.location.origin}/business/?trn=${encodeURIComponent(currentStore.trn_code)}`;
   console.log('[Standee] Business URL:', businessUrl);
 
   try {
