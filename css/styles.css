@@ -291,11 +291,14 @@ a.card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0
 }
 .carousel-slide{flex:0 0 auto;min-width:0;scroll-snap-align:start}
 
-/* Make store cards in carousel slightly smaller */
-.carousel .card.store-card{min-width:260px}
-.carousel .store-card h3{font-size:1.05rem}
-.carousel .store-card-meta{font-size:.85rem}
-.carousel .store-card-badges .pill{font-size:.7rem;padding:4px 10px}
+/* Stores Carousel - Fixed Width Slides */
+.carousel .carousel-slide{width:260px;flex:0 0 260px}
+.carousel .store-card{height:100%;width:100%}
+.carousel .store-card-media{aspect-ratio:4/3}
+.carousel .store-card-content{padding:10px}
+.carousel .store-card-heading h3{font-size:.9rem}
+.carousel .store-card-meta{font-size:.75rem}
+.carousel .store-card-badges .pill{font-size:.6rem;padding:2px 8px}
 
 /* Featured Products Marquee Carousel - Full Width */
 .featured-products-section{padding-left:0;padding-right:0}
@@ -318,6 +321,14 @@ a.card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0
 .product-card .price{font-weight:800;font-size:1rem;color:var(--primary-dark)}
 .product-card .muted{font-size:.75rem;line-height:1.4}
 .product-card .pill{font-size:.6rem;padding:2px 8px}
+
+/* Store Card - Base Styles */
+.store-card{display:flex;flex-direction:column;height:100%}
+.store-card-media{position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;background:var(--muted-bg);border-bottom:1px solid var(--line)}
+.store-card-media img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .3s var(--ease)}
+.store-card:hover .store-card-media img{transform:scale(1.05)}
+.store-card-placeholder{display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--muted-bg);color:var(--muted);font-size:.8rem}
+.store-card-content{display:flex;flex-direction:column;flex:1;padding:12px;min-height:0}
 
 /* Featured Products Carousel - Compact */
 .featured-products-slide{width:280px;flex:0 0 280px}

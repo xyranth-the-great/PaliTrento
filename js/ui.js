@@ -36,9 +36,15 @@ export function srp(p) {
 }
 export const storeCard = s => `
   <a class="card store-card" href="/business/?trn=${encodeURIComponent(s.trn_code)}">
-    <div class="row store-card-heading"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
-    <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
-    <div class="store-card-badges">${badges(s)}</div>
+    <div class="store-card-media">${s.storefront_image_url
+      ? `<img src="${esc(s.storefront_image_url)}" alt="${esc(s.business_name)}" loading="lazy" decoding="async">`
+      : '<div class="store-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
+    </div>
+    <div class="store-card-content">
+      <div class="row store-card-heading"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
+      <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
+      <div class="store-card-badges">${badges(s)}</div>
+    </div>
   </a>`;
 export const getActiveFeaturedProducts = products => products
   .filter(product => Date.parse(product.featured_until) > Date.now())
@@ -108,7 +114,8 @@ export function initializeFeaturedProductsCarousel(section) {
       const originalSlide = slides[cloneIndex % originalCards.length];
       const clone = originalSlide.cloneNode(true);
       clone.setAttribute('aria-hidden', 'true');
-      clone.inert = true;
+      // Don't use inert=true - it makes links non-clickable
+      // Just hide from screen readers with aria-hidden
       track.appendChild(clone);
       trackWidth += originalSlide.getBoundingClientRect().width + gap;
       cloneIndex++;
@@ -311,6 +318,13 @@ export function initializeStoresCarousel(carousel) {
     track.replaceChild(slide, card);
     slide.appendChild(card);
     return slide;
+  });
+
+  // Apply fixed width to all slides (including clones) after they exist
+  // The CSS handles this, but ensure it's set for dynamically created slides
+  slides.forEach(slide => {
+    slide.style.width = '260px';
+    slide.style.flex = '0 0 260px';
   });
 
   // Calculate marquee shift for ONE SET (originalCount cards) for seamless looping
