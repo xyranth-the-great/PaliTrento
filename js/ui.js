@@ -36,7 +36,7 @@ export function srp(p) {
     : { cls: 'bad', text: `Over cap by ${peso(p.current_price - p.lgu_srp_ceiling)}` };
 }
 export const storeCard = s => `
-  <a class="card store-card" href="business.html?trn=${encodeURIComponent(s.trn_code)}">
+  <a class="card store-card" href="/business/?trn=${encodeURIComponent(s.trn_code)}">
     <div class="row store-card-heading"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
     <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
     <div class="store-card-badges">${badges(s)}</div>
@@ -47,7 +47,7 @@ export const getActiveFeaturedProducts = products => products
 export const productCard = (p, store) => {
   const c = srp(p);
   const isFeatured = Date.parse(p.featured_until) > Date.now();
-  return `<a class="card product-card" href="product-detail.html?id=${encodeURIComponent(p.id)}">
+  return `<a class="card product-card" href="/product-detail/?id=${encodeURIComponent(p.id)}">
     <div class="product-card-media">${p.image_url
       ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
       : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
