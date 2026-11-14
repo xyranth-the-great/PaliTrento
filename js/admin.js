@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, CATS, PAY, peso, badges } from './ui.js';
+import { renderChrome, $, esc, CATS, PAY, peso, badges, startAdvisoryToastListener } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -19,6 +19,9 @@ async function init() {
   }
 
   renderChrome('/admin/', session, profile);
+
+  // Start advisory toast listener
+  startAdvisoryToastListener();
 
   await loadStats();
   await loadRecentPending();

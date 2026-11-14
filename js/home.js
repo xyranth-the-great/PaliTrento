@@ -1,8 +1,9 @@
-import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS } from './ui.js';
+import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
-import { getSession, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache } from './auth.js';
+import { getSession, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
+import { initPushNotifications } from './push.js';
 
 const session = await getSession();
 let profile = null;
@@ -45,6 +46,14 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
   window.location.replace(postLoginPath);
 } else {
   renderChrome('/', session, profile);
+
+  // Start advisory toast listener for logged-in users
+  if (session) {
+    startAdvisoryToastListener();
+    startOrderStatusListener(session.user.id);
+    // Initialize push notifications
+    initPushNotifications();
+  }
 
   if (needsGoogleRoleChoice) {
     showGoogleRoleChoice(session);

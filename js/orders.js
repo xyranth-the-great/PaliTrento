@@ -1,5 +1,5 @@
-import { renderChrome, $, esc, peso } from './ui.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
+import { getSession, getCachedProfile, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured, getLoginUnavailableMessage } from './auth.js';
 
@@ -25,6 +25,10 @@ async function loadOrders() {
 
   const profile = await getCachedProfile(session.user.id);
   renderChrome('/orders/', session, profile);
+
+  // Start advisory toast listener
+  startAdvisoryToastListener();
+  startOrderStatusListener(session.user.id);
 
   try {
     const { data: orders, error } = await supabase

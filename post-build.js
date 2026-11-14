@@ -10,7 +10,7 @@ const pages = [
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement'
+  'reset-password', 'terms-and-agreement', 'advisories'
 ];
 
 // Pages that should be directories (clean URLs) vs files
@@ -19,7 +19,7 @@ const directoryPages = new Set([
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement'
+  'reset-password', 'terms-and-agreement', 'advisories'
 ]);
 
 console.log(`[post-build] Processing ${outDir}...`);

@@ -1,9 +1,10 @@
-import { renderChrome, $, esc, BARANGAYS, peso } from './ui.js';
+import { renderChrome, $, esc, BARANGAYS, peso, startAdvisoryToastListener } from './ui.js';
 import { supabase } from './supabase.js';
 import {
   getSession, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
   signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache
 } from './auth.js';
+import { subscribeToPush, unsubscribeFromPush, updatePushUI, requestNotificationPermission } from './push.js';
 
 const contentEl = $('#settings-content');
 const msgEl = $('#settings-message');
@@ -65,6 +66,9 @@ async function loadSettings() {
   currentProfile = await getCachedProfile(session.user.id);
   renderChrome('/settings/', session, currentProfile);
 
+  // Start advisory toast listener
+  startAdvisoryToastListener();
+
   // Populate barangay dropdown
   const brgySelect = $('#set-barangay');
   brgySelect.innerHTML = '<option value="">Choose your barangay</option>' +
@@ -79,10 +83,71 @@ async function loadSettings() {
   // Load avatar
   updateAvatarPreview(currentProfile?.avatar_url ?? null);
 
-  // Load saved notification and privacy preferences from localStorage
-  loadPreferences();
+  // Load notification preferences from database (with localStorage fallback)
+  await loadNotificationPreferences(session.user.id);
+
+  // Load saved privacy preferences from localStorage
+  loadPrivacyPreferences();
+
+  // Initialize push notification UI
+  updatePushUI();
 
   contentEl.style.display = 'block';
+}
+
+async function loadNotificationPreferences(userId) {
+  if (!supabase) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select('orders, messages, price_caps, store_announcements, push')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) {
+      // Fallback to localStorage
+      loadPreferences();
+      return;
+    }
+
+    // Update UI with database values
+    $('#notif-orders').checked = data.orders ?? true;
+    $('#notif-messages').checked = data.messages ?? true;
+    $('#notif-price-caps').checked = data.price_caps ?? false;
+    $('#notif-store-announcements').checked = data.store_announcements ?? false;
+    $('#notif-push').checked = data.push ?? false;
+
+    // Also sync to localStorage for quick access
+    const prefs = {
+      orders: data.orders ?? true,
+      messages: data.messages ?? true,
+      price_caps: data.price_caps ?? false,
+      store_announcements: data.store_announcements ?? false,
+      push: data.push ?? false
+    };
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
+  } catch (err) {
+    console.error('Load notification preferences error:', err);
+    loadPreferences(); // Fallback
+  }
+}
+
+function loadPrivacyPreferences() {
+  try {
+    const stored = localStorage.getItem('palitrento_privacy');
+    const prefs = stored ? JSON.parse(stored) : {
+      show_name: true,
+      show_barangay: true,
+      store_contact: true,
+      analytics: true,
+      lgu_data: false
+    };
+    Object.keys(prefs).forEach(key => {
+      const el = $(`#privacy-${key}`);
+      if (el) el.checked = prefs[key];
+    });
+  } catch {}
 }
 
 function updateAvatarPreview(url) {
@@ -255,17 +320,7 @@ const DEFAULT_NOTIFS = {
 };
 
 function loadPreferences() {
-  // Notifications
-  try {
-    const stored = localStorage.getItem(NOTIF_KEY);
-    const prefs = stored ? JSON.parse(stored) : DEFAULT_NOTIFS;
-    Object.keys(DEFAULT_NOTIFS).forEach(key => {
-      const el = $(`#notif-${key}`);
-      if (el) el.checked = prefs[key] ?? DEFAULT_NOTIFS[key];
-    });
-  } catch {}
-
-  // Privacy
+  // Privacy only (notifications loaded from database via loadNotificationPreferences)
   try {
     const stored = localStorage.getItem('palitrento_privacy');
     const prefs = stored ? JSON.parse(stored) : {
@@ -283,7 +338,7 @@ function loadPreferences() {
 
 }
 
-function saveNotifications() {
+async function saveNotifications() {
   const prefs = {
     orders: $('#notif-orders').checked,
     messages: $('#notif-messages').checked,
@@ -291,8 +346,75 @@ function saveNotifications() {
     store_announcements: $('#notif-store-announcements').checked,
     push: $('#notif-push').checked
   };
+
+  // Save to localStorage immediately for quick access
   localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
+
+  // Handle push notification subscription change
+  const pushEnabled = prefs.push;
+  const pushCheckbox = $('#notif-push');
+  if (pushCheckbox) {
+    pushCheckbox.disabled = true;
+    if (pushEnabled) {
+      subscribeToPush().then(async ({ error }) => {
+        pushCheckbox.disabled = false;
+        if (error) {
+          pushCheckbox.checked = false;
+          prefs.push = false;
+          localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
+          showMsg('Failed to enable push notifications', 'bad');
+        } else {
+          // Save all prefs to database after successful push subscription
+          await saveNotificationPreferencesToDb(prefs);
+          showMsg('Notification preferences saved', 'ok');
+        }
+      });
+      return;
+    } else {
+      unsubscribeFromPush().then(async ({ error }) => {
+        pushCheckbox.disabled = false;
+        if (error) {
+          pushCheckbox.checked = true;
+          prefs.push = true;
+          localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
+          showMsg('Failed to disable push notifications', 'bad');
+        } else {
+          // Save all prefs to database after successful push unsubscription
+          await saveNotificationPreferencesToDb(prefs);
+          showMsg('Notification preferences saved', 'ok');
+        }
+      });
+      return;
+    }
+  }
+
+  // Save to database for non-push changes
+  await saveNotificationPreferencesToDb(prefs);
   showMsg('Notification preferences saved', 'ok');
+}
+
+async function saveNotificationPreferencesToDb(prefs) {
+  if (!supabase || !currentSession) return;
+
+  try {
+    const { error } = await supabase
+      .from('notification_preferences')
+      .upsert({
+        id: currentSession.user.id,
+        orders: prefs.orders,
+        messages: prefs.messages,
+        price_caps: prefs.price_caps,
+        store_announcements: prefs.store_announcements,
+        push: prefs.push,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+
+    if (error) {
+      console.error('Save notification preferences error:', error);
+    }
+  } catch (err) {
+    console.error('Save notification preferences exception:', err);
+  }
 }
 
 $('#save-notif-btn').addEventListener('click', saveNotifications);

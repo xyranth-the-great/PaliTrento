@@ -190,3 +190,97 @@ create policy "verified owner delete products" on products
       and stores.user_id = auth.uid()
       and stores.verification_status = 'VERIFIED'
   ));
+
+-- ===== Notification Reads (tracks which advisories user has read) =====
+create table if not exists notification_reads (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  advisory_id uuid not null references advisories(id) on delete cascade,
+  read_at timestamptz not null default now(),
+  unique (user_id, advisory_id)
+);
+
+alter table notification_reads enable row level security;
+
+create policy "read own notification reads" on notification_reads
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+create policy "insert own notification reads" on notification_reads
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "update own notification reads" on notification_reads
+  for update to authenticated
+  using (auth.uid() = user_id);
+
+-- ===== Push Subscriptions =====
+create table if not exists push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, endpoint)
+);
+
+alter table push_subscriptions enable row level security;
+
+create policy "read own push subscriptions" on push_subscriptions
+  for select to authenticated
+  using (auth.uid() = user_id);
+
+create policy "insert own push subscriptions" on push_subscriptions
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "update own push subscriptions" on push_subscriptions
+  for update to authenticated
+  using (auth.uid() = user_id);
+
+create policy "delete own push subscriptions" on push_subscriptions
+  for delete to authenticated
+  using (auth.uid() = user_id);
+
+-- ===== User Notification Preferences =====
+create table if not exists notification_preferences (
+  id uuid primary key references auth.users(id) on delete cascade,
+  orders boolean not null default true,
+  messages boolean not null default true,
+  price_caps boolean not null default false,
+  store_announcements boolean not null default false,
+  push boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
+alter table notification_preferences enable row level security;
+
+create policy "read own notification preferences" on notification_preferences
+  for select to authenticated
+  using (auth.uid() = id);
+
+create policy "upsert own notification preferences" on notification_preferences
+  for insert to authenticated
+  with check (auth.uid() = id);
+
+create policy "update own notification preferences" on notification_preferences
+  for update to authenticated
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
+
+-- Trigger to auto-create default preferences on user signup
+create or replace function create_default_notification_preferences()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into notification_preferences (id, orders, messages, price_caps, store_announcements, push)
+  values (new.id, true, true, false, false, false)
+  on conflict (id) do nothing;
+  return new;
+end; $$;
+
+drop trigger if exists on_auth_user_created_notif_prefs on auth.users;
+create trigger on_auth_user_created_notif_prefs
+  after insert on auth.users
+  for each row execute function create_default_notification_preferences();

@@ -282,6 +282,38 @@ export function clearUnreadCount(orderId) {
   return counts;
 }
 
+/**
+ * Get user notification preferences from database
+ * Caches in sessionStorage for 5 minutes
+ */
+export async function getNotificationPreferences(userId) {
+  if (!supabase) return { orders: true, messages: true, price_caps: false, store_announcements: false, push: false };
+
+  const cacheKey = `palitrento_notif_prefs_${userId}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < 5 * 60 * 1000) return data;
+    } catch {}
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select('orders, messages, price_caps, store_announcements, push')
+      .eq('id', userId)
+      .single();
+
+    if (!error && data) {
+      sessionStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+      return data;
+    }
+  } catch {}
+
+  return { orders: true, messages: true, price_caps: false, store_announcements: false, push: false };
+}
+
 let unreadChannel = null;
 
 export async function startUnreadListener(userId) {
@@ -331,11 +363,19 @@ export async function startUnreadListener(userId) {
         table: 'messages',
         filter: `order_id=in.(${orderIds.join(',')})`
       },
-      (payload) => {
+      async (payload) => {
         console.log('Realtime message received:', payload);
         const msg = payload.new;
         if (msg && msg.sender_id !== userId) {
           console.log('New message from other user:', msg);
+
+          // Check if user wants message notifications
+          const prefs = await getNotificationPreferences(userId);
+          if (!prefs.messages) {
+            console.log('[UnreadListener] Message notifications disabled, skipping');
+            return;
+          }
+
           const counts = incrementUnreadCount(msg.order_id);
           window.dispatchEvent(new CustomEvent('unread-count-changed', { detail: counts }));
         }
@@ -350,5 +390,89 @@ export function stopUnreadListener() {
   if (unreadChannel) {
     unreadChannel.unsubscribe();
     unreadChannel = null;
+  }
+}
+
+// ===== Order Status Change Listener =====
+let orderStatusChannel = null;
+
+export async function startOrderStatusListener(userId) {
+  console.log('Starting order status listener for user:', userId);
+  if (!supabase || orderStatusChannel) {
+    console.log('Order listener already running or no supabase');
+    return;
+  }
+
+  const prefs = await getNotificationPreferences(userId);
+  if (!prefs.orders) {
+    console.log('[OrderListener] Order notifications disabled');
+    return;
+  }
+
+  // Get user's order IDs (as buyer or seller)
+  const { data: stores } = await supabase
+    .from('stores')
+    .select('id')
+    .eq('user_id', userId);
+
+  const storeIds = (stores || []).map(s => s.id);
+
+  let query = supabase.from('orders').select('id').eq('buyer_id', userId);
+  if (storeIds.length > 0) {
+    query = query.or(`buyer_id.eq.${userId},store_id.in.(${storeIds.join(',')})`);
+  }
+
+  const { data: orders, error } = await query;
+  if (error || !orders || orders.length === 0) {
+    console.log('No orders found for order status listener');
+    return;
+  }
+
+  const orderIds = orders.map(o => o.id);
+
+  orderStatusChannel = supabase
+    .channel(`order-status-${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `id=in.(${orderIds.join(',')})`
+      },
+      async (payload) => {
+        const order = payload.new;
+        const oldOrder = payload.old;
+
+        // Only notify on status change to specific states
+        const notifyingStatuses = ['CONFIRMED', 'READY_FOR_PICKUP', 'COMPLETED'];
+        if (order.status !== oldOrder.status && notifyingStatuses.includes(order.status)) {
+          console.log('[OrderListener] Status changed to:', order.status);
+
+          // Check preferences again (in case changed)
+          const currentPrefs = await getNotificationPreferences(userId);
+          if (!currentPrefs.orders) return;
+
+          // Show toast notification
+          const statusMessages = {
+            CONFIRMED: 'Your order has been confirmed!',
+            READY_FOR_PICKUP: 'Your order is ready for pickup!',
+            COMPLETED: 'Your order has been completed!'
+          };
+
+          const { showOrderStatusToast } = await import('./ui.js');
+          showOrderStatusToast(order.id, order.status, statusMessages[order.status]);
+        }
+      }
+    )
+    .subscribe((status, err) => {
+      console.log('Order status subscription:', status, err);
+    });
+}
+
+export function stopOrderStatusListener() {
+  if (orderStatusChannel) {
+    orderStatusChannel.unsubscribe();
+    orderStatusChannel = null;
   }
 }

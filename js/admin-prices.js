@@ -59,10 +59,43 @@ async function handleSubmit(e) {
       return;
     }
 
-    const { error } = await supabase.from('advisories').insert(broadcast);
+    const { data: advisory, error } = await supabase
+      .from('advisories')
+      .insert(broadcast)
+      .select('id')
+      .single();
+
     if (error) throw error;
 
-    showMsg('Broadcast sent successfully!', 'ok');
+    // Send push notifications
+    if (advisory?.id) {
+      submitBtn.textContent = 'Sending push...';
+      try {
+        const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
+          body: {
+            advisoryId: advisory.id,
+            title: broadcast.title,
+            body: broadcast.body,
+            category: broadcast.category,
+            priority: broadcast.priority,
+            barangay: broadcast.barangay,
+            url: '/'
+          }
+        });
+        if (pushError) {
+          console.warn('Push notification failed:', pushError);
+          showMsg('Broadcast sent (push notifications failed)', 'warn');
+        } else {
+          showMsg('Broadcast sent with push notifications!', 'ok');
+        }
+      } catch (pushErr) {
+        console.warn('Push notification error:', pushErr);
+        showMsg('Broadcast sent (push notifications unavailable)', 'warn');
+      }
+    } else {
+      showMsg('Broadcast sent successfully!', 'ok');
+    }
+
     form.reset();
     await loadBroadcasts();
   } catch (err) {

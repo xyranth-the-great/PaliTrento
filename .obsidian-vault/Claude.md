@@ -92,6 +92,7 @@ palitrento/
 │   ├── register-business.js  store-setup.js  dashboard.js  chat.js  orders.js
 │   ├── admin.js  admin-verification.js  admin-prices.js  admin-reports.js
 │   ├── settings.js  Settings page logic (Profile, Notifications, Privacy, Security, Preferences, Danger Zone)
+│   ├── push.js     Push notifications (Service Worker, VAPID, subscription)
 │   ├── forgot-password.js  Password reset request flow
 │   ├── reset-password.js   Password reset completion flow
 ├── supabase/
@@ -107,6 +108,8 @@ palitrento/
 │   ├── product-demo-payments.sql  Featured-product expiry field
 │   ├── google-auth-role.sql  Secure role persistence for new Google accounts
 │   ├── chat-customer-name.sql  Participant-checked customer-name RPC
+│   ├── fix-google-role-grant.sql  Grant role column update for profiles
+│   ├── functions/send-push-notification/  Edge Function for browser push
 ├── vite.config.js  .env.example  package.json  README.md  .gitignore
 
 How it works
@@ -150,6 +153,12 @@ advisories: id uuid pk, title, body, category (PRICE_CAP|ANNOUNCEMENT|EMERGENCY|
 
 email_otp_codes: id uuid pk, email, code, purpose, expires_at, used_at, created_at
 
+notification_reads: id uuid pk, user_id fk→auth.users, advisory_id fk→advisories, read_at timestamptz, unique(user_id, advisory_id)
+
+notification_preferences: id uuid pk=fk→auth.users, orders boolean, messages boolean, price_caps boolean, store_announcements boolean, push boolean, updated_at timestamptz
+
+push_subscriptions: id uuid pk, user_id fk→auth.users, endpoint text, p256dh text, auth text, created_at, updated_at, unique(user_id, endpoint)
+
 RLS policies:
 - Public read: stores (not REJECTED), products (all), advisories (active)
 - Owner write: stores/products/orders/messages (own store/buyer)
@@ -191,6 +200,7 @@ Custom domain configured: DNS at Z.com (4 A records + 1 CNAME + Resend records),
 Resend domain `palitrento.online` verified (DKIM, CNAME rsend/send, DMARC at Z.com). Edge Function `send-email-otp` sender updated to `no-reply@palitrento.online` (deployed v6).
 Supabase SMTP configured via Resend: `smtp.resend.com:587`, user `resend`, pass `re_...`, sender `no-reply@palitrento.online`. Confirm email: ON.
 GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` secrets, outputs to `dist-fix`, deploys to gh-pages.
+Notification system implemented (2026-11-14): bell icon + dropdown, realtime toast/banner, detail modal, Settings → Notifications preferences (Orders, Messages, Price caps, Store announcements, Push), browser push notifications (Service Worker + VAPID + Edge Function `send-push-notification`), admin broadcast auto-send push.
 
 9. Suggested next steps (in order)
 
@@ -198,7 +208,7 @@ Apply/confirm the four migrations listed in section 5: `product-demo-payments.sq
 Confirm the `delete-account` Edge Function is deployed; test account deletion end to end.
 Headless Chrome verified continuous carousel movement, looping, and Pause behavior; check the real featured products at desktop and mobile sizes.
 Deploy clean URLs via GitHub Actions (`git push` triggers `npm run build` with post-build step).
-Continue longer-term work only after checking current code and production state: SMS login, push notifications, offline field inspection, price broadcasts, and other roadmap features.
+Continue longer-term work only after checking current code and production state: SMS login, offline field inspection, price broadcasts, and other roadmap features.
 
 10. Working conventions for Claude Code
 

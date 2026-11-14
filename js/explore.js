@@ -1,4 +1,4 @@
-import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS } from './ui.js';
+import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS, startAdvisoryToastListener } from './ui.js';
 import { getStores, getProducts } from './data.js';
 import { getSession, getCachedProfile } from './auth.js';
 
@@ -6,6 +6,11 @@ const session = await getSession();
 let profile = null;
 if (session) profile = await getCachedProfile(session.user.id);
 renderChrome('/explore/', session, profile);
+
+// Start advisory toast listener for logged-in users
+if (session) {
+  startAdvisoryToastListener();
+}
 
 const [stores, products] = await Promise.all([getStores(), getProducts()]);
 const storeById = new Map(stores.map(store => [store.id, store]));

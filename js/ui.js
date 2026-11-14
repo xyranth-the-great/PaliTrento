@@ -438,6 +438,9 @@ const PERSON_SVG = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
 // Chevron down SVG
 const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`;
 
+// Notification bell SVG
+const BELL_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
+
 export function renderChrome(active, session = null, profile = null, userId = null) {
   const role = profile?.role ?? session?.user?.user_metadata?.role;
   const isBusinessOwner = role === 'business_owner';
@@ -481,7 +484,24 @@ export function renderChrome(active, session = null, profile = null, userId = nu
       ? ''
       : `<a href="/orders/" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 
+    // Notification bell (only for logged-in users)
+    const bellHtml = `
+      <div class="notification-menu" id="notification-menu">
+        <button class="icon-btn notification-bell" aria-label="Notifications" data-unread="0">
+          ${BELL_SVG}
+        </button>
+        <div class="notification-dropdown" role="menu" aria-label="Notifications" hidden>
+          <div class="notification-dropdown-header">
+            <h3>Notifications</h3>
+            <button class="mark-all-read" aria-label="Mark all as read">Mark all read</button>
+          </div>
+          <div class="notification-dropdown-list" role="listbox"></div>
+          <div class="notification-dropdown-footer"><a href="/advisories/">View all notifications</a></div>
+        </div>
+      </div>`;
+
     authLinks = `
+      ${bellHtml}
       <div class="avatar-menu" id="avatar-menu">
         <a href="${isBusinessOwner ? '/dashboard/' : isAdmin ? '/admin/' : '/account/'}" class="avatar-btn"${active === '/account/' || active === '/dashboard/' || active === '/admin/' ? ' aria-current="page"' : ''} aria-label="My account" aria-haspopup="true" aria-expanded="false">
           ${avatarHtml}
@@ -517,6 +537,7 @@ export function renderChrome(active, session = null, profile = null, userId = nu
   // Initialize avatar dropdown after DOM update
   if (session) {
     initAvatarDropdown();
+    initNotificationBell();
   }
 }
 
@@ -588,4 +609,480 @@ function initAvatarDropdown() {
   window.addEventListener('resize', () => {
     if (window.innerWidth > 760 && isOpen) closeDropdown();
   });
+}
+
+// ===== Realtime Advisory Toast =====
+let advisoryChannel = null;
+
+export async function startAdvisoryToastListener() {
+  const { supabase } = await import('./supabase.js');
+  const { getSession, getNotificationPreferences } = await import('./auth.js');
+  const session = await getSession();
+  if (!supabase || !session || advisoryChannel) return;
+
+  const prefs = await getNotificationPreferences(session.user.id);
+
+  advisoryChannel = supabase
+    .channel('advisory-toasts')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'advisories',
+        filter: `published_at=lte.${new Date().toISOString()}`
+      },
+      (payload) => {
+        const advisory = payload.new;
+        // Only show toast for active advisories
+        if (!advisory.expires_at || new Date(advisory.expires_at) > new Date()) {
+          // Check if user wants price cap notifications (for PRICE_CAP category)
+          if (advisory.category === 'PRICE_CAP' && !prefs.price_caps) {
+            console.log('[AdvisoryToast] Price cap notifications disabled, skipping');
+            return;
+          }
+          // Check store_announcements for ANNOUNCEMENT and GENERAL categories
+          if ((advisory.category === 'ANNOUNCEMENT' || advisory.category === 'GENERAL') && !prefs.store_announcements) {
+            console.log('[AdvisoryToast] Store announcements disabled, skipping');
+            return;
+          }
+          showAdvisoryToast(advisory);
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('[AdvisoryToast] Subscription:', status);
+    });
+}
+
+function showAdvisoryToast(advisory) {
+  // Remove existing toast
+  const existing = document.querySelector('.advisory-toast');
+  if (existing) existing.remove();
+
+  const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn' }[advisory.category] || 'warn';
+  const toast = document.createElement('div');
+  toast.className = `advisory-toast ${catColor}`;
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'polite');
+  toast.innerHTML = `
+    <div class="advisory-toast-content">
+      <span class="advisory-toast-cat pill ${catColor}">${advisory.category.replace('_', ' ')}</span>
+      <div>
+        <strong>${esc(advisory.title)}</strong>
+        <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(advisory.body)}</p>
+      </div>
+    </div>
+    <button class="advisory-toast-close" aria-label="Dismiss">&times;</button>
+  `;
+
+  document.body.appendChild(toast);
+
+  // Store advisory data for modal
+  toast.dataset.advisory = JSON.stringify(advisory);
+
+  // Animate in
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  // Click content to open detail modal
+  toast.querySelector('.advisory-toast-content').addEventListener('click', async () => {
+    clearTimeout(dismissTimer);
+    dismissToast(toast);
+    await openNotificationModal(advisory);
+  });
+
+  // Manual dismiss (close button)
+  toast.querySelector('.advisory-toast-close').addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearTimeout(dismissTimer);
+    dismissToast(toast);
+  });
+}
+
+function dismissToast(toast) {
+  toast.classList.remove('show');
+  toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+}
+
+// ===== Notification Detail Modal =====
+let notificationModal = null;
+
+function createNotificationModal() {
+  if (notificationModal) return notificationModal;
+
+  const modal = document.createElement('div');
+  modal.className = 'notification-modal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'notification-modal-title');
+  modal.innerHTML = `
+    <div class="notification-modal-overlay"></div>
+    <div class="notification-modal-content">
+      <div class="notification-modal-header">
+        <span class="notification-modal-cat pill" id="notification-modal-cat"></span>
+        <button class="notification-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="notification-modal-body">
+        <h2 id="notification-modal-title"></h2>
+        <p id="notification-modal-body" class="muted"></p>
+        <div class="notification-modal-meta">
+          <span id="notification-modal-time"></span>
+          <span id="notification-modal-barangay"></span>
+        </div>
+      </div>
+      <div class="notification-modal-footer">
+        <button class="btn alt notification-modal-dismiss">Dismiss</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Close handlers
+  modal.querySelector('.notification-modal-overlay').addEventListener('click', closeNotificationModal);
+  modal.querySelector('.notification-modal-close').addEventListener('click', closeNotificationModal);
+  modal.querySelector('.notification-modal-dismiss').addEventListener('click', closeNotificationModal);
+
+  // ESC key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeNotificationModal();
+  });
+
+  notificationModal = modal;
+  return modal;
+}
+
+async function openNotificationModal(advisory) {
+  // Always create fresh modal (previous one was removed on close)
+  const modal = createNotificationModal();
+
+  const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn' }[advisory.category] || 'warn';
+
+  modal.querySelector('#notification-modal-cat').textContent = advisory.category.replace('_', ' ');
+  modal.querySelector('#notification-modal-cat').className = `notification-modal-cat pill ${catColor}`;
+  modal.querySelector('#notification-modal-title').textContent = advisory.title;
+  modal.querySelector('#notification-modal-body').textContent = advisory.body;
+  modal.querySelector('#notification-modal-time').textContent = new Date(advisory.published_at).toLocaleString('en-PH');
+
+  const barangayEl = modal.querySelector('#notification-modal-barangay');
+  if (advisory.barangay) {
+    barangayEl.textContent = `• ${advisory.barangay}`;
+    barangayEl.style.display = 'inline';
+  } else {
+    barangayEl.style.display = 'none';
+  }
+
+  modal.hidden = false;
+  requestAnimationFrame(() => modal.classList.add('show'));
+  document.body.style.overflow = 'hidden';
+
+  // Mark as read when opened and update badge
+  if (advisory.id) {
+    await markRead(advisory.id);
+    const bell = $('#notification-menu .notification-bell');
+    if (bell) await updateUnreadCount(bell);
+  }
+}
+
+function closeNotificationModal() {
+  if (!notificationModal) return;
+
+  // Always restore body overflow immediately
+  document.body.style.overflow = '';
+
+  notificationModal.classList.remove('show');
+
+  // Remove from DOM after animation
+  const removeModal = () => {
+    if (notificationModal && notificationModal.parentNode) {
+      notificationModal.parentNode.removeChild(notificationModal);
+    }
+    notificationModal = null;
+    document.body.style.overflow = '';
+  };
+
+  // Try transitionend
+  const onTransitionEnd = () => {
+    removeModal();
+    notificationModal?.removeEventListener('transitionend', onTransitionEnd);
+  };
+  notificationModal.addEventListener('transitionend', onTransitionEnd, { once: true });
+
+  // Safety timeout - force remove
+  setTimeout(removeModal, 300);
+}
+
+export { openNotificationModal };
+
+/**
+ * Show order status change toast
+ */
+export function showOrderStatusToast(orderId, status, message) {
+  // Remove existing toast
+  const existing = document.querySelector('.order-status-toast');
+  if (existing) existing.remove();
+
+  const statusColors = {
+    CONFIRMED: 'ok',
+    READY_FOR_PICKUP: 'info',
+    COMPLETED: 'ok'
+  };
+  const color = statusColors[status] || 'info';
+
+  // Create advisory-like object for modal
+  const advisory = {
+    id: `order-${orderId}`,
+    title: `Order ${status.replace('_', ' ')}`,
+    body: message,
+    category: 'ORDER_STATUS',
+    published_at: new Date().toISOString(),
+    barangay: null
+  };
+
+  const toast = document.createElement('div');
+  toast.className = `advisory-toast order-status-toast ${color}`;
+  toast.setAttribute('role', 'alert');
+  toast.setAttribute('aria-live', 'polite');
+  toast.dataset.advisory = JSON.stringify(advisory);
+  toast.innerHTML = `
+    <div class="advisory-toast-content">
+      <span class="advisory-toast-cat pill ${color}">Order ${status.replace('_', ' ')}</span>
+      <div>
+        <strong>${esc(message)}</strong>
+        <p class="muted" style="margin:2px 0 0;font-size:.85rem">Order #${orderId.slice(0,8)}</p>
+      </div>
+    </div>
+    <button class="advisory-toast-close" aria-label="Dismiss">&times;</button>
+  `;
+
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  // Click content to open detail modal
+  toast.querySelector('.advisory-toast-content').addEventListener('click', async () => {
+    clearTimeout(dismissTimer);
+    dismissToast(toast);
+    await openNotificationModal(advisory);
+  });
+
+  const dismissTimer = setTimeout(() => dismissToast(toast), 8000);
+  toast.querySelector('.advisory-toast-close').addEventListener('click', (e) => {
+    e.stopPropagation();
+    clearTimeout(dismissTimer);
+    dismissToast(toast);
+  });
+}
+
+export function stopAdvisoryToastListener() {
+  if (advisoryChannel) {
+    advisoryChannel.unsubscribe();
+    advisoryChannel = null;
+  }
+}
+
+// ===== Notification Bell =====
+let notificationClickHandlerAdded = false;
+const advisoryDataMap = new Map(); // Store advisory data by ID for modal
+
+async function initNotificationBell() {
+  const bell = $('#notification-menu .notification-bell');
+  const dropdown = $('#notification-menu .notification-dropdown');
+  const list = dropdown?.querySelector('.notification-dropdown-list');
+  if (!bell || !dropdown || !list) return;
+
+  // Toggle dropdown
+  bell.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const isOpen = !dropdown.hidden;
+    dropdown.hidden = isOpen;
+    if (!isOpen) {
+      positionDropdown(bell, dropdown);
+      await loadNotifications(list);
+    }
+  });
+
+  // Close on outside click (only add once)
+  if (!notificationClickHandlerAdded) {
+    document.addEventListener('click', (e) => {
+      // Don't close if clicking inside the notification menu
+      const menu = $('#notification-menu');
+      if (menu && menu.contains(e.target)) return;
+      dropdown.hidden = true;
+    });
+    notificationClickHandlerAdded = true;
+  }
+
+  // Prevent clicks inside dropdown from closing it
+  dropdown.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // Mark all read
+  dropdown.querySelector('.mark-all-read')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await markAllRead();
+    bell.dataset.unread = '0';
+    bell.querySelector('.notification-badge')?.remove();
+    await loadNotifications(list);
+  });
+
+  // Initial load
+  await updateUnreadCount(bell);
+}
+
+async function loadNotifications(listEl) {
+  const { supabase } = await import('./supabase.js');
+  const { getSession } = await import('./auth.js');
+  const session = await getSession();
+  if (!supabase || !session) {
+    listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Please log in</div>';
+    return;
+  }
+  const userId = session.user.id;
+
+  listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Loading...</div>';
+  try {
+    const { data: advisories, error } = await supabase
+      .from('advisories')
+      .select('id, title, body, category, priority, published_at, barangay')
+      .lte('published_at', new Date().toISOString())
+      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+      .order('published_at', { ascending: false })
+      .limit(10);
+
+    if (error || !advisories?.length) {
+      listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">No notifications</div>';
+      return;
+    }
+
+    // Get read status
+    const { data: reads } = await supabase
+      .from('notification_reads')
+      .select('advisory_id')
+      .eq('user_id', userId)
+      .in('advisory_id', advisories.map(a => a.id));
+    const readIds = new Set((reads || []).map(r => r.advisory_id));
+
+    listEl.innerHTML = advisories.map(a => {
+      const isRead = readIds.has(a.id);
+      const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn' }[a.category] || 'warn';
+      // Store advisory data in map for modal
+      advisoryDataMap.set(a.id, a);
+      return `
+        <button class="notification-item ${isRead ? 'read' : 'unread'}" data-id="${a.id}" role="option" tabindex="0">
+          <span class="notification-cat pill ${catColor}">${a.category.replace('_', ' ')}</span>
+          <div class="notification-content">
+            <strong>${esc(a.title)}</strong>
+            <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(a.body)}</p>
+            <span class="muted" style="font-size:.7rem">${new Date(a.published_at).toLocaleString('en-PH')}${a.barangay ? ` • ${esc(a.barangay)}` : ''}</span>
+          </div>
+          ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
+        </button>
+      `;
+    }).join('');
+
+    // Click to open detail modal (handles markRead + badge update)
+    listEl.querySelectorAll('.notification-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        const id = item.dataset.id;
+        const advisory = advisoryDataMap.get(id);
+        if (advisory) await openNotificationModal(advisory);
+
+        // Update UI immediately for better UX
+        if (!readIds.has(advisory?.id)) {
+          item.classList.remove('unread');
+          item.classList.add('read');
+          item.querySelector('.notification-dot')?.remove();
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Load notifications error:', err);
+    listEl.innerHTML = '<div class="pill bad" style="padding:16px;text-align:center">Failed to load</div>';
+  }
+}
+
+async function updateUnreadCount(bell) {
+  const { supabase } = await import('./supabase.js');
+  const { getSession } = await import('./auth.js');
+  const session = await getSession();
+  if (!supabase || !session) return;
+  const userId = session.user.id;
+
+  try {
+    // Get active advisory IDs
+    const { data: advisories } = await supabase
+      .from('advisories')
+      .select('id')
+      .lte('published_at', new Date().toISOString())
+      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+    if (!advisories?.length) return;
+    const advisoryIds = advisories.map(a => a.id);
+
+    // Get read IDs
+    const { data: reads } = await supabase
+      .from('notification_reads')
+      .select('advisory_id')
+      .eq('user_id', userId)
+      .in('advisory_id', advisoryIds);
+    const readIds = new Set((reads || []).map(r => r.advisory_id));
+
+    const unread = advisoryIds.filter(id => !readIds.has(id)).length;
+    bell.dataset.unread = unread;
+    if (unread > 0) {
+      let badge = bell.querySelector('.notification-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'notification-badge';
+        bell.appendChild(badge);
+      }
+      badge.textContent = unread > 9 ? '9+' : unread;
+    } else {
+      bell.querySelector('.notification-badge')?.remove();
+    }
+  } catch (err) { console.error('Unread count error:', err); }
+}
+
+async function markRead(advisoryId) {
+  const { supabase } = await import('./supabase.js');
+  const { getSession } = await import('./auth.js');
+  const session = await getSession();
+  if (!supabase || !session) return;
+
+  const { error } = await supabase
+    .from('notification_reads')
+    .upsert({ user_id: session.user.id, advisory_id: advisoryId });
+
+  if (error) {
+    console.error('Mark read error:', error);
+    // Retry once on failure
+    await supabase.from('notification_reads').upsert({ user_id: session.user.id, advisory_id: advisoryId });
+  }
+}
+
+async function markAllRead() {
+  const { supabase } = await import('./supabase.js');
+  const { getSession } = await import('./auth.js');
+  const session = await getSession();
+  if (!supabase || !session) return;
+
+  const { data: advisories } = await supabase
+    .from('advisories')
+    .select('id')
+    .lte('published_at', new Date().toISOString())
+    .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+  if (!advisories?.length) return;
+  const rows = advisories.map(a => ({ user_id: session.user.id, advisory_id: a.id }));
+  await supabase.from('notification_reads').upsert(rows);
+}
+
+function positionDropdown(bell, dropdown) {
+  const rect = bell.getBoundingClientRect();
+  dropdown.style.top = `${rect.bottom + 8}px`;
+  // Align dropdown's right edge with bell's right edge (dropdown is 360px wide)
+  const left = rect.right - 360;
+  // Keep on screen
+  dropdown.style.left = `${Math.max(8, Math.min(left, window.innerWidth - 368))}px`;
+  // Clear any right positioning
+  dropdown.style.right = 'auto';
 }

@@ -7,6 +7,21 @@
 
 ## Current state (2026-11-14 end of session)
 
+- **Notification System Complete** — Bell icon in header with unread count, dropdown with advisories, realtime toast/banner, detail modal (no horizontal scroll), Settings → Notifications tab (Orders, Messages, Price caps, Store announcements, Push), browser push notifications via Service Worker + VAPID + Edge Function `send-push-notification`, admin broadcast integration auto-sends push.
+- Business owners see **My Products**, linking to `/dashboard/#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
+- New Google OAuth accounts are offered **Customer** or **Business owner** after sign-in. Customers continue to Home; business owners continue to store setup. Run `supabase/google-auth-role.sql` in the connected Supabase project for role persistence.
+- **Google OAuth role selection fix (2026-11-14):** A database trigger (created in Supabase Dashboard) auto-creates the profile with default `role='customer'` before the user chooses their account type. The RPC `complete_google_account_registration` couldn't update the `role` column because `schema.sql` only granted `update (full_name, barangay)` on `profiles`. **Fix:** Run `supabase/fix-google-role-grant.sql` to add `role` to the column grant: `grant update (full_name, barangay, role) on profiles to authenticated;`
+- **Clean URLs for GitHub Pages (2026-11-14):** Directory-based structure via Vite multi-page + post-build script. Pages now at `/explore/`, `/business/?trn=...`, `/product-detail/?id=...`, `/dashboard/`, `/chat/?orderId=...`, `/standee/?storeId=...`, `/admin-verification/?trn=...`, etc. All internal links updated in `js/ui.js`, `js/dashboard.js`, `js/product-detail.js`, `js/standee.js`, `js/chat.js`, `js/orders.js`, `js/map.js`, `js/admin.js`, `js/verify.js`, `js/register.js`. Build command: `npm run build` → `vite build && node post-build.js dist`.
+- Featured products appear on **Home, Explore, and Products**. All three carousels now extend **edge-to-edge** (full viewport width) with headings contained in `.wrap`. Cards are smaller (gap 12px, padding 10px, compact typography).
+- **Stores near the center** carousel on Home also edge-to-edge with same behavior.
+- Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
+- No pause/play button — cleaner UI.
+- Sellers can see the customer's name in order chat through `supabase/chat-customer-name.sql`; run it after `orders.sql` and `chat.sql`.
+- Certificate-compliance enforcement was undone. Keep the optional DTI/BMBE permit flow and the public badge wording **Verified**; do not restore the 15-day suspension workflow.
+- Fixed seller store editing to preserve the existing TRN code, fixed the seller Home navigation loop, removed Email digest from Notifications, and implemented server-side account deletion. Confirm the `delete-account` Edge Function is deployed before relying on account deletion.
+- **Carousel verification:** `npm run build` passed. Headless Chrome confirmed continuous movement, looping, and Pause behavior with reduced motion disabled; the default test environment reported reduced motion and correctly kept the carousel still. Actual promoted products still need a visual check on desktop/mobile. If the UI says "Motion reduced," check Windows Settings → Accessibility → Visual effects → Animation effects.
+- **Pending production checks:** confirm `product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, and `fix-google-role-grant.sql` have been applied to the correct Supabase project.
+
 - Business owners see **My Products**, linking to `/dashboard/#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
 - New Google OAuth accounts are offered **Customer** or **Business owner** after sign-in. Customers continue to Home; business owners continue to store setup. Run `supabase/google-auth-role.sql` in the connected Supabase project for role persistence.
 - **Google OAuth role selection fix (2026-11-14):** A database trigger (created in Supabase Dashboard) auto-creates the profile with default `role='customer'` before the user chooses their account type. The RPC `complete_google_account_registration` couldn't update the `role` column because `schema.sql` only granted `update (full_name, barangay)` on `profiles`. **Fix:** Run `supabase/fix-google-role-grant.sql` to add `role` to the column grant: `grant update (full_name, barangay, role) on profiles to authenticated;`
@@ -318,7 +333,17 @@ Supabase migration for `product-images` bucket has been run. Dashboard → Edit 
 
 `standee.html` generates A5/A4 printable PDF for store signage with store name, TRN code, and QR code linking to business profile.
 
+**Notification System — ✅ COMPLETED (2026-11-14)**
+
+- **In-app notification center** — Bell icon in header with unread count badge, dropdown with advisories, realtime toast/banner, detail modal (no horizontal scroll)
+- **Notification preferences** — Settings → Notifications tab: Orders, Messages, Price caps, Store announcements, Push
+- **Browser push notifications** — Service Worker + VAPID; subscribes on demand, sends via Edge Function `send-push-notification`
+- **Admin broadcast integration** — Auto-sends push when creating price broadcasts at `/admin-prices/`
+- **Database tables** — `notification_reads` (tracks read advisories), `notification_preferences` (user settings), `push_subscriptions` (VAPID endpoints)
+
 ---
+
+## 7. Custom Domain Setup (Completed 2026-11-12)
 
 ## 7. Custom Domain Setup (Completed 2026-11-12)
 
@@ -382,6 +407,7 @@ export default defineConfig({
 12. **2026-11-13:** Configured Supabase SMTP via Resend (`smtp.resend.com:587`, user `resend`, pass `re_...`). Enabled Confirm email in Supabase Auth. Password reset and email confirmations now work via Supabase SMTP. Updated Edge Function `send-email-otp` to v6 with production sender.
 13. **2026-11-13:** Added featured-product promotion and a smooth left-loop carousel; added Google OAuth role choice, seller chat customer-name display, and role-aware My Products navigation. Updated the Admin Dashboard title, removed Email digest, and rolled back the 15-day certificate-compliance workflow. Fixed seller store edits to preserve TRN and seller Home navigation. Implemented the account-deletion Edge Function; deployment status still needs confirmation.
 14. **2026-11-14:** Fixed the featured carousel after it was reported as not working: replaced six-second card-by-card stepping with a continuous seamless loop. Headless Chrome verified movement, looping, and Pause; reduced-motion preference intentionally keeps it still. Build passed; check real featured products on desktop/mobile.
+15. **2026-11-14:** Implemented complete Notification System — bell icon + dropdown, realtime toast/banner, detail modal, Settings → Notifications preferences (Orders, Messages, Price caps, Store announcements, Push), browser push notifications (Service Worker + VAPID + Edge Function `send-push-notification`), admin broadcast auto-send push.
 
 ---
 
@@ -392,6 +418,7 @@ export default defineConfig({
 | `send-email-otp` | Sends 6-digit code via Resend |
 | `verify-email-otp` | Verifies code, marks used |
 | `delete-account` | Server-side account deletion; confirm it is deployed before relying on it |
+| `send-push-notification` | Sends browser push notifications via VAPID; called from admin-prices.js on broadcast |
 
 **Secrets set in Supabase Dashboard → Edge Functions:**
 - `RESEND_API_KEY` (starts with `re_`)
@@ -420,14 +447,17 @@ export default defineConfig({
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Context for Claude Code (reads automatically) |
-| `js/auth.js` | Auth, profile, email OTP, unread badge listener |
-| `js/ui.js` | renderChrome, avatar dropdown, badge rendering |
+| `js/auth.js` | Auth, profile, email OTP, unread badge listener, notification preferences |
+| `js/ui.js` | renderChrome, avatar dropdown, badge rendering, notification bell/modal, toast |
 | `js/chat.js` | Realtime chat, optimistic UI, badge integration |
 | `js/dashboard.js` | Seller dashboard (products, orders, analytics) |
 | `js/account.js` | Account page (profile, avatar) |
 | `js/orders.js` | My Orders page (order history) |
 | `js/store-setup.js` | 3-step store onboarding wizard |
 | `js/storage.js` | Supabase Storage upload helpers |
+| `js/push.js` | Push notifications (Service Worker, VAPID, subscription) |
+| `js/settings.js` | Settings page (Notifications tab, push toggle) |
+| `supabase/functions/send-push-notification/` | Edge Function for browser push |
 | `supabase/*.sql` | All migrations (run in SQL Editor) |
 
 ---

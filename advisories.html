@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>All Notifications | PaliTrento</title>
+<meta name="description" content="View all notifications and advisories from PaliTrento">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="advisories-page">
+<div id="chrome-top"></div>
+<main>
+  <section class="bhead">
+    <div class="wrap">
+      <h1>Notifications</h1>
+      <p class="muted" style="margin:8px 0 0">All advisories and updates from PaliTrento</p>
+    </div>
+  </section>
+  <section>
+    <div class="wrap">
+      <div class="filters" style="grid-template-columns: 1fr auto auto; gap: 12px; align-items: end; margin-bottom: 24px;">
+        <div>
+          <label for="q" class="sr" style="position:absolute;left:-9999px">Search notifications</label>
+          <input id="q" type="search" placeholder="Search notifications..." style="width:100%">
+        </div>
+        <div>
+          <label for="cat">Category</label>
+          <select id="cat">
+            <option value="">All categories</option>
+            <option value="PRICE_CAP">Price Cap</option>
+            <option value="ANNOUNCEMENT">Announcement</option>
+            <option value="EMERGENCY">Emergency</option>
+            <option value="GENERAL">General</option>
+          </select>
+        </div>
+        <div>
+          <label for="status">Status</label>
+          <select id="status">
+            <option value="">All</option>
+            <option value="unread">Unread</option>
+            <option value="read">Read</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="count" style="margin-bottom:16px;font-size:.95rem;font-weight:600;color:var(--muted)"></div>
+
+      <div id="list" class="notification-list" style="display:grid;gap:12px"></div>
+
+      <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin-top:24px"></div>
+
+      <div id="empty" class="empty" hidden style="grid-column:1/-1">
+        <h3>No notifications found</h3>
+        <p class="muted">Try adjusting your filters or search term.</p>
+      </div>
+    </div>
+  </section>
+</main>
+<div id="chrome-foot"></div>
+<script type="module" src="/js/advisories.js"></script>
+</body>
+</html>

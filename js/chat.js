@@ -1,5 +1,5 @@
-import { renderChrome, $, esc, peso } from './ui.js';
-import { getSession, getCachedProfile, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts } from './auth.js';
+import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
+import { getSession, getCachedProfile, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
@@ -38,6 +38,10 @@ async function init() {
 
   let profile = await getCachedProfile(session.user.id);
   renderChrome('/chat/', session, profile);
+
+  // Start advisory toast listener
+  startAdvisoryToastListener();
+  startOrderStatusListener(session.user.id);
 
   if (!orderId) {
     showError('No order specified');

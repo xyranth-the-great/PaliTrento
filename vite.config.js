@@ -7,7 +7,7 @@ const pages = [
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement'
+  'reset-password', 'terms-and-agreement', 'advisories'
 ];
 
 // Pages that should be directories (clean URLs) vs files
@@ -16,7 +16,7 @@ const directoryPages = new Set([
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement'
+  'reset-password', 'terms-and-agreement', 'advisories'
 ]);
 
 // Build input object for rollupOptions
@@ -47,10 +47,29 @@ function cleanUrlsDevMiddleware() {
   };
 }
 
+// Plugin to replace VAPID key placeholders at build time
+function replaceVapidKeys() {
+  return {
+    name: 'replace-vapid-keys',
+    transform(code, id) {
+      if (id.endsWith('.js') || id.endsWith('.ts')) {
+        const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY || '';
+        if (code.includes('{{VAPID_PUBLIC_KEY}}')) {
+          return code.replace(/{{VAPID_PUBLIC_KEY}}/g, vapidPublicKey);
+        }
+      }
+    },
+    transformIndexHtml(html) {
+      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY || '';
+      return html.replace(/{{VAPID_PUBLIC_KEY}}/g, vapidPublicKey);
+    }
+  };
+}
+
 export default defineConfig({
   base: './',
   publicDir: 'public',
-  plugins: [cleanUrlsDevMiddleware()],
+  plugins: [cleanUrlsDevMiddleware(), replaceVapidKeys()],
   server: {
     watch: {
       ignored: ['**/.obsidian-vault/**']

@@ -1,6 +1,6 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { renderChrome, $, esc, CATS, PAY, badges, openPill, hours, productCard } from './ui.js';
+import { renderChrome, $, esc, CATS, PAY, badges, openPill, hours, productCard, startAdvisoryToastListener } from './ui.js';
 import { getStore, getProducts } from './data.js';
 import { getSession, getCachedProfile } from './auth.js';
 
@@ -8,6 +8,11 @@ const session = await getSession();
 let profile = null;
 if (session) profile = await getCachedProfile(session.user.id);
 renderChrome('', session, profile);
+
+// Start advisory toast listener for logged-in users
+if (session) {
+  startAdvisoryToastListener();
+}
 
 const trn = new URLSearchParams(location.search).get('trn');
 const s = trn && await getStore(trn);

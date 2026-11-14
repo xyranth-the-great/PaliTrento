@@ -1,5 +1,5 @@
-import { renderChrome, $, esc, CATS, UNITS, PAY, peso, badges, srp } from './ui.js';
-import { getSession, getCachedProfile, clearProfileCache } from './auth.js';
+import { renderChrome, $, esc, CATS, UNITS, PAY, peso, badges, srp, startAdvisoryToastListener } from './ui.js';
+import { getSession, getCachedProfile, clearProfileCache, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage, uploadProductImage, deleteProductImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -28,6 +28,10 @@ async function init() {
 
   let profile = await getCachedProfile(session.user.id);
   renderChrome('/dashboard/', session, profile);
+
+  // Start advisory toast listener
+  startAdvisoryToastListener();
+  startOrderStatusListener(session.user.id);
 
   // Load store
   await loadStore(session.user.id);

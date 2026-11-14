@@ -36,6 +36,8 @@ section{padding:48px 0}
 .top nav a:hover{background:var(--primary-dark)}
 .home-page .top nav a:hover{background:var(--muted-bg)}
 .top nav a[aria-current]{background:var(--amber);color:var(--primary-dark)}
+#notification-menu .notification-dropdown-footer a{color:var(--primary-dark);text-decoration:underline}
+#notification-menu .notification-dropdown-footer a:hover{color:var(--primary)}
 .avatar-btn{display:flex;align-items:center;justify-content:center;gap:4px;width:36px;height:36px;border-radius:50%;background:var(--primary-dark);color:var(--amber);text-decoration:none;flex-shrink:0;white-space:nowrap}
 .avatar-btn:hover{background:rgba(255,255,255,.15)}
 .home-page .avatar-btn{background:var(--primary);color:var(--amber-light)}
