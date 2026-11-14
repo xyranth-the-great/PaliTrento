@@ -85,13 +85,18 @@ serve(async (req) => {
     }
 
     // Send email via Resend
+    const logoUrl = 'https://palitrento.online/logo.png';
     const emailHtml = `
       <!DOCTYPE html>
       <html>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-          <div style="background: #1f4d2e; color: white; padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="margin: 0; font-size: 24px;">Pali<span style="color: #e59834;">Trento</span></h1>
-            <p style="margin: 8px 0 0; opacity: 0.9;">Tara, Palit Ta sa Trento!</p>
+          <div style="background: #1f4d2e; color: white; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+            <div style="display: inline-flex; align-items: center; gap: 0; font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -0.04em;">
+              <span style="color: #fef3e2;">Pali</span>
+              <img src="${logoUrl}" alt="" style="width: 28px; height: 28px; vertical-align: middle; margin: 0 2px;" aria-hidden="true">
+              <span style="color: #fef3e2;">rento</span>
+            </div>
+            <p style="margin: 12px 0 0; opacity: 0.9; font-size: 15px;">Tara, Palit Ta sa Trento!</p>
           </div>
           <div style="background: white; border: 1px solid #dcdad3; border-top: none; border-radius: 0 0 12px 12px; padding: 32px;">
             <h2 style="color: #1c2a20; margin-top: 0;">Your verification code</h2>
