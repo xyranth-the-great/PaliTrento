@@ -43,7 +43,7 @@ form.addEventListener('submit', async (e) => {
     // Supabase only redirects to URLs on its allowlist; use the canonical HTTPS production URL.
     const redirectUrl = new URL('/reset-password/', window.location.href);
     if (['palitrento.online', 'www.palitrento.online'].includes(redirectUrl.hostname)) {
-      redirectUrl.href = 'https://palitrento.online/reset-password.html';
+      redirectUrl.href = 'https://palitrento.online/reset-password/';
     }
     const redirectTo = redirectUrl.href;
 

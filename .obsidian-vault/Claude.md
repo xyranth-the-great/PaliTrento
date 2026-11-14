@@ -194,9 +194,10 @@ GitHub Actions workflow: `.github/workflows/deploy.yml` — builds with `VITE_SU
 
 9. Suggested next steps (in order)
 
-Apply/confirm the three migrations listed in section 5 for featured products, Google role selection, and seller chat customer names.
+Apply/confirm the four migrations listed in section 5: `product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, `fix-google-role-grant.sql`.
 Confirm the `delete-account` Edge Function is deployed; test account deletion end to end.
 Headless Chrome verified continuous carousel movement, looping, and Pause behavior; check the real featured products at desktop and mobile sizes.
+Deploy clean URLs via GitHub Actions (`git push` triggers `npm run build` with post-build step).
 Continue longer-term work only after checking current code and production state: SMS login, push notifications, offline field inspection, price broadcasts, and other roadmap features.
 
 10. Working conventions for Claude Code
@@ -231,3 +232,4 @@ Current next steps: Confirm the Supabase migrations and `delete-account` Edge Fu
 2026-11-14 update: Replaced the carousel's six-second card stepping with a continuous seamless loop. Headless Chrome verified motion, repeat, and pause; default reduced-motion preference keeps it static, as intended. Actual product data still needs desktop/mobile visual checking.
 2026-11-14 (later): **Carousel unification & fixes** — Unified marquee implementation across all carousels (Featured products on Home/Explore/Products + Stores near center on Home). Mobile behavior fixed: continuous marquee pauses on `touchstart`, resumes 300ms after `touchend` (lets native momentum finish); clones created for infinite seamless loop — no more "reset glitch". Desktop: continuous marquee + click-drag with momentum. Cards further reduced (gap 12px, padding 10px, compact typography). Edge-to-edge layout with headings in `.wrap`, carousel breaking out with 24px side padding. Bantay Presyo and Stores carousel confirmed working. Fixed typo `addEventEventListener` → `addEventListener`.
 2026-11-14 (end of session): **Google OAuth role selection fix** — Identified that a DB trigger auto-creates the profile with default `role='customer'` before user chooses account type. The RPC `complete_google_account_registration` failed to update `role` because `schema.sql` column grant only allowed `full_name, barangay`. Added `supabase/fix-google-role-grant.sql` with `grant update (full_name, barangay, role) on profiles to authenticated;` — run this in Supabase SQL Editor to fix.
+2026-11-14 (end of session): **Clean URLs for GitHub Pages** — Directory-based structure (`/explore/`, `/business/?trn=...`, `/product-detail/?id=...`, etc.) via Vite multi-page + `post-build.js`. All internal links updated in `js/ui.js`, `js/dashboard.js`, `js/product-detail.js`, `js/standee.js`, `js/chat.js`, `js/orders.js`, `js/map.js`, `js/admin.js`, `js/verify.js`, `js/register.js`. Build: `npm run build` → `vite build && node post-build.js dist`.

@@ -5,11 +5,12 @@
 
 ---
 
-## Current state (2026-11-14)
+## Current state (2026-11-14 end of session)
 
-- Business owners see **My Products**, linking to `dashboard.html#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
+- Business owners see **My Products**, linking to `/dashboard/#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
 - New Google OAuth accounts are offered **Customer** or **Business owner** after sign-in. Customers continue to Home; business owners continue to store setup. Run `supabase/google-auth-role.sql` in the connected Supabase project for role persistence.
 - **Google OAuth role selection fix (2026-11-14):** A database trigger (created in Supabase Dashboard) auto-creates the profile with default `role='customer'` before the user chooses their account type. The RPC `complete_google_account_registration` couldn't update the `role` column because `schema.sql` only granted `update (full_name, barangay)` on `profiles`. **Fix:** Run `supabase/fix-google-role-grant.sql` to add `role` to the column grant: `grant update (full_name, barangay, role) on profiles to authenticated;`
+- **Clean URLs for GitHub Pages (2026-11-14):** Directory-based structure via Vite multi-page + post-build script. Pages now at `/explore/`, `/business/?trn=...`, `/product-detail/?id=...`, `/dashboard/`, `/chat/?orderId=...`, `/standee/?storeId=...`, `/admin-verification/?trn=...`, etc. All internal links updated in `js/ui.js`, `js/dashboard.js`, `js/product-detail.js`, `js/standee.js`, `js/chat.js`, `js/orders.js`, `js/map.js`, `js/admin.js`, `js/verify.js`, `js/register.js`. Build command: `npm run build` → `vite build && node post-build.js dist`.
 - Featured products appear on **Home, Explore, and Products**. All three carousels now extend **edge-to-edge** (full viewport width) with headings contained in `.wrap`. Cards are smaller (gap 12px, padding 10px, compact typography).
 - **Stores near the center** carousel on Home also edge-to-edge with same behavior.
 - Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
@@ -18,7 +19,7 @@
 - Certificate-compliance enforcement was undone. Keep the optional DTI/BMBE permit flow and the public badge wording **Verified**; do not restore the 15-day suspension workflow.
 - Fixed seller store editing to preserve the existing TRN code, fixed the seller Home navigation loop, removed Email digest from Notifications, and implemented server-side account deletion. Confirm the `delete-account` Edge Function is deployed before relying on account deletion.
 - **Carousel verification:** `npm run build` passed. Headless Chrome confirmed continuous movement, looping, and Pause behavior with reduced motion disabled; the default test environment reported reduced motion and correctly kept the carousel still. Actual promoted products still need a visual check on desktop/mobile. If the UI says “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.
-- **Pending production checks:** confirm `product-demo-payments.sql`, `google-auth-role.sql`, and `chat-customer-name.sql` have been applied to the correct Supabase project.
+- **Pending production checks:** confirm `product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, and `fix-google-role-grant.sql` have been applied to the correct Supabase project.
 
 ## Carousel improvements (2026-11-14 later)
 

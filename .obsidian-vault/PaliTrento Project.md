@@ -331,6 +331,7 @@ export default defineConfig({
 28. ✅ **Recent bug fixes** — Store edits preserve existing TRN codes; seller Home navigation no longer loops to the dashboard; account deletion uses a server-side Edge Function (deployment unconfirmed); Email digest was removed from Notifications (2026-11-13)
 29. ✅ **Continuous featured carousel** — Replaced six-second one-card steps with a seamless, continuous leftward loop; pauses on hover/focus or when offscreen/hidden, and respects reduced-motion settings (2026-11-14)
 30. ✅ **Google OAuth role selection fix** — DB trigger auto-creates profile with default `role='customer'` before user chooses; RPC couldn't update `role` due to column grant only allowing `full_name, barangay`. Created `supabase/fix-google-role-grant.sql`: `grant update (full_name, barangay, role) on profiles to authenticated;` — run in Supabase SQL Editor (2026-11-14)
+31. ✅ **Clean URLs for GitHub Pages** — Directory-based structure (`/explore/`, `/business/?trn=...`, `/product-detail/?id=...`, etc.) via Vite multi-page + post-build script. All internal links updated in `js/ui.js`, `js/dashboard.js`, `js/product-detail.js`, `js/standee.js`, `js/chat.js`, `js/orders.js`, `js/map.js`, `js/admin.js`, `js/verify.js`, `js/register.js`. `npm run build` now runs `vite build && node post-build.js dist` (2026-11-14)
 
 ### In Progress
 - Confirm/apply the Google role-selection, customer-name chat, and featured-product Supabase SQL migrations on the connected project.
@@ -351,7 +352,8 @@ export default defineConfig({
 
 ## 🎯 Next Up (Priority Order)
 
-1. **Confirm Supabase setup** — Apply/verify `product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, and **`fix-google-role-grant.sql`** as needed.
+1. **Confirm Supabase setup** — Apply/verify `product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, `fix-google-role-grant.sql` as needed.
+2. **Deploy clean URLs** — Push to GitHub (GitHub Actions runs `npm run build` with post-build step).
 2. **Price Broadcast Push** — Notify users when LGU posts new price caps
 3. **SMS OTP** — PhilSMS/Semaphore via Edge Function
 4. **Push Notifications** — Browser push for order updates
@@ -373,6 +375,6 @@ export default defineConfig({
 
 ---
 
-> **Last updated:** 2026-11-14
-> **Current phase:** Confirm the four Supabase migrations (`product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, `fix-google-role-grant.sql`) and `delete-account` Edge Function deployment; visually check the featured carousel with actual products on desktop/mobile. Then continue with Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.
+> **Last updated:** 2026-11-14 (end of session)
+> **Current phase:** Run 4 Supabase migrations (`product-demo-payments.sql`, `google-auth-role.sql`, `chat-customer-name.sql`, `fix-google-role-grant.sql`), then deploy clean URLs via GitHub Actions. After deploy: test Google OAuth role choice, store/product clicks, dashboard links. Then continue with Price Broadcast Push → SMS OTP → Push Notifications → Offline Field Inspector.
 > **To continue in new chat:** Paste `HANDOFF_README.md` and say "Read this and continue from the current-state and pending-check sections."
