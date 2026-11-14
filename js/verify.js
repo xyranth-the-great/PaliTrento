@@ -178,7 +178,7 @@ form.addEventListener('submit', async (e) => {
           return;
         }
 
-        const finalRedirectUrl = nextPage === 'store-setup' ? '/store-setup/?step=1' : 'login.html?verified=1';
+        const finalRedirectUrl = nextPage === 'store-setup' ? '/store-setup/?step=1' : '/login/?verified=1';
         setTimeout(() => window.location.href = finalRedirectUrl, 1500);
         return;
       } else {
