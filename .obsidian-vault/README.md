@@ -13,14 +13,16 @@ Tara, Palit Ta sa Trento! Vite + vanilla JS + Supabase + Leaflet.
 The anon key is safe to expose. Security comes from the row-level security rules in `schema.sql`.
 
 ## Recent application updates (2026-11-14)
-- Featured products appear on Home, Explore, and Products. The Home carousel is above Bantay Presyo and scrolls continuously left in a seamless loop; it respects reduced-motion settings and can be paused.
+- Featured products appear on Home, Explore, and Products. All three carousels now extend **edge-to-edge** (full viewport width) with headings contained in `.wrap`. Cards are smaller (gap 12px, padding 10px, compact typography).
+- **Stores near the center** carousel on Home also edge-to-edge with same behavior.
+- Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
+- No pause/play button — cleaner UI.
 - Business owners see **My Products**, which opens their store's product list in the dashboard. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
 - New Google accounts choose **Customer** or **Business owner** after OAuth. Customers continue Home; business owners continue to store setup.
 - Seller chat can show the customer's name through the participant-checked SQL function in `chat-customer-name.sql`.
 - Certificate-compliance enforcement was undone. The optional DTI/BMBE permit flow remains, and the visible store badge wording is **Verified**.
 - Seller store edits preserve the existing TRN code, the seller Home link no longer reloads the dashboard, the Admin Dashboard title was simplified, and Email digest was removed from Notifications.
 - Account deletion is implemented through a server-side `delete-account` Edge Function; confirm it is deployed and working before relying on it in production.
-- The featured carousel was corrected from six-second card-by-card steps to continuous, seamless leftward motion. It pauses on hover/focus or when offscreen/hidden; it stays still for one product or when reduced motion is enabled.
 
 Run `supabase/product-demo-payments.sql` on the connected Supabase project for the `featured_until` column. Run `supabase/google-auth-role.sql` after `supabase/schema.sql` to enable Google account role selection. Run `supabase/chat-customer-name.sql` after `supabase/orders.sql` and `supabase/chat.sql` to enable customer names in seller chat. Confirm these migrations are applied to the production project.
 Carousel verification: production build passed; headless Chrome confirmed motion, looping, and Pause behavior with motion enabled, and confirmed reduced-motion behavior. Still visually check actual promoted products on desktop and mobile. If the page says “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.

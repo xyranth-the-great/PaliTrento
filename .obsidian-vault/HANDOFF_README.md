@@ -9,7 +9,10 @@
 
 - Business owners see **My Products**, linking to `dashboard.html#tab-products` and the products belonging to their store. Customers retain **My Orders**; admins and business owners do not get an `orders.html` navigation link.
 - New Google OAuth accounts are offered **Customer** or **Business owner** after sign-in. Customers continue to Home; business owners continue to store setup. Run `supabase/google-auth-role.sql` in the connected Supabase project for role persistence.
-- Featured products appear on Home, Explore, and Products. The Home carousel now scrolls continuously left in a seamless loop; this replaces the previous six-second, one-card-at-a-time stepping. It pauses on hover/focus or when offscreen/hidden, includes Pause/Play, and respects reduced-motion settings. A single featured product stays static. Previous/Next buttons were removed.
+- Featured products appear on **Home, Explore, and Products**. All three carousels now extend **edge-to-edge** (full viewport width) with headings contained in `.wrap`. Cards are smaller (gap 12px, padding 10px, compact typography).
+- **Stores near the center** carousel on Home also edge-to-edge with same behavior.
+- Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
+- No pause/play button — cleaner UI.
 - Sellers can see the customer's name in order chat through `supabase/chat-customer-name.sql`; run it after `orders.sql` and `chat.sql`.
 - Certificate-compliance enforcement was undone. Keep the optional DTI/BMBE permit flow and the public badge wording **Verified**; do not restore the 15-day suspension workflow.
 - Fixed seller store editing to preserve the existing TRN code, fixed the seller Home navigation loop, removed Email digest from Notifications, and implemented server-side account deletion. Confirm the `delete-account` Edge Function is deployed before relying on account deletion.

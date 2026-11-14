@@ -215,7 +215,7 @@ export function initializeFeaturedProductsCarousel(section) {
       animationFrame = requestAnimationFrame(animateMomentum);
     }
 
-    viewport.addEventEventListener('pointerdown', (e) => {
+    viewport.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       if (e.target.closest('a, button, input, select, textarea')) return;
 

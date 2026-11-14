@@ -117,7 +117,10 @@ Store → products link: products.store_id === stores.id. In seed data ids are s
 Open/closed is computed client-side from open_time / close_time and the visitor's local clock.
 All user/DB strings go through esc() before innerHTML.
 New Google OAuth accounts are offered Customer or Business owner registration; role saving requires `supabase/google-auth-role.sql`. Seller order chat can display the customer's name through `supabase/chat-customer-name.sql`.
-Featured products are available on Home, Explore, and Products. The Home carousel scrolls continuously left in a seamless loop (not a six-second step between cards), pauses on hover/focus or when offscreen/hidden, retains Pause/Play, and respects reduced motion. A single featured product remains static; Previous/Next controls are removed.
+Featured products are available on **Home, Explore, and Products**. All three carousels now extend **edge-to-edge** (full viewport width) with headings contained in `.wrap`. Cards are smaller (gap 12px, padding 10px, compact typography).
+**Stores near the center** carousel on Home also edge-to-edge with same behavior.
+Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
+No pause/play button — cleaner UI.
 
 Verified: `npm run build` passes. Headless Chrome confirmed continuous movement, looping, and Pause behavior with reduced motion disabled; reduced motion correctly suppresses the movement. Check actual promoted products at desktop/mobile sizes. If the UI shows “Motion reduced,” check Windows Settings → Accessibility → Visual effects → Animation effects.
 
