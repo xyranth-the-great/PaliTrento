@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, BARANGAYS } from './ui.js';
+import { renderChrome, $, esc, BARANGAYS, openNotificationModal } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -123,13 +123,17 @@ async function loadBroadcasts() {
   noList.style.display = 'none';
   list.style.display = 'grid';
 
-  list.innerHTML = data.map(b => `
-    <div class="card" style="border-left:4px solid ${priorityColor(b.priority)}">
+  list.innerHTML = data.map(b => {
+    // JSON.stringify is safe for single-quoted attributes (no single quotes in JSON)
+    const json = JSON.stringify(b);
+    return `
+    <div class="card broadcast-card" style="border-left:4px solid ${priorityColor(b.priority)};cursor:pointer"
+         data-broadcast='${json}'>
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-        <h3 style="margin:0;font-size:1rem">${esc(b.title)}</h3>
-        <span class="pill ${categoryColor(b.category)}" style="font-size:.7rem">${b.category}</span>
+        <h3 style="margin:0;font-size:1rem;overflow-wrap:break-word;word-wrap:break-word;word-break:break-all">${esc(b.title)}</h3>
+        <span class="pill ${categoryColor(b.category)}" style="font-size:.7rem;flex-shrink:0">${b.category}</span>
       </div>
-      <p class="muted" style="margin:0 0 8px;font-size:.85rem">${esc(b.body)}</p>
+      <p class="muted" style="margin:0 0 8px;font-size:.85rem;overflow-wrap:break-word;word-wrap:break-word;word-break:break-all;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis">${esc(b.body)}</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted)">
         <span>Priority: <strong>${b.priority}</strong></span>
         <span>Barangay: <strong>${b.barangay || 'All'}</strong></span>
@@ -137,7 +141,20 @@ async function loadBroadcasts() {
         ${b.expires_at ? `<span>Expires: <strong>${new Date(b.expires_at).toLocaleString('en-PH')}</strong></span>` : ''}
       </div>
     </div>
-  `).join('');
+    `;
+  }).join('');
+
+  // Add click handlers for broadcast detail modal
+  list.querySelectorAll('.broadcast-card').forEach(card => {
+    card.addEventListener('click', () => {
+      try {
+        const broadcast = JSON.parse(card.dataset.broadcast);
+        openNotificationModal(broadcast);
+      } catch (err) {
+        console.error('Failed to parse broadcast data:', err);
+      }
+    });
+  });
 }
 
 function categoryColor(cat) {
