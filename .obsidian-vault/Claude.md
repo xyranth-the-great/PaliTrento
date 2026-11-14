@@ -1,6 +1,6 @@
 PaliTrento: Project Context for Claude Code
 
-Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-14.
+Tagline: Tara, Palit Ta sa Trento! ("Come, let's shop in Trento!") Save this file as CLAUDE.md in the project root so Claude Code reads it automatically. Written 2026-11-10, after a planning + first-build conversation. Updated 2026-11-14 (end of session).
 
 **Custom Domain:** `palitrento.online` (configured 2026-11-12)
 
@@ -79,6 +79,7 @@ palitrento/
 ├── admin-verification.html  Store verification queue
 ├── admin-prices.html      Price broadcasts
 ├── admin-reports.html     Category/barangay breakdown, price cap compliance
+├── advisories.html  All notifications page (search, filter, pagination)
 ├── css/styles.css  Tokens + all components (single file)
 ├── js/
 │   ├── supabase.js Creates client; exports null if keys are missing/placeholder
@@ -95,6 +96,7 @@ palitrento/
 │   ├── push.js     Push notifications (Service Worker, VAPID, subscription)
 │   ├── forgot-password.js  Password reset request flow
 │   ├── reset-password.js   Password reset completion flow
+│   ├── advisories.js  All notifications page logic
 ├── supabase/
 │   ├── schema.sql   Tables + indexes + RLS (public read-only, owner write, admin all)
 │   ├── seed.sql     4 sample stores + 6 products
@@ -124,6 +126,19 @@ Featured products are available on **Home, Explore, and Products**. All three ca
 **Stores near the center** carousel on Home also edge-to-edge with same behavior.
 Carousels: continuous seamless leftward marquee (25s loop), **drag-to-scroll with momentum on desktop**, **native touch scroll + scroll-snap on mobile**. Pauses on touch (mobile) or drag/hover/focus (desktop), resumes after interaction. Respects `prefers-reduced-motion`.
 No pause/play button — cleaner UI.
+
+**Notification system**: Bell icon + dropdown, realtime toast/banner, detail modal, Settings → Notifications preferences (Orders, Messages, Price caps, Store announcements, Push), browser push notifications (Service Worker + VAPID + Edge Function `send-push-notification`), admin broadcast auto-send push.
+
+**Advisories page** (`/advisories/`): Full notification list with search, category filter, status filter (unread/read), pagination (20/page). Click opens detail modal, auto-marks as read.
+
+**Admin broadcast detail**: Click any broadcast in `/admin-prices/` → opens full detail modal (reuses notification modal).
+
+**Store/ Product images**: `storeCard()` and `productCard()` now show uploaded images with `object-fit:cover` and fixed aspect ratios (4/3 for stores, 3/2 or 4/3 for products). Placeholder "No photo" shown when missing.
+
+**Fixed carousel card sizing**:
+- Featured products: 280px fixed width slides, 3/2 aspect ratio images
+- Stores carousel: 260px fixed width slides, 4/3 aspect ratio images
+- Clones no longer use `inert=true` — links remain clickable on all loops
 
 **Carousel improvements (2026-11-14):**
 - **Unified marquee implementation** across all carousels: Featured products (Home, Explore, Products) + Stores near center (Home)
@@ -243,3 +258,17 @@ Current next steps: Confirm the Supabase migrations and `delete-account` Edge Fu
 2026-11-14 (later): **Carousel unification & fixes** — Unified marquee implementation across all carousels (Featured products on Home/Explore/Products + Stores near center on Home). Mobile behavior fixed: continuous marquee pauses on `touchstart`, resumes 300ms after `touchend` (lets native momentum finish); clones created for infinite seamless loop — no more "reset glitch". Desktop: continuous marquee + click-drag with momentum. Cards further reduced (gap 12px, padding 10px, compact typography). Edge-to-edge layout with headings in `.wrap`, carousel breaking out with 24px side padding. Bantay Presyo and Stores carousel confirmed working. Fixed typo `addEventEventListener` → `addEventListener`.
 2026-11-14 (end of session): **Google OAuth role selection fix** — Identified that a DB trigger auto-creates the profile with default `role='customer'` before user chooses account type. The RPC `complete_google_account_registration` failed to update `role` because `schema.sql` column grant only allowed `full_name, barangay`. Added `supabase/fix-google-role-grant.sql` with `grant update (full_name, barangay, role) on profiles to authenticated;` — run this in Supabase SQL Editor to fix.
 2026-11-14 (end of session): **Clean URLs for GitHub Pages** — Directory-based structure (`/explore/`, `/business/?trn=...`, `/product-detail/?id=...`, etc.) via Vite multi-page + `post-build.js`. All internal links updated in `js/ui.js`, `js/dashboard.js`, `js/product-detail.js`, `js/standee.js`, `js/chat.js`, `js/orders.js`, `js/map.js`, `js/admin.js`, `js/verify.js`, `js/register.js`. Build: `npm run build` → `vite build && node post-build.js dist`.
+
+2026-11-14 (later): **Advisories page + Admin broadcast detail modal** — Created `/advisories/` page with search, filters (category, status), pagination. Click any broadcast in `/admin-prices/` opens detail modal (reuses notification modal).
+
+2026-11-14 (later): **Notification text overflow fixes** — Added `word-break:break-all` + line clamping to notification dropdown (2 lines), advisory toast (3 lines), advisories page (3 lines), admin broadcast list (4 lines). Long unbroken strings now wrap and truncate properly.
+
+2026-11-14 (later): **Notification bell visibility** — Default color changed to white (visible on all dark headers); home page keeps amber accent.
+
+2026-11-14 (later): **Dropdown "View all" link** — Text: "View all" → "View all notifications"; amber color + underline for visibility.
+
+2026-11-14 (later): **Product/Store image sizing** — Fixed aspect ratios (4/3 stores, 3/2 products carousel, 4/3 products grid), `object-fit:cover`, placeholders. Featured products: 280px slides. Stores carousel: 260px slides.
+
+2026-11-14 (later): **Carousel click fix** — Removed `inert=true` from cloned slides; links now clickable on all loop iterations.
+
+2026-11-14 (later): **Store images in Explore & Home** — `storeCard()` now shows storefront images with placeholders. Home page stores carousel fixed to 260px uniform width.
