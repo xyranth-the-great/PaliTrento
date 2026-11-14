@@ -20,6 +20,16 @@ const needsGoogleRoleChoice = !!session && (
   (hasRoleChoiceFlag && (profile?.role === 'customer' || !profile?.role))
 );
 
+// DEBUG: Log values to understand the flow
+console.log('[home.js] Debug:', {
+  hasSession: !!session,
+  isAuthCallback,
+  hasRoleChoiceFlag,
+  profileRole: profile?.role,
+  isNewGoogleAccount: session ? isNewGoogleAccount(session.user) : false,
+  needsGoogleRoleChoice
+});
+
 if (isAuthCallback) {
   const cleanUrl = new URL(window.location.href);
   cleanUrl.searchParams.delete('auth_callback');
