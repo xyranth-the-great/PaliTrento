@@ -9,12 +9,26 @@ let profile = null;
 if (session) profile = await getCachedProfile(session.user.id);
 const postLoginPath = getPostLoginPath(profile?.role || session?.user?.user_metadata?.role);
 const isAuthCallback = new URLSearchParams(window.location.search).get('auth_callback') === '1';
-const needsGoogleRoleChoice = !!session && isAuthCallback && isNewGoogleAccount(session.user);
+
+// Track if user needs to choose role (persists across refresh)
+const ROLE_CHOICE_KEY = 'palitrento_google_role_pending';
+const hasRoleChoiceFlag = sessionStorage.getItem(ROLE_CHOICE_KEY) === '1';
+
+// User needs role choice if: first callback OR flag is set AND profile role is still default 'customer'
+const needsGoogleRoleChoice = !!session && (
+  (isAuthCallback && isNewGoogleAccount(session.user)) ||
+  (hasRoleChoiceFlag && (profile?.role === 'customer' || !profile?.role))
+);
 
 if (isAuthCallback) {
   const cleanUrl = new URL(window.location.href);
   cleanUrl.searchParams.delete('auth_callback');
   window.history.replaceState(window.history.state, '', cleanUrl);
+
+  // Set flag for refresh persistence
+  if (isNewGoogleAccount(session.user)) {
+    sessionStorage.setItem(ROLE_CHOICE_KEY, '1');
+  }
 }
 
 if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== 'index.html') {
@@ -94,6 +108,9 @@ function showGoogleRoleChoice(activeSession) {
       if (savedProfile?.role !== role) {
         throw new Error('The selected account type was not saved to the profile.');
       }
+
+      // Clear the role choice flag - user has chosen
+      sessionStorage.removeItem('palitrento_google_role_pending');
 
       const destination = role === 'business_owner' ? 'store-setup.html?step=1' : 'index.html';
       window.location.replace(destination);

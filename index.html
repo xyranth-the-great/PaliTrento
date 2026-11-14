@@ -14,15 +14,21 @@
 <div id="chrome-top"></div>
 <main>
 <section id="google-role-choice" class="wrap" hidden style="max-width:560px;padding-top:48px;padding-bottom:48px">
-  <div class="card" style="padding:24px">
-    <h1>Choose your account type</h1>
+  <div class="card" style="padding:24px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-xl);color:var(--ink)">
+    <h1 style="color:var(--primary-dark)">Choose your account type</h1>
     <p class="muted">Select how you want to use PaliTrento.</p>
     <form id="google-role-form" style="display:grid;gap:16px">
-      <fieldset>
-        <legend>I am a</legend>
-        <div class="checks">
-          <label><input type="radio" name="account_role" value="customer" required> Customer</label>
-          <label><input type="radio" name="account_role" value="business_owner" required> Business owner</label>
+      <fieldset style="border:none;padding:0;margin:0">
+        <legend style="font-weight:600;font-size:.95rem;color:var(--ink);margin-bottom:8px">I am a</legend>
+        <div class="checks" style="display:flex;flex-direction:column;gap:12px">
+          <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--muted-bg);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease)">
+            <input type="radio" name="account_role" value="customer" required style="width:auto;accent-color:var(--primary)">
+            <span style="font-weight:500;font-size:1rem;color:var(--ink)">Customer</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--muted-bg);border:1px solid var(--line);border-radius:var(--r-md);cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease)">
+            <input type="radio" name="account_role" value="business_owner" required style="width:auto;accent-color:var(--primary)">
+            <span style="font-weight:500;font-size:1rem;color:var(--ink)">Business owner</span>
+          </label>
         </div>
       </fieldset>
       <button type="submit" class="btn">Continue</button>
