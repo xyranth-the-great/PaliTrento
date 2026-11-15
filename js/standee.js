@@ -204,6 +204,10 @@ async function initMapCapture() {
       return;
     }
 
+    // Ensure container has dimensions before creating map
+    mapContainer.style.width = '400px';
+    mapContainer.style.height = '300px';
+
     // Create map
     const map = L.map(mapContainer, {
       center: [s.lat, s.lng],
@@ -223,15 +227,17 @@ async function initMapCapture() {
       maxZoom: 19,
     }).addTo(map);
 
-    // Add marker
-    L.marker([s.lat, s.lng], {
-      icon: L.divIcon({
-        className: 'custom-marker',
-        html: '<div style="width:24px;height:24px;background:#b91c1c;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><div style="width:12px;height:12px;background:white;border-radius:50%;margin:6px 0 0 6px;transform:rotate(45deg)"></div></div>',
-        iconSize: [24, 24],
-        iconAnchor: [12, 24],
-      })
-    }).addTo(map);
+    // Add marker using a simple approach
+    const markerIcon = L.divIcon({
+      className: 'custom-marker',
+      html: '<div style="width:24px;height:24px;background:#b91c1c;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><div style="width:12px;height:12px;background:white;border-radius:50%;margin:6px 0 0 6px;transform:rotate(45deg)"></div></div>',
+      iconSize: [24, 24],
+      iconAnchor: [12, 24],
+    });
+    L.marker([s.lat, s.lng], { icon: markerIcon }).addTo(map);
+
+    // Force map to invalidate size (in case container was hidden)
+    setTimeout(() => map.invalidateSize(), 100);
 
     // Wait for tiles to load
     await new Promise(resolve => {
@@ -241,25 +247,29 @@ async function initMapCapture() {
         if (tilesLoaded >= 3) resolve();
       });
       // Fallback timeout
-      setTimeout(resolve, 3000);
+      setTimeout(resolve, 5000);
     });
 
-    // Capture map as image
+    // Give extra time for rendering
+    await new Promise(r => setTimeout(r, 500));
+
+    // Capture map as image using Leaflet's built-in method if available, or manual canvas
     const canvas = document.createElement('canvas');
     const mapSize = map.getSize();
     canvas.width = mapSize.x;
     canvas.height = mapSize.y;
     const ctx = canvas.getContext('2d');
 
-    // Get all tile images
-    const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
-    const markerPane = mapContainer.querySelector('.leaflet-marker-pane');
+    console.log('[Standee] Map size:', mapSize.x, 'x', mapSize.y);
+    console.log('[Standee] Container rect:', mapContainer.getBoundingClientRect());
 
-    // Draw tiles
+    // Draw tile layer
+    const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
     if (tilePane) {
       const tiles = tilePane.querySelectorAll('img');
+      console.log('[Standee] Found tiles:', tiles.length);
       for (const tile of tiles) {
-        if (tile.complete) {
+        if (tile.complete && tile.naturalWidth > 0) {
           const rect = tile.getBoundingClientRect();
           const mapRect = mapContainer.getBoundingClientRect();
           ctx.drawImage(
@@ -273,48 +283,39 @@ async function initMapCapture() {
       }
     }
 
-    // Draw marker
-    if (markerPane) {
-      const markers = markerPane.querySelectorAll('img, div[style]');
-      for (const marker of markers) {
-        const rect = marker.getBoundingClientRect();
-        const mapRect = mapContainer.getBoundingClientRect();
-        if (marker.tagName === 'IMG' && marker.complete) {
-          ctx.drawImage(
-            marker,
-            rect.left - mapRect.left,
-            rect.top - mapRect.top,
-            rect.width,
-            rect.height
-          );
-        } else if (marker.tagName === 'DIV') {
-          // For divIcon, draw a simple marker manually
-          ctx.fillStyle = '#b91c1c';
-          ctx.beginPath();
-          ctx.arc(
-            rect.left - mapRect.left + rect.width/2,
-            rect.top - mapRect.top + rect.height,
-            12, 0, Math.PI * 2
-          );
-          ctx.fill();
-          ctx.fillStyle = 'white';
-          ctx.beginPath();
-          ctx.arc(
-            rect.left - mapRect.left + rect.width/2,
-            rect.top - mapRect.top + rect.height,
-            6, 0, Math.PI * 2
-          );
-          ctx.fill();
-        }
-      }
+    // Draw marker - simpler approach: draw at known position
+    const markerEl = mapContainer.querySelector('.custom-marker');
+    if (markerEl) {
+      const rect = markerEl.getBoundingClientRect();
+      const mapRect = mapContainer.getBoundingClientRect();
+      console.log('[Standee] Marker rect:', rect);
+      console.log('[Standee] Map rect:', mapRect);
+
+      // Draw marker icon manually at the correct position
+      const cx = rect.left - mapRect.left + rect.width / 2;
+      const cy = rect.top - mapRect.top + rect.height;
+
+      // Draw pin
+      ctx.fillStyle = '#b91c1c';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy - 12, 12, Math.PI * 0.2, Math.PI * 1.8);
+      ctx.closePath();
+      ctx.fill();
+
+      // White center
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(cx, cy - 12, 6, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     mapDataUrl = canvas.toDataURL('image/png');
-    console.log('[Standee] Map captured, data URL length:', mapDataUrl.length);
+    console.log('[Standee] Map captured, data URL length:', mapDataUrl.length, 'starts with data:image:', mapDataUrl.startsWith('data:image/'));
 
     map.remove();
   } catch (e) {
-    console.warn('[Standee] Map capture failed:', e);
+    console.error('[Standee] Map capture failed:', e);
     mapDataUrl = null;
   }
 }
