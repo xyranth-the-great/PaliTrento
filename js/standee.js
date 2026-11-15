@@ -199,15 +199,14 @@ async function initMapCapture() {
     await loadLeaflet();
 
     const mapContainer = document.getElementById('map-capture');
-    const containerWrapper = document.getElementById('map-capture-container');
-    if (!mapContainer || !containerWrapper) {
+    if (!mapContainer) {
       console.warn('[Standee] Map capture container not found');
       return;
     }
 
-    // Temporarily make container visible for layout
-    const originalStyle = containerWrapper.style.cssText;
-    containerWrapper.style.cssText = 'position:absolute;left:-9999px;top:0;width:400px;height:300px;overflow:hidden;visibility:visible;';
+    // Container is already in layout (opacity:0), just ensure dimensions
+    mapContainer.style.width = '400px';
+    mapContainer.style.height = '300px';
 
     // Create map
     const map = L.map(mapContainer, {
@@ -324,9 +323,6 @@ async function initMapCapture() {
 
     mapDataUrl = canvas.toDataURL('image/png');
     console.log('[Standee] Map captured, data URL length:', mapDataUrl.length, 'starts with data:image:', mapDataUrl.startsWith('data:image/'));
-
-    // Restore container style
-    containerWrapper.style.cssText = originalStyle;
 
     map.remove();
   } catch (e) {
