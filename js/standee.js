@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, CATS, PAY, peso, badges, hours, isOpen } from './ui.js';
+import { renderChrome, $, esc, CATS, PAY, badges, hours, isOpen } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { supabase } from './supabase.js';
 import { generateQRCode, generateQRCodeDataURL } from './qrcode.js';
@@ -127,7 +127,7 @@ async function initQRCode() {
 
   try {
     qrDataUrl = await generateQRCodeDataURL(businessUrl, {
-      size: 256,
+      size: 300,
       margin: 4,
       color: { dark: '#1f4d2e', light: '#ffffff' }
     });
@@ -140,7 +140,7 @@ async function initQRCode() {
 
     // Display QR code
     const canvas = await generateQRCode(businessUrl, {
-      size: 256,
+      size: 300,
       margin: 4,
       color: { dark: '#1f4d2e', light: '#ffffff' }
     });
@@ -292,151 +292,178 @@ async function generatePDF(options) {
   const margin = pdfGenerator.margin;
   const contentWidth = pdfGenerator.contentWidth;
 
+  // Logo URL for header
+  const logoUrl = `${window.location.origin}/logo.png`;
+
   let currentY = margin;
 
-  // ===== HEADER =====
-  pdfGenerator.addRect(0, 0, pageWidth, 70, { color: '#1f4d2e' });
+  // ===== HEADER with Logo Mark =====
+  // Green header bar
+  pdfGenerator.addRect(0, 0, pageWidth, 50, { color: '#1f4d2e' });
 
-  pdf.setFontSize(26);
+  // Logo mark: "Pali" + logo image + "rento"
+  // Since we can't easily embed images in jsPDF header, use text representation
+  pdf.setFontSize(24);
   pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor('#ffffff');
-  pdf.text('PaliTrento', margin, 28);
+  pdf.setTextColor('#fef3e2');
+  pdf.text('PaliTrento', margin, 22);
 
-  pdf.setFontSize(13);
+  pdf.setFontSize(11);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor('#fef3e2');
-  pdf.text('Tara, Palit Ta sa Trento!', margin, 40);
+  pdf.text('Tara, Palit Ta sa Trento!', margin, 33);
 
-  // QR Code on top right (header)
-  if (qrDataUrl) {
-    pdfGenerator.addQRCode(qrDataUrl, pageWidth - margin - 45, 12, 45);
-  }
+  // TRN code on right side of header
+  pdf.setFontSize(9);
+  pdf.setTextColor('#fef3e2');
+  pdf.text(`TRN: ${s.trn_code}`, pageWidth - margin, 22, { align: 'right' });
 
-  currentY = 80;
+  currentY = 60;
 
-  // ===== STORE NAME =====
+  // ===== STORE NAME (large, prominent) =====
   currentY = pdfGenerator.addText(s.business_name, margin, currentY, {
-    fontSize: 20,
+    fontSize: 22,
     fontStyle: 'bold',
     color: '#1f4d2e',
-    maxWidth: contentWidth
+    maxWidth: contentWidth,
+    lineHeight: 1.2
   });
 
-  currentY += 3;
+  currentY += 2;
 
-  // Category + Barangay
+  // Category + Barangay line
   currentY = pdfGenerator.addText(`${CATS[s.trade_category] || s.trade_category}  •  ${s.barangay}${s.purok ? ', Purok ' + s.purok : ''}`, margin, currentY, {
     fontSize: 11,
     color: '#5b675f',
     maxWidth: contentWidth
   });
 
-  currentY += 6;
+  currentY += 4;
 
-  // Badges
+  // Badges row
   if (document.getElementById('includeBadges')?.checked) {
     const storeBadges = [];
-    if (s.verification_status === 'VERIFIED') storeBadges.push('Verified');
-    if (s.dti_registered) storeBadges.push('DTI Registered');
-    if (s.bmbe_registered) storeBadges.push('BMBE');
-    if (s.srp_compliant) storeBadges.push('Follows Price Caps');
+    if (s.verification_status === 'VERIFIED') storeBadges.push({ text: 'Verified', bg: '#dcfce7', textColor: '#14532d' });
+    if (s.dti_registered) storeBadges.push({ text: 'DTI Registered', bg: '#e0f2fe', textColor: '#0369a1' });
+    if (s.bmbe_registered) storeBadges.push({ text: 'BMBE', bg: '#e0f2fe', textColor: '#0369a1' });
+    if (s.srp_compliant) storeBadges.push({ text: 'Follows Price Caps', bg: '#dcfce7', textColor: '#14532d' });
 
     if (storeBadges.length > 0) {
       let badgeX = margin;
       storeBadges.forEach(badge => {
-        pdfGenerator.addBadge(badge, badgeX, currentY, { fontSize: 7, paddingX: 5, paddingY: 1.5 });
-        badgeX += pdf.getTextWidth(badge) + 18;
+        pdfGenerator.addBadge(badge.text, badgeX, currentY, {
+          fontSize: 7,
+          paddingX: 6,
+          paddingY: 2,
+          backgroundColor: badge.bg,
+          textColor: badge.textColor
+        });
+        badgeX += pdf.getTextWidth(badge.text) + 20;
       });
       currentY += 14;
     }
   }
 
-  currentY += 6;
+  currentY += 4;
 
-  // Divider
-  pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY);
+  // Divider line
+  pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.8 });
   currentY += 8;
 
-  // ===== STORE DETAILS (single column flow) =====
-  // Address - use landmark_reference as-is (it already contains full address)
-  // Don't duplicate barangay/purok if landmark already has them
+  // ===== STORE DETAILS (clean single column) =====
+
+  // Address - use landmark_reference as-is
   let addressText = s.landmark_reference || '';
   if (!addressText && s.barangay) {
-    // Fallback if no landmark
     const parts = [];
     if (s.barangay) parts.push(s.barangay);
     if (s.purok) parts.push(`Purok ${s.purok}`);
     parts.push('Trento, Agusan del Sur');
     addressText = parts.join(', ');
   } else if (addressText && !addressText.toLowerCase().includes('trento')) {
-    // If landmark doesn't have municipality, append it
     addressText += ', Trento, Agusan del Sur';
   }
 
-  currentY = pdfGenerator.addText('Address:', margin, currentY, { fontSize: 10, fontStyle: 'bold', color: '#1f4d2e' });
-  currentY = pdfGenerator.addText(addressText, margin, currentY + 3, {
-    fontSize: 10,
+  currentY = pdfGenerator.addText('Address', margin, currentY, { fontSize: 9, fontStyle: 'bold', color: '#1f4d2e' });
+  currentY = pdfGenerator.addText(addressText, margin, currentY + 2, {
+    fontSize: 9.5,
     maxWidth: contentWidth,
-    lineHeight: 1.4
-  }) + 6;
+    lineHeight: 1.45,
+    color: '#1c2a20'
+  }) + 5;
 
   // Hours
   if (document.getElementById('includeHours')?.checked) {
-    currentY = pdfGenerator.addText('Hours:', margin, currentY, { fontSize: 10, fontStyle: 'bold', color: '#1f4d2e' });
-    currentY = pdfGenerator.addText(hours(currentStore) + (isOpen(currentStore) ? ' • Open now' : ' • Closed'), margin, currentY + 3, { fontSize: 10 }) + 6;
+    currentY = pdfGenerator.addText('Hours', margin, currentY, { fontSize: 9, fontStyle: 'bold', color: '#1f4d2e' });
+    currentY = pdfGenerator.addText(hours(currentStore) + (isOpen(currentStore) ? '  •  Open now' : '  •  Closed'), margin, currentY + 2, { fontSize: 9.5, color: '#1c2a20' }) + 5;
   }
 
   // Payment Methods
   if (document.getElementById('includePayments')?.checked) {
     const payments = (currentStore.accepted_payments || []).filter(p => Object.prototype.hasOwnProperty.call(PAY, p)).map(p => PAY[p]).join(', ') || '—';
-    currentY = pdfGenerator.addText('Accepted Payments:', margin, currentY, { fontSize: 10, fontStyle: 'bold', color: '#1f4d2e' });
-    currentY = pdfGenerator.addText(payments, margin, currentY + 3, { fontSize: 10 }) + 6;
+    currentY = pdfGenerator.addText('Payments', margin, currentY, { fontSize: 9, fontStyle: 'bold', color: '#1f4d2e' });
+    currentY = pdfGenerator.addText(payments, margin, currentY + 2, { fontSize: 9.5, color: '#1c2a20' }) + 5;
   }
 
-  // Map placeholder
+  // Map - show actual map snippet or coordinates
   if (document.getElementById('includeMap')?.checked) {
-    currentY = pdfGenerator.addText('Location:', margin, currentY, { fontSize: 10, fontStyle: 'bold', color: '#1f4d2e' });
+    currentY = pdfGenerator.addText('Location', margin, currentY, { fontSize: 9, fontStyle: 'bold', color: '#1f4d2e' });
     currentY += 3;
 
-    const mapHeight = 35;
-    pdfGenerator.addRect(margin, currentY, contentWidth, mapHeight, { color: '#f6f3ec' });
-    pdf.setFontSize(9);
+    const mapHeight = 28;
+    const mapY = currentY;
+    const mapX = margin;
+    const mapW = contentWidth;
+
+    // Map background
+    pdfGenerator.addRect(mapX, mapY, mapW, mapHeight, { color: '#f6f3ec' });
+
+    // Coordinates text centered
+    pdf.setFontSize(8);
     pdf.setTextColor('#999');
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Map Preview', pageWidth / 2, currentY + mapHeight / 2 + 2, { align: 'center' });
-    pdf.text(`Lat: ${s.lat}, Lng: ${s.lng}`, pageWidth / 2, currentY + mapHeight / 2 + 8, { align: 'center' });
+    pdf.text('Map Preview', pageWidth / 2, mapY + mapHeight / 2 - 2, { align: 'center' });
+    pdf.text(`Lat: ${s.lat?.toFixed(6) || '—'}, Lng: ${s.lng?.toFixed(6) || '—'}`, pageWidth / 2, mapY + mapHeight / 2 + 5, { align: 'center' });
 
-    currentY += mapHeight + 8;
+    // Decorative border
+    pdf.setDrawColor('#dcdad3');
+    pdf.setLineWidth(0.4);
+    pdf.rect(mapX, mapY, mapW, mapHeight, 'S');
+
+    currentY = mapY + mapHeight + 8;
   }
 
-  // ===== QR CODE SECTION =====
-  currentY += 6;
-  pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY);
-  currentY += 8;
+  // Divider before QR
+  currentY += 4;
+  pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.8 });
+  currentY += 10;
 
-  currentY = pdfGenerator.addText('Scan to View Store', margin, currentY, {
-    fontSize: 13,
+  // ===== QR CODE SECTION (centered, prominent) =====
+  currentY = pdfGenerator.addText('Scan to View Store on PaliTrento', pageWidth / 2, currentY, {
+    fontSize: 12,
     fontStyle: 'bold',
     color: '#1f4d2e',
     align: 'center'
   });
-  currentY += 6;
+  currentY += 5;
 
-  // QR Code - larger for better scanning
+  // QR Code - large for easy scanning
   if (qrDataUrl) {
-    const qrSize = 70;
+    const qrSize = Math.min(85, contentWidth * 0.8);
     const qrX = (pageWidth - qrSize) / 2;
     pdfGenerator.addQRCode(qrDataUrl, qrX, currentY, qrSize);
-    currentY += qrSize + 6;
+    currentY += qrSize + 5;
   }
 
-  currentY = pdfGenerator.addText(`business.html?trn=${encodeURIComponent(currentStore.trn_code)}`, pageWidth / 2, currentY, {
-    fontSize: 8,
+  // URL text
+  currentY = pdfGenerator.addText(`${window.location.origin}/business/?trn=${encodeURIComponent(s.trn_code)}`, pageWidth / 2, currentY, {
+    fontSize: 7.5,
     color: '#5b675f',
     align: 'center'
   });
 
-  currentY = pdfGenerator.addText('Find us on PaliTrento', pageWidth / 2, currentY + 4, {
+  currentY += 3;
+  currentY = pdfGenerator.addText('Find us on PaliTrento', pageWidth / 2, currentY, {
     fontSize: 10,
     fontStyle: 'bold',
     color: '#1f4d2e',
@@ -444,24 +471,18 @@ async function generatePDF(options) {
   });
 
   // ===== FOOTER (fixed at bottom) =====
-  const footerY = pageHeight - 22;
-  pdfGenerator.addLine(margin, footerY - 5, pageWidth - margin, footerY - 5);
+  const footerY = pageHeight - 18;
+  pdfGenerator.addLine(margin, footerY - 4, pageWidth - margin, footerY - 4, { color: '#dcdad3', width: 0.5 });
 
-  pdfGenerator.addText('PaliTrento — Tara, Palit Ta sa Trento!', pageWidth / 2, footerY, {
-    fontSize: 8,
+  pdfGenerator.addText('PaliTrento  •  Tara, Palit Ta sa Trento!', pageWidth / 2, footerY, {
+    fontSize: 7.5,
     color: '#5b675f',
     align: 'center'
   });
 
-  pdfGenerator.addText('A local directory for the Municipality of Trento, Agusan del Sur', pageWidth / 2, footerY + 5, {
-    fontSize: 7,
-    color: '#5b675f',
-    align: 'center'
-  });
-
-  currentY = pdfGenerator.addText('A local directory for the Municipality of Trento, Agusan del Sur', pageWidth / 2, currentY, {
-    fontSize: 8,
-    color: '#5b675f',
+  pdfGenerator.addText('Local directory for the Municipality of Trento, Agusan del Sur', pageWidth / 2, footerY + 4.5, {
+    fontSize: 6.5,
+    color: '#999',
     align: 'center'
   });
 

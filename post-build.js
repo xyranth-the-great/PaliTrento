@@ -22,6 +22,9 @@ const directoryPages = new Set([
   'reset-password', 'terms-and-agreement', 'advisories'
 ]);
 
+// Static files to copy to each directory (logo, favicon, etc.)
+const staticFiles = ['logo.png', 'favicon.svg'];
+
 console.log(`[post-build] Processing ${outDir}...`);
 
 // Copy assets folder to each page directory for relative paths to work
@@ -30,6 +33,17 @@ function copyAssetsToDir(destDir) {
   const assetsDest = resolve(destDir, 'assets');
   if (fs.existsSync(assetsSrc) && !fs.existsSync(assetsDest)) {
     fs.cpSync(assetsSrc, assetsDest, { recursive: true });
+  }
+}
+
+// Copy static files (logo.png, favicon.svg) to each page directory
+function copyStaticFilesToDir(destDir) {
+  for (const file of staticFiles) {
+    const src = resolve(outDir, file);
+    const dest = resolve(destDir, file);
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest);
+    }
   }
 }
 
@@ -50,6 +64,8 @@ for (const page of pages) {
 
       // Copy assets for relative paths
       copyAssetsToDir(destDir);
+      // Copy static files (logo.png, favicon.svg)
+      copyStaticFilesToDir(destDir);
     }
   }
 }
