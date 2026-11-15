@@ -255,14 +255,17 @@ function onAccountAction(event) {
   if (action === 'suspend_temporary') {
     durationField.style.display = 'block';
     reasonInput.required = true;
+    warningMessageInput.required = false;
     moderationMessage.textContent = 'This ends active sessions and blocks sign-in for the selected period.';
   } else if (action === 'suspend_permanent') {
     durationField.style.display = 'none';
     reasonInput.required = true;
+    warningMessageInput.required = false;
     moderationMessage.textContent = 'This blocks sign-in and protected data access until an administrator restores the account.';
   } else if (action === 'ban') {
     durationField.style.display = 'none';
     reasonInput.required = true;
+    warningMessageInput.required = false;
     moderationMessage.textContent = 'This permanently restricts the account. Only an administrator can reverse this.';
   } else if (action === 'warn') {
     durationField.style.display = 'none';
@@ -273,10 +276,12 @@ function onAccountAction(event) {
   } else if (action === 'restore') {
     durationField.style.display = 'none';
     reasonInput.required = true;
+    warningMessageInput.required = false;
     moderationMessage.textContent = 'Restoring access will allow the account to sign in and use the system again.';
   } else if (action === 'unban') {
     durationField.style.display = 'none';
     reasonInput.required = true;
+    warningMessageInput.required = false;
     moderationMessage.textContent = 'Removing the ban will restore full account access.';
   }
 
