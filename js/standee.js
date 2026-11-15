@@ -289,7 +289,8 @@ async function generatePDF(options) {
   const pdf = pdfGenerator.doc;
   const pageWidth = pdfGenerator.pageWidth;
   const pageHeight = pdfGenerator.pageHeight;
-  const isA5 = pageWidth <= 160;
+  // Detect A5 in either orientation (A5 landscape is 210mm wide).
+  const isA5 = Math.min(pageWidth, pageHeight) <= 160;
   const margin = isA5 ? 8 : 10;
   const contentWidth = pageWidth - 2 * margin;
 
@@ -340,7 +341,7 @@ async function generatePDF(options) {
   currentY += isA5 ? 1.5 : 2;
 
   // ===== BADGES =====
-  if (document.getElementById('includeBadges')?.checked) {
+  if (includeBadges) {
     const storeBadges = [];
     if (s.verification_status === 'VERIFIED') storeBadges.push({ text: 'Verified', bg: '#dcfce7', textColor: '#14532d' });
     if (s.dti_registered) storeBadges.push({ text: 'DTI', bg: '#e0f2fe', textColor: '#0369a1' });
@@ -367,11 +368,27 @@ async function generatePDF(options) {
   pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.4 });
   currentY += isA5 ? 3.5 : 4;
 
-  // ===== DETAIL SECTIONS (stacked vertically, each naturally flows) =====
-  // Use two-column layout: label on left, value on right
-  const labelW = isA5 ? 16 : 20;
+  // ===== DETAIL SECTIONS =====
+  // Keep each label and value on the same row. The row height is based on
+  // whichever side wraps to more lines, so later sections never collide.
+  const labelW = isA5 ? 19 : 23;
   const valX = margin + labelW;
   const valW = contentWidth - labelW;
+  const rowGap = isA5 ? 2.2 : 2.8;
+
+  function addDetailRow(label, value) {
+    const fontSize = isA5 ? 8 : 8.5;
+    const lineHeight = 1.3;
+    const labelY = currentY;
+    const labelEnd = pdfGenerator.addText(label, margin, labelY, {
+      fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e',
+      maxWidth: labelW - 2, lineHeight
+    });
+    const valueEnd = pdfGenerator.addText(value || '—', valX, labelY, {
+      fontSize, maxWidth: valW, lineHeight, color: '#1c2a20'
+    });
+    currentY = Math.max(labelEnd, valueEnd) + rowGap;
+  }
 
   // --- Address ---
   let addressText = s.landmark_reference || '';
@@ -384,38 +401,23 @@ async function generatePDF(options) {
   } else if (addressText && !addressText.toLowerCase().includes('trento')) {
     addressText += ', Trento, Agusan del Sur';
   }
-
-  // Label
-  currentY = pdfGenerator.addText('Address', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
-  // Value (multi-line, wraps within valW)
-  currentY = pdfGenerator.addText(addressText, valX, currentY, {
-    fontSize: isA5 ? 8 : 8.5,
-    maxWidth: valW,
-    lineHeight: 1.35,
-    color: '#1c2a20'
-  }) + (isA5 ? 2.5 : 3);
+  addDetailRow('Address', addressText);
 
   // --- Hours ---
-  if (document.getElementById('includeHours')?.checked) {
-    currentY = pdfGenerator.addText('Hours', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
-    currentY = pdfGenerator.addText(hours(currentStore) + (isOpen(currentStore) ? ' • Open' : ' • Closed'), valX, currentY, {
-      fontSize: isA5 ? 8 : 8.5,
-      color: '#1c2a20'
-    }) + (isA5 ? 2.5 : 3);
+  if (includeHours) {
+    addDetailRow('Hours', hours(s) + (isOpen(s) ? ' • Open' : ' • Closed'));
   }
 
   // --- Payments ---
-  if (document.getElementById('includePayments')?.checked) {
-    const payments = (currentStore.accepted_payments || []).filter(p => Object.prototype.hasOwnProperty.call(PAY, p)).map(p => PAY[p]).join(', ') || '—';
-    currentY = pdfGenerator.addText('Pay', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
-    currentY = pdfGenerator.addText(payments, valX, currentY, {
-      fontSize: isA5 ? 8 : 8.5,
-      color: '#1c2a20'
-    }) + (isA5 ? 2.5 : 3);
+  if (includePayments) {
+    const payments = (s.accepted_payments || [])
+      .filter(p => Object.prototype.hasOwnProperty.call(PAY, p))
+      .map(p => PAY[p]).join(', ') || '—';
+    addDetailRow('Pay', payments);
   }
 
   // --- Location / Map ---
-  if (document.getElementById('includeMap')?.checked) {
+  if (includeMap) {
     // Label
     currentY = pdfGenerator.addText('Location', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
     currentY += 1.5;
@@ -458,12 +460,16 @@ async function generatePDF(options) {
 
   // QR Code - sized to fit available space
   if (qrDataUrl) {
-    const availableH = maxContentY - currentY - (isA5 ? 10 : 12); // reserve space for URL + tagline
-    const maxQrSize = Math.min(isA5 ? 45 : 58, contentWidth * 0.75, availableH);
-    const qrSize = Math.max(isA5 ? 35 : 40, maxQrSize);
-    const qrX = (pageWidth - qrSize) / 2;
-    pdfGenerator.addQRCode(qrDataUrl, qrX, currentY, qrSize);
-    currentY += qrSize + (isA5 ? 2 : 2.5);
+    const urlAndTaglineReserve = isA5 ? 9 : 10;
+    const availableH = Math.max(0, maxContentY - currentY - urlAndTaglineReserve);
+    const qrSize = Math.min(isA5 ? 45 : 58, contentWidth * 0.75, availableH);
+    if (qrSize >= 20) {
+      const qrX = (pageWidth - qrSize) / 2;
+      pdfGenerator.addQRCode(qrDataUrl, qrX, currentY, qrSize);
+      currentY += qrSize + (isA5 ? 2 : 2.5);
+    } else {
+      throw new Error('There is not enough space for the QR code. Try A4 portrait or disable the map/hours/payment sections.');
+    }
   }
 
   // URL

@@ -115,7 +115,9 @@ class PDFGenerator {
 
     lines.forEach((line) => {
       this.doc.text(line, startX, currentY, { align: textAlign });
-      currentY += fontSize * lineHeight;
+      // jsPDF font sizes are points, while document coordinates are millimeters.
+      // Convert points to mm before advancing the baseline to avoid oversized gaps.
+      currentY += (fontSize * 25.4 / 72) * lineHeight;
     });
 
     return currentY;
