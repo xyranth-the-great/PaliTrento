@@ -110,7 +110,6 @@ function getEmailFromUrl() {
 async function loadStatus() {
   const email = getEmailFromUrl();
   if (!email || !supabase) {
-    // No email param - show error or redirect home
     console.error('No email parameter provided for suspended page');
     return;
   }

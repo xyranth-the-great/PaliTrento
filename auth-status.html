@@ -16,6 +16,7 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .status-title { font-size: 1.25rem; color: var(--primary-dark); margin: 0 0 8px; }
   .status-message { color: var(--muted); font-size: 0.95rem; }
+  .status-debug { color: var(--muted); font-size: 0.75rem; margin-top: 16px; font-family: monospace; text-align: left; }
   @media (max-width: 480px) {
     .status-card { padding: 24px; }
     .status-title { font-size: 1.1rem; }
@@ -29,12 +30,19 @@
     <div class="status-spinner" aria-hidden="true"></div>
     <h1 class="status-title">Checking Account Status</h1>
     <p class="status-message">Please wait while we verify your account...</p>
+    <div class="status-debug" id="debug-log"></div>
   </div>
 </main>
 <div id="chrome-foot"></div>
 <script type="module">
 import { renderChrome, $, esc } from './js/ui.js';
 import { supabase } from './js/supabase.js';
+
+function logDebug(msg) {
+  console.log('[auth-status]', msg);
+  const el = $('#debug-log');
+  if (el) el.textContent += '\n' + new Date().toLocaleTimeString() + ' ' + msg;
+}
 
 function getEmailFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -43,36 +51,53 @@ function getEmailFromUrl() {
 
 async function checkAccountStatus() {
   const email = getEmailFromUrl();
-  if (!email || !supabase) {
-    console.error('No email parameter provided for auth status check');
+  logDebug('Email from URL: ' + (email || 'none'));
+
+  if (!email) {
+    logDebug('ERROR: No email parameter provided');
     window.location.href = '/login/';
     return;
   }
 
+  if (!supabase) {
+    logDebug('ERROR: Supabase not configured');
+    window.location.href = '/login/';
+    return;
+  }
+
+  logDebug('Supabase client available, querying profiles...');
+
   try {
-    // Fetch profile by email
+    // Fetch profile by email (profiles table now has email column)
+    logDebug('Querying profiles table for email: ' + email);
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason')
+      .select('account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason, email')
       .eq('email', email)
       .maybeSingle();
 
+    logDebug('Query result - error: ' + (error?.message || 'none') + ', profile: ' + (profile ? 'found' : 'null'));
+
     if (error) {
-      console.error('Failed to load profile:', error);
-      window.location.href = '/login/';
+      logDebug('ERROR: Profile query failed: ' + error.message);
+      // Don't redirect to login on query error - show error state
       return;
     }
 
     if (!profile) {
-      console.error('Profile not found for email:', email);
+      logDebug('Profile not found for email: ' + email);
+      // Profile not found - might be a new user or email not synced yet
       window.location.href = '/login/';
       return;
     }
+
+    logDebug('Profile found: account_status=' + profile.account_status + ', suspended_until=' + (profile.suspended_until || 'null'));
 
     // Check actual account status in database
     const now = Date.now();
 
     if (profile.account_status === 'banned') {
+      logDebug('Account is BANNED, redirecting to /banned/');
       window.location.replace('/banned/?email=' + encodeURIComponent(email));
       return;
     }
@@ -80,25 +105,28 @@ async function checkAccountStatus() {
     if (profile.account_status === 'suspended') {
       // Check if suspension expired
       if (profile.suspended_until && new Date(profile.suspended_until).getTime() <= now) {
-        // Suspension expired - trigger auto-restore
+        logDebug('Suspension expired, triggering auto-restore...');
         try {
           await supabase.rpc('auto_restore_expired_suspensions');
+          logDebug('Auto-restore called, reloading...');
         } catch (e) {
-          console.warn('Auto-restore failed:', e);
+          logDebug('Auto-restore failed: ' + e);
         }
-        // Reload to get updated status
         window.location.reload();
         return;
       }
+      logDebug('Account is SUSPENDED, redirecting to /suspended/');
       window.location.replace('/suspended/?email=' + encodeURIComponent(email));
       return;
     }
 
     // Account is active - redirect to login (normal flow)
+    logDebug('Account is ACTIVE, redirecting to /login/');
     window.location.href = '/login/';
   } catch (err) {
+    logDebug('EXCEPTION: ' + err);
     console.error('Auth status check error:', err);
-    window.location.href = '/login/';
+    // Don't redirect on exception - let user see error
   }
 }
 
@@ -106,6 +134,7 @@ async function checkAccountStatus() {
 renderChrome('/', null, null);
 
 // Start checking
+logDebug('Starting auth status check...');
 checkAccountStatus();
 </script>
 </body>
