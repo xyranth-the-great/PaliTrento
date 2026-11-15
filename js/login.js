@@ -136,7 +136,7 @@ form.addEventListener('submit', async (e) => {
     submitBtn.textContent = 'Log in';
 
     if (error) {
-      console.error('Login error:', error.message, error.status, error);
+      console.error('Login error:', error.message, error.status, error, 'code:', error.code);
 
       // Check for banned/suspended error codes from Supabase Auth
       const errorCode = error.code || error.error_code || '';
@@ -146,6 +146,7 @@ form.addEventListener('submit', async (e) => {
           errorMsg.toLowerCase().includes('banned') ||
           errorMsg.toLowerCase().includes('suspended')) {
         // Redirect to auth-status page which checks the database for actual status
+        console.log('[login] Auth error indicates banned/suspended, redirecting to auth-status');
         window.location.replace(`/auth-status/?email=${encodeURIComponent(email)}`);
         return;
       }
@@ -154,13 +155,17 @@ form.addEventListener('submit', async (e) => {
       return;
     }
 
+    console.log('[login] Login successful, session:', !!data.session, 'user:', data.user?.id);
+
     if (data.session) {
       const redirectPath = await checkAccountStatusAndRedirect();
       if (redirectPath) {
+        console.log('[login] Account status check redirect:', redirectPath);
         window.location.replace(redirectPath);
         return;
       }
       const profile = await getCachedProfile(data.session.user.id);
+      console.log('[login] Profile after login:', profile);
       redirectAfterLogin(profile?.role || data.session.user.user_metadata?.role);
     } else if (data.user && !data.user.email_confirmed_at) {
       showMsg('Account not confirmed. Please verify your email first.', 'warn');

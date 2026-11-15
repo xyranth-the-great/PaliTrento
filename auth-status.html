@@ -103,6 +103,9 @@ async function checkProfileByEmail(email) {
     }
 
     console.log('[auth-status] Profile found:', profile);
+    console.log('[auth-status] Current time:', new Date().toISOString());
+    console.log('[auth-status] Suspended until:', profile.suspended_until);
+    console.log('[auth-status] Account status:', profile.account_status);
     showStatus(profile);
 
     const now = Date.now();
@@ -130,7 +133,20 @@ async function checkProfileByEmail(email) {
       return;
     }
 
-    // Active account
+    // Active account - check moderation actions for debugging
+    console.log('[auth-status] Account is active, checking moderation history...');
+    try {
+      const { data: actions } = await supabase
+        .from('account_moderation_actions')
+        .select('action, reason, created_at, expires_at')
+        .eq('target_user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      console.log('[auth-status] Recent moderation actions:', actions);
+    } catch (e) {
+      console.warn('[auth-status] Could not fetch moderation actions:', e);
+    }
+
     redirectTo('/', 'Your account is active. Redirecting...');
 
   } catch (err) {

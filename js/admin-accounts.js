@@ -339,9 +339,11 @@ async function submitModeration(event) {
       }
     }
 
+    console.log('[admin-accounts] Sending moderation request:', request);
     const { data, error } = await supabase.functions.invoke('admin-account-moderation', { body: request });
+    console.log('[admin-accounts] Moderation response:', data, error);
     if (error || data?.error) {
-      moderationMessage.textContent = data?.error || 'Moderation failed. Try again.';
+      moderationMessage.textContent = data?.error || error?.message || 'Moderation failed. Try again.';
       return;
     }
 
