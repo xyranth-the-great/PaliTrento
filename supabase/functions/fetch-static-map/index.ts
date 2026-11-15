@@ -12,7 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { lat, lng, zoom, width, height } = await req.json();
+    const body = await req.json();
+    console.log('[fetch-static-map] Request body:', body);
+
+    const { lat, lng, zoom, width, height } = body;
 
     if (!lat || !lng) {
       return new Response(JSON.stringify({ error: 'Missing lat/lng' }), {
@@ -27,26 +30,34 @@ serve(async (req) => {
 
     // Use openstreetmap.de static map API (server-side, no CORS)
     const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=${z}&size=${w}x${h}&markers=${lat},${lng},red-pushpin&scale=1`;
+    console.log('[fetch-static-map] Fetching:', staticMapUrl);
 
     const response = await fetch(staticMapUrl);
+    console.log('[fetch-static-map] Response status:', response.status, response.statusText);
 
     if (!response.ok) {
-      throw new Error(`Static map fetch failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[fetch-static-map] Error response:', errorText);
+      throw new Error(`Static map fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
+
+    const contentType = response.headers.get('content-type');
+    console.log('[fetch-static-map] Response content-type:', contentType);
 
     const imageBlob = await response.blob();
     const arrayBuffer = await imageBlob.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    console.log('[fetch-static-map] Base64 length:', base64.length);
 
     return new Response(JSON.stringify({
       success: true,
       imageBase64: base64,
-      mimeType: 'image/png'
+      mimeType: contentType || 'image/png'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Fetch static map error:', error);
+    console.error('[fetch-static-map] Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -467,18 +467,22 @@ async function generatePDF(options) {
         const mapHeightPx = Math.round(mapH * 2.83);
         const zoom = 16;
 
-        console.log('[Standee] Fetching static map via Edge Function...');
+        console.log('[Standee] Fetching static map via Edge Function...', { lat: s.lat, lng: s.lng, zoom, width: mapWidthPx, height: mapHeightPx });
         const { data, error } = await supabase.functions.invoke('fetch-static-map', {
           body: { lat: s.lat, lng: s.lng, zoom, width: mapWidthPx, height: mapHeightPx }
         });
 
+        console.log('[Standee] Edge Function response:', { data, error });
+
         if (error) {
-          console.warn('[Standee] Edge Function error:', error.message);
+          console.warn('[Standee] Edge Function error:', error.message, error.context);
         } else if (data?.success && data?.imageBase64) {
           mapDataUrl = `data:${data.mimeType};base64,${data.imageBase64}`;
           console.log('[Standee] Map loaded via Edge Function, data URL length:', mapDataUrl.length);
+        } else if (data?.error) {
+          console.warn('[Standee] Edge Function returned error:', data.error);
         } else {
-          console.warn('[Standee] Edge Function returned no image:', data);
+          console.warn('[Standee] Edge Function returned unexpected data:', data);
         }
       } catch (e) {
         console.warn('[Standee] Could not load static map via Edge Function:', e);
