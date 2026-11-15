@@ -142,13 +142,11 @@ form.addEventListener('submit', async (e) => {
       const errorCode = error.code || error.error_code || '';
       const errorMsg = error.message || '';
 
-      if (errorCode === 'user_banned' || errorMsg.toLowerCase().includes('banned')) {
-        // Redirect to banned page with email for status lookup
-        window.location.replace(`/banned/?email=${encodeURIComponent(email)}`);
-        return;
-      }
-      if (errorCode === 'user_suspended' || errorMsg.toLowerCase().includes('suspended')) {
-        window.location.replace(`/suspended/?email=${encodeURIComponent(email)}`);
+      if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
+          errorMsg.toLowerCase().includes('banned') ||
+          errorMsg.toLowerCase().includes('suspended')) {
+        // Redirect to auth-status page which checks the database for actual status
+        window.location.replace(`/auth-status/?email=${encodeURIComponent(email)}`);
         return;
       }
 

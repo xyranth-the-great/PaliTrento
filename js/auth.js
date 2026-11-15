@@ -8,6 +8,7 @@ const UNREAD_CACHE_KEY = 'palitrento_unread_counts';
 /**
  * Check URL for Supabase auth error parameters (in search or hash)
  * Returns redirect path if banned/suspended error detected, else null
+ * Redirects to /auth-status/ which checks the database for actual status
  */
 export function checkAuthErrorParams() {
   if (typeof window === 'undefined') return null;
@@ -19,11 +20,12 @@ export function checkAuthErrorParams() {
   const errorCode = searchParams.get('error_code') || hashParams.get('error_code');
   const errorDesc = searchParams.get('error_description') || hashParams.get('error_description');
 
-  if (errorCode === 'user_banned' || errorDesc?.toLowerCase().includes('banned')) {
-    return '/banned/';
-  }
-  if (errorCode === 'user_suspended' || errorDesc?.toLowerCase().includes('suspended')) {
-    return '/suspended/';
+  if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
+      errorDesc?.toLowerCase().includes('banned') ||
+      errorDesc?.toLowerCase().includes('suspended')) {
+    // Redirect to auth-status page which checks the database for actual status
+    const lastEmail = sessionStorage.getItem('palitrento_last_login_email');
+    return lastEmail ? `/auth-status/?email=${encodeURIComponent(lastEmail)}` : '/auth-status/';
   }
   return null;
 }

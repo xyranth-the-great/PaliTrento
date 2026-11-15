@@ -10,7 +10,7 @@ const pages = [
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned'
+  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status'
 ];
 
 // Pages that should be directories (clean URLs) vs files
@@ -19,7 +19,7 @@ const directoryPages = new Set([
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned'
+  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status'
 ]);
 
 // Static files to copy to each directory (logo, favicon, etc.)
