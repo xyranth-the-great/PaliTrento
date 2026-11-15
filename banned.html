@@ -48,7 +48,7 @@
         <line x1="9" y1="9" x2="15" y2="15"></line>
       </svg>
     </div>
-    <h1 class="banned-title">Account Banned</h1>
+    <h1 class="banned-title">Your Account Has Been Permanently Banned</h1>
     <p class="banned-subtitle">Your account has been permanently banned by an administrator.</p>
 
     <div class="banned-details">
@@ -72,37 +72,79 @@
     </div>
 
     <div class="banned-actions">
-      <button type="button" class="btn" id="logout-btn">Sign out</button>
-      <button type="button" class="btn alt btn-logout" id="back-btn">Return to home</button>
+      <button type="button" class="btn" id="back-btn">Return to home</button>
     </div>
   </div>
 </main>
 <div id="chrome-foot"></div>
 <script type="module">
 import { renderChrome, $, esc } from './js/ui.js';
-import { getSession, signOut } from './js/auth.js';
 import { supabase } from './js/supabase.js';
 
 function formatDate(date) {
   return date.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+// Get email from URL params
+function getEmailFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('email')?.toLowerCase();
+}
+
 async function loadStatus() {
-  const session = await getSession();
-  if (!session || !supabase) {
-    window.location.href = '/login/';
+  const email = getEmailFromUrl();
+  if (!email || !supabase) {
+    // No email param, try to get from session if available
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      window.location.href = '/login/';
+      return;
+    }
+    await loadStatusByUserId(session.user.id);
     return;
   }
 
-  const { data, error } = await supabase.rpc('get_account_status', { p_user_id: session.user.id });
-  if (error || !data) {
+  // Fetch profile by email
+  await loadStatusByEmail(email);
+}
+
+async function loadStatusByEmail(email) {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, account_status, banned_at, ban_reason')
+    .eq('email', email)
+    .maybeSingle();
+
+  if (!profile) {
+    console.error('Profile not found for email:', email);
+    return;
+  }
+
+  renderStatus(profile);
+}
+
+async function loadStatusByUserId(userId) {
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('account_status, banned_at, ban_reason')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error || !profile) {
     console.error('Failed to load account status:', error);
     return;
   }
 
-  const status = data;
+  if (profile.account_status !== 'banned') {
+    window.location.href = '/';
+    return;
+  }
+
+  renderStatus(profile);
+}
+
+function renderStatus(status) {
   if (status.account_status !== 'banned') {
-    // Not banned - redirect home
     window.location.href = '/';
     return;
   }
@@ -113,18 +155,13 @@ async function loadStatus() {
   $('#ban-reason').textContent = status.ban_reason ?? 'No reason provided';
 }
 
-$('#logout-btn')?.addEventListener('click', async () => {
-  await signOut();
-  window.location.href = '/';
-});
-
 $('#back-btn')?.addEventListener('click', () => {
   window.location.href = '/';
 });
 
 async function init() {
-  const session = await getSession();
-  renderChrome('/', session, null);
+  // Render chrome without session
+  renderChrome('/', null, null);
   await loadStatus();
 }
 

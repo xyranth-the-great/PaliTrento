@@ -7,6 +7,21 @@ const msgEl = $('#login-message');
 const googleBtn = $('#google-login-btn');
 
 async function init() {
+  // Check for auth error parameters from Supabase redirect (banned/suspended users)
+  const urlParams = new URLSearchParams(window.location.search);
+  const errorCode = urlParams.get('error_code');
+  const errorDesc = urlParams.get('error_description');
+
+  if (errorCode === 'user_banned' || errorDesc?.toLowerCase().includes('banned')) {
+    // Redirect to banned page
+    window.location.replace('/banned/');
+    return;
+  }
+  if (errorCode === 'user_suspended' || errorDesc?.toLowerCase().includes('suspended')) {
+    window.location.replace('/suspended/');
+    return;
+  }
+
   const accountNotice = sessionStorage.getItem('palitrento_account_notice');
   if (accountNotice) {
     sessionStorage.removeItem('palitrento_account_notice');
@@ -120,6 +135,21 @@ form.addEventListener('submit', async (e) => {
 
     if (error) {
       console.error('Login error:', error.message, error.status, error);
+
+      // Check for banned/suspended error codes from Supabase Auth
+      const errorCode = error.code || error.error_code || '';
+      const errorMsg = error.message || '';
+
+      if (errorCode === 'user_banned' || errorMsg.toLowerCase().includes('banned')) {
+        // Redirect to banned page with email for status lookup
+        window.location.replace(`/banned/?email=${encodeURIComponent(email)}`);
+        return;
+      }
+      if (errorCode === 'user_suspended' || errorMsg.toLowerCase().includes('suspended')) {
+        window.location.replace(`/suspended/?email=${encodeURIComponent(email)}`);
+        return;
+      }
+
       showMsg(getAuthErrorMessage(error), 'bad');
       return;
     }
