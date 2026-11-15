@@ -1,6 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange, checkAccountStatusAndRedirect, getCachedProfile, checkAuthErrorParams } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange, checkAccountStatusAndRedirect, getCachedProfile, checkAuthErrorParams, getAuthRestrictionStatus } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
@@ -139,14 +139,10 @@ form.addEventListener('submit', async (e) => {
       const errorCode = error.code || error.error_code || '';
       const errorMsg = error.message || '';
 
-      if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
-          errorMsg.toLowerCase().includes('banned') ||
-          errorMsg.toLowerCase().includes('suspended')) {
-        const status = errorCode === 'user_suspended' || errorMsg.toLowerCase().includes('suspended')
-          ? 'suspended'
-          : 'banned';
+      const restrictionStatus = getAuthRestrictionStatus(errorCode, errorMsg);
+      if (restrictionStatus) {
         console.log('[login] Auth error indicates a restricted account, redirecting to auth-status');
-        window.location.replace(`/auth-status/?email=${encodeURIComponent(email)}&status=${status}`);
+        window.location.replace(`/auth-status/?email=${encodeURIComponent(email)}&status=${restrictionStatus}`);
         return;
       }
 

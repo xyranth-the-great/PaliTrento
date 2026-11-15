@@ -90,7 +90,7 @@ function getStatusDetailsFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const status = params.get('status');
   return {
-    status: status === 'suspended' || status === 'banned' ? status : null,
+    status: ['suspended', 'banned', 'restricted'].includes(status) ? status : null,
     until: params.get('until'),
     reason: params.get('reason'),
     since: params.get('since')
@@ -145,9 +145,15 @@ async function checkProfileByEmail(email) {
         ? expiry
           ? `The sign-in check reports a suspension ending ${expiry}, but the profile status says Active. Please contact support if this date is incorrect.`
           : 'The sign-in check reports a suspension, but no expiry date was found in the profile. Please contact support to confirm your restoration time.'
-        : 'Sign-in reports that this account is banned, but the profile record says Active. Please contact support to confirm your account status.';
+        : statusDetails.status === 'banned'
+          ? 'Sign-in reports a permanent ban, but the profile status says Active. Please contact support to confirm your account status.'
+          : 'Sign-in was blocked, but the profile status says Active. The sign-in error does not distinguish a suspension from a permanent ban, so please contact support to confirm your account status.';
       showPersistentMessage(
-        statusDetails.status === 'suspended' ? 'Your account is suspended' : 'Your account is banned',
+        statusDetails.status === 'suspended'
+          ? 'Your account is suspended'
+          : statusDetails.status === 'banned'
+            ? 'Your account is banned'
+            : 'Your account access is restricted',
         mismatchMessage
       );
       return;
@@ -215,7 +221,11 @@ async function checkProfileByEmail(email) {
 function showRestrictedStatus(status, profile, statusDetails, message) {
   showStatus(profile || {}, status, statusDetails);
   showPersistentMessage(
-    status === 'suspended' ? 'Your account is suspended' : 'Your account is banned',
+    status === 'suspended'
+      ? 'Your account is suspended'
+      : status === 'banned'
+        ? 'Your account is banned'
+        : 'Your account access is restricted',
     message
   );
 }

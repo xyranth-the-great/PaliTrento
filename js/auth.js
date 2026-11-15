@@ -19,17 +19,13 @@ export function checkAuthErrorParams() {
 
   const errorCode = searchParams.get('error_code') || hashParams.get('error_code');
   const errorDesc = searchParams.get('error_description') || hashParams.get('error_description');
+  const restrictionStatus = getAuthRestrictionStatus(errorCode, errorDesc);
 
   // Handle Supabase auth errors that redirect back to the site
   // These occur when Supabase rejects the login before creating a session
-  if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
-      errorDesc?.toLowerCase().includes('banned') ||
-      errorDesc?.toLowerCase().includes('suspended')) {
-    const status = errorCode === 'user_suspended' || errorDesc?.toLowerCase().includes('suspended')
-      ? 'suspended'
-      : 'banned';
+  if (restrictionStatus) {
     const lastEmail = sessionStorage.getItem('palitrento_last_login_email');
-    const params = new URLSearchParams({ status });
+    const params = new URLSearchParams({ status: restrictionStatus });
     if (lastEmail) params.set('email', lastEmail);
     return `/auth-status/?${params}`;
   }
@@ -42,6 +38,16 @@ export function checkAuthErrorParams() {
   if (errorCode === 'access_denied' && errorDesc?.includes('signup_disabled')) {
     return '/login/';
   }
+  return null;
+}
+
+export function getAuthRestrictionStatus(errorCode, errorDescription) {
+  const code = String(errorCode || '').toLowerCase();
+  const description = String(errorDescription || '').toLowerCase();
+
+  if (code === 'user_suspended' || description.includes('suspended')) return 'suspended';
+  if (description.includes('permanently banned') || description.includes('permanent ban')) return 'banned';
+  if (code === 'user_banned' || description.includes('banned')) return 'restricted';
   return null;
 }
 
