@@ -182,7 +182,10 @@ serve(async (req) => {
         p_duration_hours: finalDurationHours,
         p_custom_duration_days: finalCustomDays,
       })
-      if (moderationError) return respond({ error: moderationError.message }, 400)
+      if (moderationError) {
+        console.error('Account moderation RPC failed:', moderationError)
+        return respond({ error: moderationError.message }, 400)
+      }
 
       // Send warning notification for warn action
       if (moderationAction === 'warn') {

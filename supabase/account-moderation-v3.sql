@@ -57,6 +57,19 @@ create trigger sync_profile_email_trigger
   before insert or update on public.profiles
   for each row execute function public.sync_profile_email();
 
+-- Upgrade legacy checks created before permanent bans were added.
+alter table public.profiles
+  drop constraint if exists profiles_account_status_check;
+alter table public.profiles
+  add constraint profiles_account_status_check
+  check (account_status in ('active', 'suspended', 'banned'));
+
+alter table public.account_moderation_actions
+  drop constraint if exists account_moderation_actions_action_check;
+alter table public.account_moderation_actions
+  add constraint account_moderation_actions_action_check
+  check (action in ('warn', 'suspend_temporary', 'suspend_permanent', 'ban', 'restore', 'unban'));
+
 -- Allow anon to read profiles by email (for auth-status check without session)
 -- This is safe because it only exposes moderation status, not sensitive data
 drop policy if exists "anon read profile by email for auth check" on public.profiles;
@@ -132,7 +145,7 @@ create index if not exists account_moderation_actions_actor_idx on public.accoun
 
 -- ============================================================
 -- DEPLOYMENT CHECKLIST:
--- 1. Run this migration in Supabase SQL Editor
+-- 1. Run this migration in Supabase SQL Editor after account-moderation-v2.sql
 -- 2. Deploy the admin-account-moderation Edge Function (if not already deployed)
 -- 3. Set up pg_cron to run auto_restore_expired_suspensions() every 5 minutes:
 --    SELECT cron.schedule('auto-restore-expired-suspensions', '*/5 * * * *', 'SELECT public.auto_restore_expired_suspensions();');

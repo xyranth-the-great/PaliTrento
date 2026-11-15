@@ -117,6 +117,19 @@ function actionLabel(action) {
   })[action] || action;
 }
 
+async function getModerationErrorMessage(error) {
+  const response = error?.context;
+  if (response && typeof response.clone === 'function') {
+    try {
+      const payload = await response.clone().json();
+      if (typeof payload?.error === 'string') return payload.error;
+    } catch (parseError) {
+      console.warn('[admin-accounts] Could not read moderation error response:', parseError);
+    }
+  }
+  return error?.message || 'Moderation failed. Try again.';
+}
+
 function getAvailableActions(account) {
   const status = getAccountStatus(account);
   const ownAdmin = account.id === currentSession.user.id && account.role === 'admin';
@@ -355,8 +368,9 @@ async function submitModeration(event) {
     console.log('[admin-accounts] Moderation response - data.result:', data?.result);
     console.log('[admin-accounts] Moderation response - data.warning:', data?.warning);
     if (error || data?.error) {
-      moderationMessage.textContent = data?.error || error?.message || 'Moderation failed. Try again.';
-      console.error('[admin-accounts] Moderation failed:', data?.error || error);
+      const errorMessage = data?.error || await getModerationErrorMessage(error);
+      moderationMessage.textContent = errorMessage;
+      console.error('[admin-accounts] Moderation failed:', errorMessage);
       return;
     }
     console.log('[admin-accounts] Moderation succeeded');

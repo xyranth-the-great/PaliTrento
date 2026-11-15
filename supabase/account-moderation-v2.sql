@@ -29,6 +29,19 @@ create table if not exists public.account_moderation_actions (
 create index if not exists account_moderation_actions_target_idx
   on public.account_moderation_actions (target_user_id, created_at desc);
 
+-- Replace legacy checks as ADD COLUMN IF NOT EXISTS does not update them.
+alter table public.profiles
+  drop constraint if exists profiles_account_status_check;
+alter table public.profiles
+  add constraint profiles_account_status_check
+  check (account_status in ('active', 'suspended', 'banned'));
+
+alter table public.account_moderation_actions
+  drop constraint if exists account_moderation_actions_action_check;
+alter table public.account_moderation_actions
+  add constraint account_moderation_actions_action_check
+  check (action in ('warn', 'suspend_temporary', 'suspend_permanent', 'ban', 'restore', 'unban'));
+
 alter table public.account_moderation_actions enable row level security;
 
 -- Users can read their own warnings
