@@ -29,6 +29,13 @@ async function init() {
     return;
   }
 
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
+    return;
+  }
+
   const { session, profile, redirectPath } = await getSessionWithStatus();
   if (redirectPath) {
     window.location.replace(redirectPath);

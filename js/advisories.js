@@ -1,6 +1,12 @@
 import { renderChrome, $, esc, startAdvisoryToastListener, openNotificationModal } from './ui.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
+
+// Check for auth error params from Supabase redirect
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 const { session, profile, redirectPath } = await getSessionWithStatus();
 if (redirectPath) {
