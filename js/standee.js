@@ -291,14 +291,17 @@ async function generatePDF(options) {
   const pageHeight = pdfGenerator.pageHeight;
   const margin = 10; // Tighter margin for A5
   const contentWidth = pageWidth - 2 * margin;
-  const maxY = pageHeight - 14; // Footer reserve
+
+  // Footer reserve: line (3) + text1 (4) + gap (1) + text2 (3) + bottom margin (3) = ~14mm
+  const FOOTER_HEIGHT = 14;
+  const footerY = pageHeight - FOOTER_HEIGHT;
+  const maxContentY = footerY - 4; // 4mm gap before footer line
 
   let currentY = margin;
 
   // ===== COMPACT HEADER =====
   pdfGenerator.addRect(0, 0, pageWidth, 36, { color: '#1f4d2e' });
 
-  // Header text
   pdf.setFontSize(18);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor('#fef3e2');
@@ -309,7 +312,6 @@ async function generatePDF(options) {
   pdf.setTextColor('#fef3e2');
   pdf.text('Tara, Palit Ta sa Trento!', margin, 26);
 
-  // TRN code on right
   pdf.setFontSize(8);
   pdf.setTextColor('#fef3e2');
   pdf.text(`TRN: ${s.trn_code}`, pageWidth - margin, 18, { align: 'right' });
@@ -367,7 +369,7 @@ async function generatePDF(options) {
   currentY += 4;
 
   // ===== DETAILS ROW (two-column layout for space efficiency) =====
-  const labelW = 20; // Label column width
+  const labelW = 20;
   const valX = margin + labelW;
   const valW = contentWidth - labelW;
 
@@ -404,29 +406,36 @@ async function generatePDF(options) {
     currentY = pdfGenerator.addText(payments, valX, currentY, { fontSize: 8.5, color: '#1c2a20' }) + 3;
   }
 
-  // Map (optional, compact)
+  // Map (optional, compact) - using addText so currentY tracks properly
   if (document.getElementById('includeMap')?.checked) {
-    currentY = pdfGenerator.addText('Loc', margin, currentY, { fontSize: 8, fontStyle: 'bold', color: '#1f4d2e' });
+    currentY = pdfGenerator.addText('Location', margin, currentY, { fontSize: 8, fontStyle: 'bold', color: '#1f4d2e' });
     currentY += 1;
 
-    const mapH = 18;
+    const mapH = 20;
     const mapX = margin;
     const mapW = contentWidth;
+
+    // Map background with border
     pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
     pdf.setDrawColor('#dcdad3');
-    pdf.setLineWidth(0.3);
+    pdf.setLineWidth(0.4);
     pdf.rect(mapX, currentY, mapW, mapH, 'S');
-    pdf.setFontSize(7);
-    pdf.setTextColor('#999');
-    pdf.text(`Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, currentY + mapH / 2 + 2, { align: 'center' });
-    currentY += mapH + 4;
+
+    // Coordinates - use addText for proper Y tracking
+    currentY = pdfGenerator.addText(`Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, currentY + mapH / 2 - 2, {
+      fontSize: 7.5,
+      color: '#999',
+      align: 'center'
+    }) + 1;
+
+    currentY += 4; // gap after map
   }
 
-  // ===== QR SECTION (fills remaining space) =====
-  // Ensure QR fits: reserve space for QR + text + footer
-  const qrReserve = 60; // QR (48) + gap (4) + label (8)
-  if (currentY > maxY - qrReserve) {
-    currentY = maxY - qrReserve;
+  // ===== QR SECTION (fills remaining space, but stops before footer) =====
+  // Reserve space for: divider(4) + label(5) + QR(min35) + gap(2) + url(4) + tagline(5) = ~55mm
+  const qrReserve = 55;
+  if (currentY > maxContentY - qrReserve) {
+    currentY = maxContentY - qrReserve;
   }
 
   pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.5 });
@@ -440,9 +449,10 @@ async function generatePDF(options) {
   });
   currentY += 3;
 
-  // QR Code - sized to fit
+  // QR Code - sized to fit available space
   if (qrDataUrl) {
-    const maxQrSize = Math.min(55, contentWidth * 0.7, maxY - currentY - 10);
+    const availableH = maxContentY - currentY - 10; // leave 10mm for URL + tagline
+    const maxQrSize = Math.min(55, contentWidth * 0.7, availableH);
     const qrSize = Math.max(35, maxQrSize);
     const qrX = (pageWidth - qrSize) / 2;
     pdfGenerator.addQRCode(qrDataUrl, qrX, currentY, qrSize);
@@ -463,8 +473,7 @@ async function generatePDF(options) {
     align: 'center'
   });
 
-  // ===== FOOTER =====
-  const footerY = pageHeight - 8;
+  // ===== FOOTER (fixed at bottom, no overlap) =====
   pdfGenerator.addLine(margin, footerY - 3, pageWidth - margin, footerY - 3, { color: '#dcdad3', width: 0.4 });
 
   pdfGenerator.addText('PaliTrento  •  Tara, Palit Ta sa Trento!', pageWidth / 2, footerY, {
@@ -473,7 +482,7 @@ async function generatePDF(options) {
     align: 'center'
   });
 
-  pdfGenerator.addText('Municipality of Trento, Agusan del Sur', pageWidth / 2, footerY + 3, {
+  pdfGenerator.addText('Municipality of Trento, Agusan del Sur', pageWidth / 2, footerY + 3.5, {
     fontSize: 5.5,
     color: '#999',
     align: 'center'
