@@ -194,9 +194,9 @@ async function initMapCapture() {
     return;
   }
 
-  // Create a temporary container in the document body (visible for layout)
+  // Create a temporary container - hidden from start
   const containerWrapper = document.createElement('div');
-  containerWrapper.style.cssText = 'position:fixed;top:0;left:0;width:400px;height:300px;z-index:-1;pointer-events:none;overflow:hidden;';
+  containerWrapper.style.cssText = 'position:fixed;top:0;left:0;width:400px;height:300px;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;visibility:hidden;';
   const mapContainer = document.createElement('div');
   mapContainer.id = 'map-capture';
   mapContainer.style.width = '100%';
@@ -222,8 +222,8 @@ async function initMapCapture() {
       tap: false,
     });
 
-    // Add Stadia Maps tile layer (CORS-enabled OSM tiles)
-    L.tileLayer('https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png', {
+    // Use MapTiler tiles (generous free tier, no API key needed for low usage, CORS enabled)
+    L.tileLayer('https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=demo', {
       maxZoom: 20,
       crossOrigin: 'anonymous',
     }).addTo(map);
