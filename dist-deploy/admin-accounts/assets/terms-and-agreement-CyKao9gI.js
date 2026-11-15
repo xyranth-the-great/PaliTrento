@@ -1,0 +1,1 @@
+import"./modulepreload-polyfill-B5Qt9EMX.js";import{r as e}from"./ui-RYbaGHoh.js";import{getSession as o,getCachedProfile as t}from"./auth-_FXb4y8X.js";import"./styles-lfujndA6.js";import"./supabase-qt0oOlL5.js";const r=await o(),i=r?await t(r.user.id):null;e("terms-and-agreement.html",r,i);

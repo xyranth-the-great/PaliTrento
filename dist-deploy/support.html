@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Help & Support | PaliTrento</title>
+<meta name="description" content="Get help with PaliTrento - FAQs, contact administration, and submit support requests.">
+<link rel="icon" type="image/png" href="./logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  .support-page .wrap { max-width: 800px; }
+  .support-section { margin-bottom: 48px; }
+  .support-section h2 { margin: 0 0 16px; }
+  .faq-item { border: 1px solid var(--line); border-radius: var(--r-lg); margin-bottom: 12px; overflow: hidden; }
+  .faq-question { width: 100%; text-align: left; padding: 16px 20px; background: var(--card); border: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font: inherit; font-weight: 600; color: var(--ink); }
+  .faq-question:hover { background: var(--muted-bg); }
+  .faq-answer { padding: 0 20px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; color: var(--muted); line-height: 1.6; }
+  .faq-answer.open { padding: 0 20px 20px; max-height: 500px; }
+  .faq-icon { transition: transform 0.3s ease; }
+  .faq-icon.open { transform: rotate(180deg); }
+  .contact-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px; margin-bottom: 16px; }
+  .contact-card h3 { margin: 0 0 8px; }
+  .contact-card p { margin: 0 0 16px; color: var(--muted); }
+  .ticket-form { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px; }
+  .ticket-form h2 { margin: 0 0 8px; }
+  .ticket-form > p { margin: 0 0 24px; color: var(--muted); }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 11px 12px; border: 1px solid #8a948d; border-radius: var(--r-md); background: #fff; font: inherit; }
+  .form-group textarea { min-height: 120px; resize: vertical; }
+  .form-group .hint { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .required { color: var(--bad); }
+  .btn-submit { width: 100%; padding: 14px; font-size: 1rem; }
+  .tickets-list { display: flex; flex-direction: column; gap: 12px; }
+  .ticket-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 20px; }
+  .ticket-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .ticket-title { font-weight: 700; font-size: 1.1rem; }
+  .ticket-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .ticket-status-open { background: var(--info-bg); color: var(--info); }
+  .ticket-status-in_progress { background: var(--warn-bg); color: var(--warn); }
+  .ticket-status-waiting_for_user { background: var(--amber-light); color: var(--amber); }
+  .ticket-status-resolved { background: var(--ok-bg); color: var(--ok); }
+  .ticket-status-closed { background: var(--muted-bg); color: var(--muted); }
+  .ticket-meta { display: flex; gap: 16px; color: var(--muted); font-size: 0.85rem; margin-bottom: 12px; flex-wrap: wrap; }
+  .ticket-description { color: var(--ink); line-height: 1.6; margin-bottom: 16px; }
+  .ticket-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ticket-thread { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .ticket-message { padding: 12px; background: var(--muted-bg); border-radius: var(--r-md); margin-bottom: 8px; }
+  .ticket-message.admin { background: var(--info-bg); }
+  .message-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .message-content { color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
+  .reply-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .empty-state { text-align: center; padding: 48px 24px; color: var(--muted); }
+  .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.5; }
+  @media (max-width: 600px) {
+    .ticket-header { flex-direction: column; align-items: start; }
+    .ticket-meta { flex-direction: column; gap: 4px; }
+  }
+</style>
+  <script type="module" crossorigin src="./assets/support-m_hVk8yv.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/styles-lfujndA6.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-RYbaGHoh.js">
+  <link rel="modulepreload" crossorigin href="./assets/supabase-qt0oOlL5.js">
+  <link rel="modulepreload" crossorigin href="./assets/auth-_FXb4y8X.js">
+  <link rel="stylesheet" crossorigin href="./assets/styles-BYiDBinS.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="support-page">
+<div class="wrap" style="padding-top:24px;padding-bottom:48px">
+  <h1 style="margin:0 0 8px">Help & Support</h1>
+  <p class="muted" style="margin-bottom:32px">Find answers to common questions, contact us, or manage your support tickets.</p>
+
+  <!-- FAQ Section -->
+  <section class="support-section" id="faq-section">
+    <h2>Frequently Asked Questions</h2>
+    <div id="faq-list"></div>
+  </section>
+
+  <!-- Contact Administration -->
+  <section class="support-section" id="contact-section">
+    <h2>Contact Administration</h2>
+    <div class="contact-card">
+      <h3>Email Support</h3>
+      <p>For general inquiries, business partnerships, or technical issues not covered by the ticket system.</p>
+      <a href="mailto:admin@palitrento.online" class="btn">admin@palitrento.online</a>
+    </div>
+    <div class="contact-card">
+      <h3>Business Verification Questions</h3>
+      <p>Questions about document requirements, submission process, or verification status.</p>
+      <a href="/support/?category=BUSINESS_VERIFICATION" class="btn alt">Submit a Ticket</a>
+    </div>
+    <div class="contact-card">
+      <h3>Report Inappropriate Content</h3>
+      <p>Use the reporting feature on business or product pages for immediate review.</p>
+    </div>
+  </section>
+
+  <!-- Submit Support Request -->
+  <section class="support-section" id="submit-section">
+    <h2>Submit a Support Request</h2>
+    <div class="ticket-form">
+      <form id="ticket-form" novalidate>
+        <div class="form-group">
+          <label for="ticket-subject">Subject <span class="required">*</span></label>
+          <input id="ticket-subject" name="subject" type="text" required placeholder="Brief summary of your issue" maxlength="200">
+        </div>
+
+        <div class="form-group">
+          <label for="ticket-category">Category <span class="required">*</span></label>
+          <select id="ticket-category" name="category" required>
+            <option value="">Choose a category</option>
+            <option value="ACCOUNT_PROBLEMS">Account Problems</option>
+            <option value="LOGIN_AUTHENTICATION">Login and Authentication</option>
+            <option value="BUSINESS_VERIFICATION">Business Verification</option>
+            <option value="STORE_MANAGEMENT">Store Management</option>
+            <option value="PRODUCT_LISTINGS">Product Listings</option>
+            <option value="REPORTS_MODERATION">Reports and Moderation</option>
+            <option value="PAYMENTS_PRICING">Payments or Pricing</option>
+            <option value="TECHNICAL_ISSUES">Technical Issues</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="ticket-description">Description <span class="required">*</span></label>
+          <textarea id="ticket-description" name="description" required placeholder="Please describe your issue in detail. Include steps to reproduce, error messages, and any relevant information."></textarea>
+          <p class="hint">The more details you provide, the faster we can help.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="ticket-attachment">Attachment (optional)</label>
+          <input id="ticket-attachment" name="attachment" type="file" accept="application/pdf,image/jpeg,image/png,image/webp,text/plain">
+          <p class="hint">PDF, JPG, PNG, WebP, or TXT. Max 5 MB.</p>
+        </div>
+
+        <button type="submit" class="btn btn-submit" id="ticket-submit-btn">Submit Ticket</button>
+      </form>
+
+      <div id="ticket-success" style="display:none;text-align:center;padding:32px">
+        <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--ok-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ok)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3 style="margin:0 0 8px">Ticket Submitted Successfully!</h3>
+        <p class="muted" style="margin:0 0 16px">Your support ticket has been created. You'll receive a confirmation and can track progress in <strong>My Support Tickets</strong> below.</p>
+        <p class="muted" id="ticket-id-display" style="font-family:monospace;font-size:.9rem"></p>
+        <a href="#my-tickets" class="btn" style="margin-top:16px;display:inline-block">View My Tickets</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- My Support Tickets -->
+  <section class="support-section" id="my-tickets-section">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <h2 style="margin:0">My Support Tickets</h2>
+    </div>
+
+    <div id="tickets-loading" class="muted" style="text-align:center;padding:32px">Loading your tickets...</div>
+
+    <div id="tickets-empty" class="empty-state" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/><path d="M14 2v4a2 2 0 01-2 2H8a2 2 0 010-4h4"/></svg>
+      <h3>No Support Tickets Yet</h3>
+      <p>You haven't submitted any support tickets. Use the form above to create one.</p>
+      <a href="#submit-section" class="btn" style="margin-top:16px;display:inline-block">Submit a Ticket</a>
+    </div>
+
+    <div id="tickets-list" class="tickets-list" style="display:none"></div>
+  </section>
+</div>
+</main>
+<div id="chrome-foot"></div>
+
+<!-- Ticket Detail Modal -->
+<dialog id="ticket-modal" class="modal" style="max-width:700px">
+  <form id="ticket-detail-form">
+    <h2 id="modal-ticket-title" style="margin:0 0 8px">Ticket Details</h2>
+    <p id="modal-ticket-meta" class="muted" style="margin:0 0 16px"></p>
+
+    <div class="ticket-thread" id="ticket-thread"></div>
+
+    <div class="reply-form">
+      <label for="reply-message">Add a Reply</label>
+      <textarea id="reply-message" rows="3" placeholder="Type your reply..."></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button type="button" class="btn alt" id="reply-cancel">Cancel</button>
+        <button type="button" class="btn" id="reply-submit">Send Reply</button>
+      </div>
+    </div>
+
+    <p id="modal-message" class="muted" role="status" aria-live="polite" style="margin-top:12px"></p>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+      <button type="button" class="btn alt" id="modal-close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+</body>
+</html>

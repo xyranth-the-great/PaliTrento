@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Business Document Verification | PaliTrento Admin</title>
+<meta name="description" content="Review and approve business verification documents.">
+<link rel="icon" type="image/png" href="./logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  .admin-verification-docs-page .wrap { max-width: 1200px; }
+  .verification-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; align-items: end; }
+  .verification-filters > * { flex: 1; min-width: 200px; }
+  .verification-table { width: 100%; border-collapse: collapse; }
+  .verification-table th, .verification-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--line); }
+  .verification-table th { font-weight: 700; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .verification-table tr:hover { background: var(--muted-bg); }
+  .doc-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .doc-status-pending { background: var(--warn-bg); color: var(--warn); }
+  .doc-status-approved { background: var(--ok-bg); color: var(--ok); }
+  .doc-status-rejected { background: var(--bad-bg); color: var(--bad); }
+  .doc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .doc-actions .btn { padding: 6px 12px; font-size: 0.8rem; }
+  .modal-content { max-height: 80vh; overflow: auto; }
+  .document-preview { max-width: 100%; max-height: 60vh; border-radius: var(--r-lg); border: 1px solid var(--line); }
+  .rejection-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  @media (max-width: 760px) {
+    .verification-table { font-size: 0.85rem; }
+    .verification-table th, .verification-table td { padding: 8px; }
+    .doc-actions { flex-direction: column; }
+  }
+</style>
+  <script type="module" crossorigin src="./assets/admin-verification-docs-dvHR7JAg.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/styles-lfujndA6.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-RYbaGHoh.js">
+  <link rel="modulepreload" crossorigin href="./assets/supabase-qt0oOlL5.js">
+  <link rel="modulepreload" crossorigin href="./assets/auth-_FXb4y8X.js">
+  <link rel="stylesheet" crossorigin href="./assets/styles-BYiDBinS.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="admin-verification-docs-page">
+<div class="wrap" style="padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Business Document Verification</h1>
+      <p class="muted">Review and approve/reject submitted business documents.</p>
+    </div>
+    <a href="/admin/" class="btn alt">Back to Admin Dashboard</a>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="verification-filters">
+      <div>
+        <label for="filter-store" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Search Store</label>
+        <input id="filter-store" type="search" placeholder="Business name or TRN" autocomplete="off">
+      </div>
+      <div>
+        <label for="filter-doc-type" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Document Type</label>
+        <select id="filter-doc-type">
+          <option value="">All Types</option>
+          <option value="BARANGAY_CLEARANCE">Barangay Clearance</option>
+          <option value="CEDULA">Cedula</option>
+          <option value="BUSINESS_PERMIT">Business Permit</option>
+        </select>
+      </div>
+      <div>
+        <label for="filter-status" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Status</label>
+        <select id="filter-status">
+          <option value="">All Statuses</option>
+          <option value="PENDING_REVIEW">Pending Review</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+    </div>
+
+    <p id="verification-list-message" class="muted" role="status" aria-live="polite" style="margin-top:16px">Loading documents...</p>
+
+    <div style="overflow-x:auto">
+      <table class="verification-table" id="verification-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Store</th>
+            <th>TRN</th>
+            <th>Document Type</th>
+            <th>Submitted</th>
+            <th>Status</th>
+            <th>File</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="verification-body"></tbody>
+      </table>
+    </div>
+
+    <p id="no-verification" class="muted" style="display:none;text-align:center;padding:32px">No documents match this filter.</p>
+  </div>
+</div>
+</main>
+<div id="chrome-foot"></div>
+
+<!-- Document Review Modal -->
+<dialog id="doc-modal" class="modal" style="max-width:600px">
+  <form id="doc-form">
+    <h2 id="doc-modal-title" style="margin:0 0 8px">Review Document</h2>
+    <p id="doc-modal-info" class="muted" style="margin:0 0 16px"></p>
+
+    <div id="doc-preview-container" style="margin-bottom:16px"></div>
+
+    <div class="rejection-form" id="rejection-form" style="display:none">
+      <label for="rejection-reason">Rejection Reason <span style="color:var(--bad)">*</span></label>
+      <textarea id="rejection-reason" rows="3" maxlength="1000" placeholder="Explain why this document is being rejected"></textarea>
+    </div>
+
+    <p id="doc-modal-message" class="muted" role="status" aria-live="polite"></p>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+      <button type="button" class="btn alt" id="doc-cancel">Cancel</button>
+      <button type="button" class="btn bad" id="doc-reject" style="display:none">Reject</button>
+      <button type="button" class="btn ok" id="doc-approve">Approve</button>
+    </div>
+  </form>
+</dialog>
+
+</body>
+</html>

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node post-build.js /tmp/palitrento-dist",
+    "build": "vite build && node post-build.js dist-deploy",
     "build:ngrok": "vite build --base=./",
     "preview": "vite preview"
   },

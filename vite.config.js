@@ -95,7 +95,7 @@ export default defineConfig({
     target: 'es2022' },
   build: {
     target: 'es2022',
-    outDir: '/tmp/palitrento-dist',
+    outDir: 'dist-deploy',
     rollupOptions: { input }
   }
 });

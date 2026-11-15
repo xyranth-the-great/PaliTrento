@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Account Suspended | PaliTrento</title>
+<meta name="description" content="Your account has been temporarily suspended.">
+<link rel="icon" type="image/png" href="./logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  .suspended-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--pad); }
+  .suspended-card { width: 100%; max-width: 480px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 40px; text-align: center; }
+  .suspended-icon { width: 80px; height: 80px; margin: 0 auto 24px; background: var(--warn-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--warn); }
+  .suspended-icon svg { width: 40px; height: 40px; }
+  .suspended-title { font-size: 1.75rem; color: var(--primary-dark); margin: 0 0 8px; }
+  .suspended-subtitle { color: var(--muted); margin: 0 0 32px; }
+  .suspended-details { background: var(--muted-bg); border-radius: var(--r-lg); padding: 20px; margin-bottom: 24px; text-align: left; }
+  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--muted); font-size: 0.9rem; }
+  .detail-value { font-weight: 600; color: var(--ink); text-align: right; max-width: 60%; word-break: break-word; }
+  .detail-value.reason { font-weight: 400; color: var(--muted); white-space: pre-wrap; }
+  .countdown { font-size: 1.25rem; font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
+  .suspended-message { color: var(--muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 24px; }
+  .suspended-actions { display: flex; flex-direction: column; gap: 12px; }
+  .btn-logout { background: var(--muted-bg); color: var(--ink); border: 1px solid var(--line); }
+  .btn-logout:hover { background: var(--line); }
+  @media (max-width: 480px) {
+    .suspended-card { padding: 24px; }
+    .suspended-title { font-size: 1.5rem; }
+    .detail-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .detail-value { text-align: left; max-width: 100%; }
+  }
+</style>
+  <script type="module" crossorigin src="./assets/suspended-BseaUDY-.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/styles-lfujndA6.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-RYbaGHoh.js">
+  <link rel="modulepreload" crossorigin href="./assets/supabase-qt0oOlL5.js">
+  <link rel="stylesheet" crossorigin href="./assets/styles-BYiDBinS.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="suspended-page">
+  <div class="suspended-card" role="alert">
+    <div class="suspended-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+    </div>
+    <h1 class="suspended-title">Your Account Has Been Suspended</h1>
+    <p class="suspended-subtitle">Your account has been temporarily suspended by an administrator.</p>
+
+    <div class="suspended-details">
+      <div class="detail-row">
+        <span class="detail-label">Suspended on</span>
+        <span class="detail-value" id="suspended-date">—</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Expires on</span>
+        <span class="detail-value" id="expires-date">—</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Time remaining</span>
+        <span class="detail-value countdown" id="time-remaining">Calculating…</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Reason</span>
+        <span class="detail-value reason" id="suspension-reason">—</span>
+      </div>
+    </div>
+
+    <p class="suspended-message">
+      This suspension is temporary. Your account access will be automatically restored on the expiration date shown above.
+      If you believe this suspension was issued in error, please contact the PaliTrento administration.
+    </p>
+
+    <div class="suspended-actions">
+      <button type="button" class="btn" id="back-btn">Return to home</button>
+    </div>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

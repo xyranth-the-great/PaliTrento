@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Account Status Check | PaliTrento</title>
+<meta name="description" content="Verifying your account status...">
+<link rel="icon" type="image/png" href="./logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  .auth-status-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--pad); }
+  .auth-status-card { width: 100%; max-width: 480px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 40px; text-align: center; }
+  .auth-status-icon { width: 80px; height: 80px; margin: 0 auto 24px; background: var(--muted-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+  .auth-status-icon svg { width: 40px; height: 40px; }
+  .auth-status-title { font-size: 1.5rem; color: var(--primary-dark); margin: 0 0 8px; }
+  .auth-status-subtitle { color: var(--muted); margin: 0 0 32px; }
+  .auth-status-details { background: var(--muted-bg); border-radius: var(--r-lg); padding: 20px; margin-bottom: 24px; text-align: left; }
+  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--muted); font-size: 0.9rem; }
+  .detail-value { font-weight: 600; color: var(--ink); text-align: right; max-width: 60%; word-break: break-word; }
+  .spinner { width: 40px; height: 40px; margin: 0 auto 16px; border: 4px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 480px) {
+    .auth-status-card { padding: 24px; }
+    .auth-status-title { font-size: 1.25rem; }
+    .detail-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .detail-value { text-align: left; max-width: 100%; }
+  }
+</style>
+  <script type="module" crossorigin src="./assets/auth-status-D_TwuERS.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/styles-lfujndA6.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-RYbaGHoh.js">
+  <link rel="modulepreload" crossorigin href="./assets/supabase-qt0oOlL5.js">
+  <link rel="stylesheet" crossorigin href="./assets/styles-BYiDBinS.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="auth-status-page">
+  <div class="auth-status-card" role="status" aria-live="polite">
+    <div class="auth-status-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spinner">
+        <circle cx="12" cy="12" r="10"></circle>
+      </svg>
+    </div>
+    <h1 class="auth-status-title">Verifying Account Status</h1>
+    <p class="auth-status-subtitle">Please wait while we check your account status...</p>
+
+    <div class="auth-status-details" id="status-details" style="display:none">
+      <div class="detail-row">
+        <span class="detail-label">Account Status</span>
+        <span class="detail-value" id="status-value">—</span>
+      </div>
+      <div class="detail-row" id="suspended-row" style="display:none">
+        <span class="detail-label">Suspended Until</span>
+        <span class="detail-value" id="suspended-until">—</span>
+      </div>
+      <div class="detail-row" id="banned-row" style="display:none">
+        <span class="detail-label">Banned On</span>
+        <span class="detail-value" id="banned-at">—</span>
+      </div>
+      <div class="detail-row" id="reason-row" style="display:none">
+        <span class="detail-label">Reason</span>
+        <span class="detail-value" id="status-reason">—</span>
+      </div>
+    </div>
+
+    <p class="auth-status-subtitle" id="redirect-message" style="display:none"></p>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>

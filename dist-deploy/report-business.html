@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Report Business | PaliTrento</title>
+<meta name="description" content="Report a business for review by administrators.">
+<link rel="icon" type="image/png" href="./logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<style>
+  .report-page { max-width: 640px; margin: 0 auto; padding: var(--pad); }
+  .report-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 32px; }
+  .report-header { margin-bottom: 24px; text-align: center; }
+  .report-header h1 { margin: 0 0 8px; }
+  .report-header p { color: var(--muted); }
+  .business-info { background: var(--muted-bg); border-radius: var(--r-lg); padding: 16px; margin-bottom: 24px; }
+  .business-info h3 { margin: 0 0 8px; font-size: 1rem; }
+  .business-info p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; }
+  .form-group select, .form-group textarea { width: 100%; padding: 11px 12px; border: 1px solid #8a948d; border-radius: var(--r-md); background: #fff; font: inherit; }
+  .form-group textarea { min-height: 120px; resize: vertical; }
+  .form-group .hint { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .required { color: var(--bad); }
+  .btn-submit { width: 100%; padding: 14px; font-size: 1rem; }
+  .back-link { display: inline-block; margin-top: 16px; color: var(--primary); text-decoration: underline; }
+</style>
+  <script type="module" crossorigin src="./assets/report-business-ocQhRl7n.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="./assets/styles-lfujndA6.js">
+  <link rel="modulepreload" crossorigin href="./assets/ui-RYbaGHoh.js">
+  <link rel="modulepreload" crossorigin href="./assets/supabase-qt0oOlL5.js">
+  <link rel="modulepreload" crossorigin href="./assets/auth-_FXb4y8X.js">
+  <link rel="stylesheet" crossorigin href="./assets/styles-BYiDBinS.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="report-page">
+  <div class="report-card">
+    <div class="report-header">
+      <h1>Report Business</h1>
+      <p>Help keep PaliTrento safe by reporting inappropriate or fraudulent businesses.</p>
+    </div>
+
+    <div class="business-info" id="business-info">
+      <h3>Loading...</h3>
+    </div>
+
+    <form id="report-form" novalidate>
+      <div class="form-group">
+        <label for="reason">Reason <span class="required">*</span></label>
+        <select id="reason" name="reason" required>
+          <option value="">Select a reason</option>
+          <option value="INAPPROPRIATE_CONTENT">Inappropriate business content</option>
+          <option value="MISLEADING_INFORMATION">Misleading business information</option>
+          <option value="SUSPECTED_FRAUD">Suspected fraudulent business</option>
+          <option value="FAKE_IDENTITY">Fake or misleading business identity</option>
+          <option value="PROHIBITED_PRODUCTS">Prohibited or illegal products/services</option>
+          <option value="HARASSMENT">Harassment or abusive behavior</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Additional Details <span class="required">*</span></label>
+        <textarea id="description" name="description" required placeholder="Please provide as much detail as possible to help us investigate..."></textarea>
+        <p class="hint">Include specific examples, dates, or any evidence you have.</p>
+      </div>
+
+      <button type="submit" class="btn btn-submit" id="submit-btn">Submit Report</button>
+    </form>
+
+    <a href="#" id="back-link" class="back-link">← Back to business page</a>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+</body>
+</html>
