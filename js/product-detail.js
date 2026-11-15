@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, isOpen, hours, badges } from './ui.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
@@ -25,12 +25,16 @@ async function init() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (session) currentSession = session;
 
-  let profile = null;
-  if (session) profile = await getCachedProfile(session.user.id);
-  renderChrome('/product-detail/', session, profile);
+  // profile is already from getSessionWithStatus, but fetch if missing
+  const currentProfile = profile || (session ? await getCachedProfile(session.user.id) : null);
+  renderChrome('/product-detail/', session, currentProfile);
 
   if (!productId) {
     showError('No product specified');

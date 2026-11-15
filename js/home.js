@@ -1,13 +1,17 @@
 import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
-import { getSession, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { initPushNotifications } from './push.js';
 
-const session = await getSession();
-let profile = null;
-if (session) profile = await getCachedProfile(session.user.id);
+const { session, profile, redirectPath } = await getSessionWithStatus();
+
+// Redirect suspended/banned users
+if (redirectPath) {
+  window.location.replace(redirectPath);
+}
+
 const postLoginPath = getPostLoginPath(profile?.role || session?.user?.user_metadata?.role);
 const isAuthCallback = new URLSearchParams(window.location.search).get('auth_callback') === '1';
 

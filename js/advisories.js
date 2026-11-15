@@ -1,10 +1,11 @@
 import { renderChrome, $, esc, startAdvisoryToastListener, openNotificationModal } from './ui.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 import { supabase } from './supabase.js';
 
-const session = await getSession();
-let profile = null;
-if (session) profile = await getCachedProfile(session.user.id);
+const { session, profile, redirectPath } = await getSessionWithStatus();
+if (redirectPath) {
+  window.location.replace(redirectPath);
+}
 renderChrome('/advisories/', session, profile);
 
 // Start advisory toast listener for logged-in users

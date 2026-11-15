@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, BARANGAYS, CATS, PAY } from './ui.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -29,13 +29,16 @@ async function init() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
   }
 
-  let profile = await getCachedProfile(session.user.id);
   renderChrome('/store-setup/', session, profile);
 
   // Populate barangay

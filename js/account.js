@@ -1,7 +1,7 @@
 import { renderChrome, $, esc, BARANGAYS, peso } from './ui.js';
 import { supabase } from './supabase.js';
 import {
-  getSession, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
+  getSessionWithStatus, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
   signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache
 } from './auth.js';
 
@@ -25,7 +25,11 @@ async function loadAccount() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
@@ -33,7 +37,6 @@ async function loadAccount() {
 
   currentSession = session;
 
-  const profile = await getCachedProfile(session.user.id);
   renderChrome('/account/', session, profile);
 
   await loadWarnings(session.user.id);

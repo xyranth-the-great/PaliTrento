@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, CATS, PAY, badges, hours, isOpen } from './ui.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 import { supabase } from './supabase.js';
 import { generateQRCode, generateQRCodeDataURL } from './qrcode.js';
 import { createPDFGenerator } from './pdf-generator.js';
@@ -29,7 +29,11 @@ async function init() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
@@ -37,8 +41,9 @@ async function init() {
 
   currentSession = session;
 
-  let profile = await getCachedProfile(session.user.id);
-  renderChrome('/standee/', session, profile);
+  // profile is already from getSessionWithStatus, but fetch if missing
+  const currentProfile = profile || await getCachedProfile(session.user.id);
+  renderChrome('/standee/', session, currentProfile);
 
   if (!storeId) {
     // Fallback: try to find store owned by current user

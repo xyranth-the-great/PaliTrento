@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
-import { getSession, getCachedProfile, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
@@ -27,7 +27,11 @@ async function init() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
@@ -36,7 +40,6 @@ async function init() {
   currentSession = session;
   currentUserId = session.user.id;
 
-  let profile = await getCachedProfile(session.user.id);
   renderChrome('/chat/', session, profile);
 
   // Start advisory toast listener

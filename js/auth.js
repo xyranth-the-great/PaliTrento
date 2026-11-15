@@ -8,30 +8,51 @@ const UNREAD_CACHE_KEY = 'palitrento_unread_counts';
 export async function getSession() {
   if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason')
-      .eq('id', session.user.id)
-      .maybeSingle();
-
-    if (profile?.account_status === 'banned') {
-      sessionStorage.setItem('palitrento_account_notice', profile.ban_reason || 'Your account has been permanently banned. Contact PaliTrento administrators for help.');
-      clearProfileCache();
-      await supabase.auth.signOut({ scope: 'local' });
-      return null;
-    }
-
-    const isSuspended = profile?.account_status === 'suspended'
-      && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
-    if (isSuspended) {
-      sessionStorage.setItem('palitrento_account_notice', profile.suspension_reason || 'Your account is temporarily suspended. Contact PaliTrento administrators for help.');
-      clearProfileCache();
-      await supabase.auth.signOut({ scope: 'local' });
-      return null;
-    }
-  }
   return session;
+}
+
+/**
+ * Get session with account status check.
+ * Returns { session, profile, redirectPath } where redirectPath is set if account is suspended/banned.
+ * Does NOT sign out - caller should handle redirect.
+ */
+export async function getSessionWithStatus() {
+  if (!supabase) return { session: null, profile: null, redirectPath: null };
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return { session: null, profile: null, redirectPath: null };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason, role, full_name, barangay, avatar_url')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (!profile) return { session, profile: null, redirectPath: null };
+
+  // Check for banned
+  if (profile.account_status === 'banned') {
+    return { session, profile, redirectPath: '/banned/' };
+  }
+
+  // Check for active suspension
+  const isSuspended = profile.account_status === 'suspended'
+    && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
+  if (isSuspended) {
+    return { session, profile, redirectPath: '/suspended/' };
+  }
+
+  // Check for expired suspension - auto restore
+  if (profile.account_status === 'suspended' && profile.suspended_until && new Date(profile.suspended_until).getTime() <= Date.now()) {
+    try {
+      await supabase.rpc('auto_restore_expired_suspensions');
+    } catch {
+      // Ignore
+    }
+    window.location.reload();
+    return { session, profile, redirectPath: null };
+  }
+
+  return { session, profile, redirectPath: null };
 }
 
 export async function getProfile(userId) {

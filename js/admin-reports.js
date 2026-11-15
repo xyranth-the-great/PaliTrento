@@ -1,18 +1,21 @@
 import { renderChrome, $, esc, CATS, BARANGAYS } from './ui.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
 async function init() {
   if (!isSupabaseConfigured()) return;
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
   }
 
-  const profile = await getCachedProfile(session.user.id);
   if (!profile || profile.role !== 'admin') {
     window.location.href = '/';
     return;

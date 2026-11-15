@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, CATS, UNITS, PAY, peso, badges, srp, startAdvisoryToastListener } from './ui.js';
-import { getSession, getCachedProfile, clearProfileCache, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, clearProfileCache, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage, uploadProductImage, deleteProductImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -19,14 +19,17 @@ let paymentCountdownInterval = null;
 async function init() {
   if (!isSupabaseConfigured()) return;
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
   }
   currentSession = session;
 
-  let profile = await getCachedProfile(session.user.id);
   renderChrome('/dashboard/', session, profile);
 
   // Start advisory toast listener

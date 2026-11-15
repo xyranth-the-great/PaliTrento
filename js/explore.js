@@ -1,10 +1,12 @@
 import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS, startAdvisoryToastListener } from './ui.js';
 import { getStores, getProducts } from './data.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 
-const session = await getSession();
-let profile = null;
-if (session) profile = await getCachedProfile(session.user.id);
+const { session, profile, redirectPath } = await getSessionWithStatus();
+
+if (redirectPath) {
+  window.location.replace(redirectPath);
+}
 renderChrome('/explore/', session, profile);
 
 // Start advisory toast listener for logged-in users

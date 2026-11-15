@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
-import { getSession, getCachedProfile, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, startOrderStatusListener } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured, getLoginUnavailableMessage } from './auth.js';
 
@@ -15,7 +15,11 @@ async function loadOrders() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
@@ -23,7 +27,6 @@ async function loadOrders() {
 
   currentSession = session;
 
-  const profile = await getCachedProfile(session.user.id);
   renderChrome('/orders/', session, profile);
 
   // Start advisory toast listener

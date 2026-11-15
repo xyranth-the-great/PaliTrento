@@ -1,7 +1,7 @@
 import { renderChrome, $, esc, BARANGAYS, peso, startAdvisoryToastListener } from './ui.js';
 import { supabase } from './supabase.js';
 import {
-  getSession, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
+  getSessionWithStatus, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
   signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache
 } from './auth.js';
 import { subscribeToPush, unsubscribeFromPush, updatePushUI, requestNotificationPermission } from './push.js';
@@ -56,14 +56,18 @@ async function loadSettings() {
     return;
   }
 
-  const session = await getSession();
+  const { session, profile, redirectPath } = await getSessionWithStatus();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return;
+  }
   if (!session) {
     window.location.href = '/login/';
     return;
   }
 
   currentSession = session;
-  currentProfile = await getCachedProfile(session.user.id);
+  currentProfile = profile || await getCachedProfile(session.user.id);
   renderChrome('/settings/', session, currentProfile);
 
   // Start advisory toast listener

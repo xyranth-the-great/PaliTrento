@@ -2,11 +2,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderChrome, $, esc, CATS, isOpen, startAdvisoryToastListener } from './ui.js';
 import { getStores } from './data.js';
-import { getSession, getCachedProfile } from './auth.js';
+import { getSessionWithStatus } from './auth.js';
 
-const session = await getSession();
-let profile = null;
-if (session) profile = await getCachedProfile(session.user.id);
+const { session, profile, redirectPath } = await getSessionWithStatus();
+
+if (redirectPath) {
+  window.location.replace(redirectPath);
+}
 renderChrome('/map/', session, profile);
 
 // Start advisory toast listener for logged-in users
