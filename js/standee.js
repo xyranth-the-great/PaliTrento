@@ -306,7 +306,7 @@ async function generatePDF(options) {
   const headerH = isA5 ? 26 : 32;
   pdfGenerator.addRect(0, 0, pageWidth, headerH, { color: '#1f4d2e' });
 
-  // Load and add logo image inline with text (Pali[logo]rento)
+  // Load logo image (replaces the "T" in PaliTrento)
   let logoDataUrl = '';
   try {
     const logoResponse = await fetch('/logo.png');
@@ -326,10 +326,11 @@ async function generatePDF(options) {
   pdf.setTextColor('#fef3e2');
   pdf.text('Pali', margin, isA5 ? 14 : 16);
 
-  // Draw logo image after "Pali"
+  // Logo replaces the "T" - position it where "T" would be
   const paliWidth = pdf.getTextWidth('Pali');
-  const logoX = margin + paliWidth + (isA5 ? 1 : 1.5);
-  const logoSize = isA5 ? 6 : 7; // mm
+  const tWidth = pdf.getTextWidth('T');
+  const logoX = margin + paliWidth; // exactly where "T" would start
+  const logoSize = Math.max(tWidth, isA5 ? 5 : 6); // at least as wide as "T"
   const logoY = isA5 ? 10.5 : 11.5; // vertically centered in header
   if (logoDataUrl) {
     try {
@@ -339,8 +340,8 @@ async function generatePDF(options) {
     }
   }
 
-  // Draw "rento" text after logo
-  const rentoX = logoX + logoSize + (isA5 ? 1 : 1.5);
+  // Draw "rento" text after where "T" would end (logo replaces T)
+  const rentoX = logoX + Math.max(tWidth, logoSize);
   pdf.text('rento', rentoX, isA5 ? 14 : 16);
 
   pdf.setFontSize(isA5 ? 7 : 8);
@@ -458,28 +459,29 @@ async function generatePDF(options) {
     const mapX = margin;
     const mapW = contentWidth;
 
-    // Try to fetch static map from OpenStreetMap
+    // Fetch static map via Supabase Edge Function (no CORS issues)
     let mapDataUrl = '';
-    if (s.lat && s.lng) {
+    if (s.lat && s.lng && supabase) {
       try {
-        // Use openstreetmap.de static map API (free, no API key)
-        // Size in pixels: convert mm to px at ~72 DPI (1mm ≈ 2.83px)
         const mapWidthPx = Math.round(mapW * 2.83);
         const mapHeightPx = Math.round(mapH * 2.83);
-        const zoom = 16; // good detail level for a store location
-        const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${s.lat},${s.lng}&zoom=${zoom}&size=${mapWidthPx}x${mapHeightPx}&markers=${s.lat},${s.lng},red-pushpin`;
+        const zoom = 16;
 
-        const response = await fetch(staticMapUrl);
-        if (response.ok) {
-          const blob = await response.blob();
-          mapDataUrl = await new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.readAsDataURL(blob);
-          });
+        console.log('[Standee] Fetching static map via Edge Function...');
+        const { data, error } = await supabase.functions.invoke('fetch-static-map', {
+          body: { lat: s.lat, lng: s.lng, zoom, width: mapWidthPx, height: mapHeightPx }
+        });
+
+        if (error) {
+          console.warn('[Standee] Edge Function error:', error.message);
+        } else if (data?.success && data?.imageBase64) {
+          mapDataUrl = `data:${data.mimeType};base64,${data.imageBase64}`;
+          console.log('[Standee] Map loaded via Edge Function, data URL length:', mapDataUrl.length);
+        } else {
+          console.warn('[Standee] Edge Function returned no image:', data);
         }
       } catch (e) {
-        console.warn('Could not load static map:', e);
+        console.warn('[Standee] Could not load static map via Edge Function:', e);
       }
     }
 
@@ -490,19 +492,29 @@ async function generatePDF(options) {
       pdf.setDrawColor('#dcdad3');
       pdf.setLineWidth(0.4);
       pdf.rect(mapX, currentY, mapW, mapH, 'S');
+      console.log('[Standee] Map image drawn to PDF');
     } else {
-      // Fallback: placeholder box with coordinates
+      // Fallback: placeholder box with coordinates (more visible)
       pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
       pdf.setDrawColor('#dcdad3');
       pdf.setLineWidth(0.4);
       pdf.rect(mapX, currentY, mapW, mapH, 'S');
 
+      // Add a map pin icon + coordinates
       const coordY = currentY + mapH / 2 + (isA5 ? 1 : 1.5);
-      pdfGenerator.addText(`Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, coordY, {
-        fontSize: isA5 ? 6.5 : 7.5,
+      pdfGenerator.addText(`📍 Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, coordY, {
+        fontSize: isA5 ? 7 : 8,
+        color: '#1f4d2e',
+        align: 'center'
+      });
+
+      // Add note about map
+      pdfGenerator.addText('(Static map unavailable — showing coordinates)', pageWidth / 2, coordY + (isA5 ? 3.5 : 4), {
+        fontSize: isA5 ? 5.5 : 6,
         color: '#999',
         align: 'center'
       });
+      console.log('[Standee] Using fallback coordinate display');
     }
 
     // Advance Y to after the map box
