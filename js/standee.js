@@ -222,8 +222,8 @@ async function initMapCapture() {
       tap: false,
     });
 
-    // Use MapTiler tiles (generous free tier, no API key needed for low usage, CORS enabled)
-    L.tileLayer('https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=demo', {
+    // Use MapTiler tiles with API key (CORS enabled)
+    L.tileLayer('https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=SDGX4tTeBecuKwo7Vs1s', {
       maxZoom: 20,
       crossOrigin: 'anonymous',
     }).addTo(map);
