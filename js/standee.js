@@ -306,10 +306,42 @@ async function generatePDF(options) {
   const headerH = isA5 ? 26 : 32;
   pdfGenerator.addRect(0, 0, pageWidth, headerH, { color: '#1f4d2e' });
 
+  // Load and add logo image inline with text (Pali[logo]rento)
+  let logoDataUrl = '';
+  try {
+    const logoResponse = await fetch('/logo.png');
+    const logoBlob = await logoResponse.blob();
+    logoDataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(logoBlob);
+    });
+  } catch (e) {
+    console.warn('Could not load logo for PDF:', e);
+  }
+
+  // Draw "Pali" text
   pdf.setFontSize(isA5 ? 14 : 16);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor('#fef3e2');
-  pdf.text('PaliTrento', margin, isA5 ? 14 : 16);
+  pdf.text('Pali', margin, isA5 ? 14 : 16);
+
+  // Draw logo image after "Pali"
+  const paliWidth = pdf.getTextWidth('Pali');
+  const logoX = margin + paliWidth + (isA5 ? 1 : 1.5);
+  const logoSize = isA5 ? 6 : 7; // mm
+  const logoY = isA5 ? 10.5 : 11.5; // vertically centered in header
+  if (logoDataUrl) {
+    try {
+      pdf.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize);
+    } catch (e) {
+      console.warn('Could not add logo to PDF:', e);
+    }
+  }
+
+  // Draw "rento" text after logo
+  const rentoX = logoX + logoSize + (isA5 ? 1 : 1.5);
+  pdf.text('rento', rentoX, isA5 ? 14 : 16);
 
   pdf.setFontSize(isA5 ? 7 : 8);
   pdf.setFont('helvetica', 'normal');
