@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Report Business | PaliTrento</title>
+<meta name="description" content="Report a business for review by administrators.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .report-page { max-width: 640px; margin: 0 auto; padding: var(--pad); }
+  .report-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 32px; }
+  .report-header { margin-bottom: 24px; text-align: center; }
+  .report-header h1 { margin: 0 0 8px; }
+  .report-header p { color: var(--muted); }
+  .business-info { background: var(--muted-bg); border-radius: var(--r-lg); padding: 16px; margin-bottom: 24px; }
+  .business-info h3 { margin: 0 0 8px; font-size: 1rem; }
+  .business-info p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .form-group { margin-bottom: 20px; }
+  .form-group label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; }
+  .form-group select, .form-group textarea { width: 100%; padding: 11px 12px; border: 1px solid #8a948d; border-radius: var(--r-md); background: #fff; font: inherit; }
+  .form-group textarea { min-height: 120px; resize: vertical; }
+  .form-group .hint { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .required { color: var(--bad); }
+  .btn-submit { width: 100%; padding: 14px; font-size: 1rem; }
+  .back-link { display: inline-block; margin-top: 16px; color: var(--primary); text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="report-page">
+  <div class="report-card">
+    <div class="report-header">
+      <h1>Report Business</h1>
+      <p>Help keep PaliTrento safe by reporting inappropriate or fraudulent businesses.</p>
+    </div>
+
+    <div class="business-info" id="business-info">
+      <h3>Loading...</h3>
+    </div>
+
+    <form id="report-form" novalidate>
+      <div class="form-group">
+        <label for="reason">Reason <span class="required">*</span></label>
+        <select id="reason" name="reason" required>
+          <option value="">Select a reason</option>
+          <option value="INAPPROPRIATE_CONTENT">Inappropriate business content</option>
+          <option value="MISLEADING_INFORMATION">Misleading business information</option>
+          <option value="SUSPECTED_FRAUD">Suspected fraudulent business</option>
+          <option value="FAKE_IDENTITY">Fake or misleading business identity</option>
+          <option value="PROHIBITED_PRODUCTS">Prohibited or illegal products/services</option>
+          <option value="HARASSMENT">Harassment or abusive behavior</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Additional Details <span class="required">*</span></label>
+        <textarea id="description" name="description" required placeholder="Please provide as much detail as possible to help us investigate..."></textarea>
+        <p class="hint">Include specific examples, dates, or any evidence you have.</p>
+      </div>
+
+      <button type="submit" class="btn btn-submit" id="submit-btn">Submit Report</button>
+    </form>
+
+    <a href="#" id="back-link" class="back-link">← Back to business page</a>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+<script type="module">
+import { renderChrome, $, esc } from './js/ui.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './js/auth.js';
+import { supabase } from './js/supabase.js';
+import { isSupabaseConfigured } from './js/auth.js';
+
+const form = $('#report-form');
+const submitBtn = $('#submit-btn');
+const businessInfo = $('#business-info');
+const backLink = $('#back-link');
+
+let storeId = null;
+let storeData = null;
+
+async function init() {
+  const urlParams = new URLSearchParams(window.location.search);
+  storeId = urlParams.get('storeId');
+
+  if (!storeId) {
+    showError('No business specified');
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
+    return;
+  }
+
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
+    window.location.replace(redirectUrl);
+    return;
+  }
+  if (!session) {
+    window.location.href = '/login/';
+    return;
+  }
+
+  renderChrome('/report-business/', session, profile);
+
+  // Load business info
+  await loadBusiness();
+
+  form.addEventListener('submit', handleSubmit);
+}
+
+async function loadBusiness() {
+  try {
+    const { data: store, error } = await supabase
+      .from('stores')
+      .select('business_name, trn_code, barangay, verification_status')
+      .eq('id', storeId)
+      .maybeSingle();
+
+    if (error || !store) {
+      showError('Business not found');
+      return;
+    }
+
+    storeData = store;
+    businessInfo.innerHTML = `
+      <h3>${esc(store.business_name)}</h3>
+      <p>TRN: ${esc(store.trn_code)} · ${esc(store.barangay)} · ${store.verification_status}</p>
+    `;
+
+    backLink.href = `/business/?trn=${encodeURIComponent(store.trn_code)}`;
+    backLink.textContent = `← Back to ${esc(store.business_name)}`;
+  } catch (err) {
+    console.error('Load business error:', err);
+    showError('Failed to load business');
+  }
+}
+
+async function handleSubmit(e) {
+  e.preventDefault();
+
+  const reason = form.reason.value;
+  const description = form.description.value.trim();
+
+  if (!reason) {
+    showError('Please select a reason');
+    return;
+  }
+
+  if (!description) {
+    showError('Please provide additional details');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Submitting...';
+
+  try {
+    const { data, error } = await supabase.rpc('create_business_report', {
+      p_store_id: storeId,
+      p_reason: reason,
+      p_description: description
+    });
+
+    if (error) throw error;
+
+    // Success
+    document.body.innerHTML = `
+      <div class="report-card" style="text-align:center">
+        <div class="report-header">
+          <div style="width:64px;height:64px;margin:0 auto 16px;background:var(--ok-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ok)">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <h1>Report Submitted</h1>
+          <p>Thank you for reporting this business. Our administrators will review your report.</p>
+        </div>
+        <p class="muted" style="margin-top:24px">Report ID: <code>${data.report_id}</code></p>
+        <a href="/business/?trn=${encodeURIComponent(storeData?.trn_code || '')}" class="btn" style="margin-top:16px;display:inline-block">Return to Business</a>
+      </div>
+    `;
+  } catch (err) {
+    console.error('Submit report error:', err);
+    showError(err.message || 'Failed to submit report. Please try again.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Submit Report';
+  }
+}
+
+function showError(message) {
+  businessInfo.innerHTML = `<p class="pill bad" style="text-align:center">${esc(message)}</p>`;
+}
+
+init();
+</script>
+</body>
+</html>

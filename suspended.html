@@ -111,6 +111,7 @@ async function loadStatus() {
   const email = getEmailFromUrl();
   if (!email || !supabase) {
     console.error('No email parameter provided for suspended page');
+    window.location.href = '/';
     return;
   }
 
@@ -119,7 +120,7 @@ async function loadStatus() {
 }
 
 async function loadStatusByEmail(email) {
-  const { data: profiles, error } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('id, account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason')
     .eq('email', email)
@@ -127,37 +128,44 @@ async function loadStatusByEmail(email) {
 
   if (error) {
     console.error('Failed to load profile:', error);
-    return;
-  }
-
-  if (!profiles) {
-    console.error('Profile not found for email:', email);
-    return;
-  }
-
-  // Check if account is actually suspended
-  if (profiles.account_status !== 'suspended' || (profiles.suspended_until && new Date(profiles.suspended_until).getTime() <= Date.now())) {
-    // Not suspended or suspension expired - redirect home
     window.location.href = '/';
     return;
   }
 
-  renderStatus(profiles);
+  if (!profile) {
+    console.error('Profile not found for email:', email);
+    window.location.href = '/';
+    return;
+  }
+
+  // Check if account is actually suspended (active suspension)
+  const now = Date.now();
+  const isSuspended = profile.account_status === 'suspended'
+    && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > now);
+
+  if (!isSuspended) {
+    // Not suspended or suspension expired - redirect to auth-status to handle auto-restore
+    window.location.href = `/auth-status/?email=${encodeURIComponent(email)}`;
+    return;
+  }
+
+  renderStatus(profile);
 }
 
-function renderStatus(status) {
+function renderStatus(profile) {
   // Double-check: only show if actually suspended
-  if (status.account_status !== 'suspended' || (status.suspended_until && new Date(status.suspended_until).getTime() <= Date.now())) {
-    window.location.href = '/';
+  const now = Date.now();
+  if (profile.account_status !== 'suspended' || (profile.suspended_until && new Date(profile.suspended_until).getTime() <= now)) {
+    window.location.href = '/auth-status/?email=' + encodeURIComponent(getEmailFromUrl() || '');
     return;
   }
 
-  const suspendedAt = status.suspended_at ? new Date(status.suspended_at) : null;
-  const suspendedUntil = status.suspended_until ? new Date(status.suspended_until) : null;
+  const suspendedAt = profile.suspended_at ? new Date(profile.suspended_at) : null;
+  const suspendedUntil = profile.suspended_until ? new Date(profile.suspended_until) : null;
 
   $('#suspended-date').textContent = suspendedAt ? formatDate(suspendedAt) : 'Unknown';
-  $('#expires-date').textContent = suspendedUntil ? formatDate(suspendedUntil) : 'Permanent';
-  $('#suspension-reason').textContent = status.suspension_reason ?? 'No reason provided';
+  $('#expires-date').textContent = suspendedUntil ? formatDate(suspendedUntil) : 'Permanent suspension';
+  $('#suspension-reason').textContent = profile.suspension_reason ?? 'No reason provided';
 
   if (suspendedUntil) {
     updateCountdown(suspendedUntil);
@@ -173,7 +181,11 @@ function updateCountdown(expiresAt) {
   if (diff <= 0) {
     $('#time-remaining').textContent = 'Expired — restoring…';
     clearInterval(countdownInterval);
-    setTimeout(() => window.location.reload(), 3000);
+    // Redirect to auth-status to trigger auto-restore
+    setTimeout(() => {
+      const email = getEmailFromUrl();
+      window.location.href = `/auth-status/?email=${encodeURIComponent(email || '')}`;
+    }, 3000);
     return;
   }
   $('#time-remaining').textContent = formatDuration(diff);

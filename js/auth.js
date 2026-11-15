@@ -76,7 +76,7 @@ export async function getSessionWithStatus() {
     };
   }
 
-  // Check for active suspension
+  // Check for active suspension (suspended_until is null = permanent suspension, or in future = temporary)
   const isSuspended = profile.account_status === 'suspended'
     && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
   if (isSuspended) {
@@ -89,13 +89,14 @@ export async function getSessionWithStatus() {
     };
   }
 
-  // Check for expired suspension - auto restore
+  // Check for expired suspension - auto restore via RPC, then reload
   if (profile.account_status === 'suspended' && profile.suspended_until && new Date(profile.suspended_until).getTime() <= Date.now()) {
     try {
       await supabase.rpc('auto_restore_expired_suspensions');
     } catch {
-      // Ignore
+      // Ignore RPC errors
     }
+    // Reload to get fresh session and profile with restored status
     window.location.reload();
     return { session, profile, redirectPath: null, redirectUrl: null };
   }
@@ -299,7 +300,7 @@ export function getAuthErrorMessage(error) {
 
 /**
  * Check account status after login and redirect if suspended/banned
- * Returns the redirect path or null if account is active
+ * Returns the redirect URL (with email parameter) or null if account is active
  */
 export async function checkAccountStatusAndRedirect() {
   if (!supabase) return null;
@@ -308,20 +309,22 @@ export async function checkAccountStatusAndRedirect() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('account_status, suspended_until, banned_at')
+    .select('account_status, suspended_until, banned_at, email')
     .eq('id', session.user.id)
     .maybeSingle();
 
   if (!profile) return null;
 
+  const email = profile.email || session.user.email;
+
   if (profile.account_status === 'banned') {
-    return '/banned/';
+    return email ? `/banned/?email=${encodeURIComponent(email)}` : '/banned/';
   }
 
   const isSuspended = profile.account_status === 'suspended'
     && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
   if (isSuspended) {
-    return '/suspended/';
+    return email ? `/suspended/?email=${encodeURIComponent(email)}` : '/suspended/';
   }
 
   // Check if suspension expired - auto restore
@@ -344,11 +347,12 @@ export async function checkAccountStatusAndRedirect() {
  * Check account status and redirect if needed.
  * Can be called from any page to enforce access restrictions.
  * Returns true if redirect happened, false if account is active.
+ * Uses email parameter for redirect to work without session.
  */
 export async function enforceAccountStatus() {
-  const redirectPath = await checkAccountStatusAndRedirect();
-  if (redirectPath) {
-    window.location.replace(redirectPath);
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
+    window.location.replace(redirectUrl);
     return true;
   }
   return false;

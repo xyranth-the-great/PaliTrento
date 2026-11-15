@@ -141,6 +141,21 @@ function renderProduct() {
   $('#store-landmark').textContent = s.landmark_reference;
   renderPaymentOptions(s);
 
+  // Report product button (for logged-in users on verified stores)
+  if (currentSession && s.verification_status === 'VERIFIED') {
+    const reportBtn = document.createElement('a');
+    reportBtn.href = `/report-product/?productId=${encodeURIComponent(p.id)}`;
+    reportBtn.className = 'btn alt';
+    reportBtn.style.marginTop = '12px';
+    reportBtn.style.display = 'inline-flex';
+    reportBtn.textContent = 'Report Product';
+    // Add after the store link
+    const storeLink = $('#store-link');
+    if (storeLink && storeLink.parentNode) {
+      storeLink.parentNode.insertBefore(reportBtn, storeLink.nextSibling);
+    }
+  }
+
   // Map
   initMap(s.lat, s.lng);
 

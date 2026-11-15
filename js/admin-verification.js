@@ -25,7 +25,7 @@ async function init() {
 
   const { session, profile, redirectUrl } = await getSessionWithStatus();
   if (redirectUrl) {
-    window.location.replace(redirectPath);
+    window.location.replace(redirectUrl);
     return;
   }
   if (!session) {

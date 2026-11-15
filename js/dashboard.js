@@ -73,6 +73,8 @@ async function loadStore(userId) {
   await loadOrders(store.id);
   // Load analytics
   await loadAnalytics(store.id);
+  // Load verification
+  await loadVerification(store.id);
 }
 
 function renderStoreCard(store) {
@@ -410,7 +412,304 @@ function bindEvents() {
   $('#demo-payment-error-cancel')?.addEventListener('click', () => closeDemoPayment(true));
   $('#demo-payment-retry')?.addEventListener('click', () => showDemoPaymentStep('demo-payment-qr'));
   $('#demo-payment-simulate')?.addEventListener('click', completeDemoPayment);
+
+  // Verification tab - document upload
+  $$('#documents-list [data-upload]').forEach(btn => {
+    btn.addEventListener('click', (e) => handleDocumentUpload(e.target.dataset.upload, e.target.dataset.storeId));
+  });
 }
+
+async function loadVerification(storeId) {
+  if (!supabase) return;
+
+  try {
+    // Load compliance record
+    const { data: compliance, error: compError } = await supabase
+      .from('business_compliance')
+      .select('*')
+      .eq('store_id', storeId)
+      .maybeSingle();
+
+    // Load documents
+    const { data: documents, error: docError } = await supabase
+      .from('business_documents')
+      .select('*')
+      .eq('store_id', storeId)
+      .order('submitted_at', { ascending: false });
+
+    if (compError && compError.code !== 'PGRST116') throw compError;
+    if (docError) throw docError;
+
+    renderVerification(compliance, documents || []);
+  } catch (err) {
+    console.error('Load verification error:', err);
+    $('#verification-not-available').style.display = 'block';
+  }
+}
+
+function renderVerification(compliance, documents) {
+  const verificationCard = $('#verification-card');
+  const documentsCard = $('#documents-card');
+  const notAvailable = $('#verification-not-available');
+
+  if (!compliance) {
+    verificationCard.style.display = 'none';
+    documentsCard.style.display = 'none';
+    notAvailable.style.display = 'block';
+    return;
+  }
+
+  notAvailable.style.display = 'none';
+  verificationCard.style.display = 'block';
+  documentsCard.style.display = 'block';
+
+  const now = Date.now();
+  const deadline = compliance.compliance_deadline ? new Date(compliance.compliance_deadline).getTime() : null;
+
+  // Status badge
+  let statusText = '';
+  let badgeClass = 'warn';
+
+  if (compliance.all_documents_approved) {
+    statusText = 'Verified';
+    badgeClass = 'ok';
+  } else if (compliance.suspended_for_noncompliance) {
+    statusText = 'Suspended - Non-compliance';
+    badgeClass = 'bad';
+  } else if (deadline && deadline <= now) {
+    statusText = 'Deadline Passed - Pending Review';
+    badgeClass = 'bad';
+  } else if (documents.length > 0) {
+    const hasPending = documents.some(d => d.status === 'PENDING_REVIEW');
+    const hasRejected = documents.some(d => d.status === 'REJECTED');
+    if (hasRejected) {
+      statusText = 'Documents Rejected - Resubmit Required';
+      badgeClass = 'bad';
+    } else if (hasPending) {
+      statusText = 'Under Review';
+      badgeClass = 'info';
+    } else {
+      statusText = 'Submitted';
+      badgeClass = 'warn';
+    }
+  } else {
+    statusText = 'Documents Not Submitted';
+    badgeClass = 'warn';
+  }
+
+  $('#verification-status-text').textContent = statusText;
+  $('#verification-status-badge').textContent = statusText;
+  $('#verification-status-badge').className = `pill ${badgeClass}`;
+
+  // Compliance deadline
+  const deadlineEl = $('#compliance-deadline');
+  const documentsApprovedEl = $('#documents-approved');
+
+  if (compliance.all_documents_approved) {
+    deadlineEl.style.display = 'none';
+    documentsApprovedEl.style.display = 'block';
+  } else if (compliance.suspended_for_noncompliance) {
+    deadlineEl.style.display = 'none';
+    documentsApprovedEl.style.display = 'none';
+  } else if (deadline) {
+    deadlineEl.style.display = 'block';
+    documentsApprovedEl.style.display = 'none';
+
+    const diff = deadline - now;
+    if (diff > 0) {
+      $('#deadline-countdown').textContent = formatDuration(diff);
+      // Start countdown timer
+      if (window.verificationCountdown) clearInterval(window.verificationCountdown);
+      window.verificationCountdown = setInterval(() => {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) {
+          clearInterval(window.verificationCountdown);
+          $('#deadline-countdown').textContent = 'Expired';
+          loadVerification(currentStore.id); // Refresh
+        } else {
+          $('#deadline-countdown').textContent = formatDuration(remaining);
+        }
+      }, 60000);
+    } else {
+      $('#deadline-countdown').textContent = 'Expired';
+    }
+    $('#deadline-date').textContent = `Deadline: ${new Date(deadline).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`;
+  }
+
+  // Render documents
+  const requiredDocs = [
+    { type: 'BARANGAY_CLEARANCE', label: 'Barangay Business Clearance', desc: 'Proof of business registration with your barangay' },
+    { type: 'CEDULA', label: 'Community Tax Certificate (Cedula)', desc: 'Current year community tax certificate' },
+    { type: 'BUSINESS_PERMIT', label: 'Business Permit', desc: 'Official business permit from the municipality' }
+  ];
+
+  const docsHtml = requiredDocs.map(req => {
+    const doc = documents.find(d => d.document_type === req.type);
+    let statusHtml = '';
+    let actionHtml = '';
+
+    if (!doc) {
+      statusHtml = '<span class="pill bad">Not Submitted</span>';
+      actionHtml = `<button class="btn" data-upload="${req.type}" data-store-id="${currentStore.id}">Upload</button>`;
+    } else if (doc.status === 'APPROVED') {
+      statusHtml = '<span class="pill ok">Approved</span>';
+      actionHtml = `<a href="#" class="btn alt" onclick="viewDocument('${doc.file_path}');return false;">View</a>`;
+    } else if (doc.status === 'PENDING_REVIEW') {
+      statusHtml = '<span class="pill info">Pending Review</span>';
+      actionHtml = `<span class="muted">Submitted ${new Date(doc.submitted_at).toLocaleDateString('en-PH')}</span>`;
+    } else if (doc.status === 'REJECTED') {
+      statusHtml = '<span class="pill bad">Rejected</span>';
+      actionHtml = `
+        <button class="btn" data-upload="${req.type}" data-store-id="${currentStore.id}" style="margin-right:8px">Resubmit</button>
+        <span class="muted" style="font-size:.75rem">${doc.rejection_reason || 'No reason provided'}</span>
+      `;
+    }
+
+    return `
+      <div class="card" style="padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:12px;margin-bottom:8px">
+          <div style="flex:1;min-width:200px">
+            <strong>${req.label}</strong>
+            <p class="muted" style="margin:4px 0 0;font-size:.8rem">${req.desc}</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${statusHtml}
+            ${actionHtml}
+          </div>
+        </div>
+        ${doc && doc.status !== 'APPROVED' ? `
+          <div style="padding-top:8px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)">
+            ${doc.submitted_at ? `Submitted: ${new Date(doc.submitted_at).toLocaleString('en-PH')}` : ''}
+            ${doc.reviewed_at ? ` · Reviewed: ${new Date(doc.reviewed_at).toLocaleString('en-PH')}` : ''}
+            ${doc.file_name ? ` · File: ${doc.file_name}` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  $('#documents-list').innerHTML = docsHtml;
+
+  // Re-bind upload buttons
+  $$('#documents-list [data-upload]').forEach(btn => {
+    btn.addEventListener('click', (e) => handleDocumentUpload(e.target.dataset.upload, e.target.dataset.storeId));
+  });
+}
+
+function formatDuration(ms) {
+  if (ms <= 0) return 'Expired';
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  const parts = [];
+  if (days > 0) parts.push(days + 'd');
+  if (hours > 0) parts.push(hours + 'h');
+  if (minutes > 0) parts.push(minutes + 'm');
+  return parts.join(' ') || '< 1m';
+}
+
+async function handleDocumentUpload(docType, storeId) {
+  if (!supabase || !currentSession) return;
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'application/pdf,image/jpeg,image/png,image/webp';
+  fileInput.style.display = 'none';
+  document.body.appendChild(fileInput);
+
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      document.body.removeChild(fileInput);
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please choose a PDF, JPG, PNG or WebP file');
+      document.body.removeChild(fileInput);
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File must be under 10 MB');
+      document.body.removeChild(fileInput);
+      return;
+    }
+
+    const btn = document.querySelector(`[data-upload="${docType}"]`);
+    const originalText = btn?.textContent;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Uploading...';
+    }
+
+    try {
+      // Upload to storage
+      const path = `${currentSession.user.id}/${storeId}/${docType}-${Date.now()}${file.name.match(/\.[^.]+$/)?.[0] || ''}`;
+      const { error: uploadError } = await supabase.storage
+        .from('business-documents')
+        .upload(path, file, { contentType: file.type });
+
+      if (uploadError) throw uploadError;
+
+      // Get signed URL (for reference, but store path)
+      const { data: urlData } = supabase.storage
+        .from('business-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 year
+
+      // Upsert document record
+      const { error: dbError } = await supabase
+        .from('business_documents')
+        .upsert({
+          store_id: storeId,
+          user_id: currentSession.user.id,
+          document_type: docType,
+          file_path: path,
+          file_name: file.name,
+          file_size: file.size,
+          mime_type: file.type,
+          status: 'PENDING_REVIEW'
+        }, { onConflict: 'store_id,document_type' });
+
+      if (dbError) throw dbError;
+
+      alert('Document uploaded successfully! It will be reviewed by the LGU.');
+
+      // Refresh verification
+      await loadVerification(storeId);
+
+    } catch (err) {
+      console.error('Document upload error:', err);
+      alert('Failed to upload document. Please try again.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+      document.body.removeChild(fileInput);
+    }
+  });
+
+  fileInput.click();
+}
+
+// Make viewDocument globally accessible for inline onclick
+window.viewDocument = async function(filePath) {
+  if (!supabase || !currentSession) return;
+  try {
+    const { data, error } = await supabase.storage
+      .from('business-documents')
+      .createSignedUrl(filePath, 60 * 60); // 1 hour
+    if (error) throw error;
+    window.open(data.signedUrl, '_blank');
+  } catch (err) {
+    console.error('View document error:', err);
+    alert('Could not open document');
+  }
+};
 
 async function handleImageSelect(e) {
   const file = e.target.files[0];

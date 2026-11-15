@@ -1,5 +1,5 @@
 import { renderChrome, $, esc } from './ui.js';
-import { getSession, getCachedProfile, isSupabaseConfigured } from './auth.js';
+import { getSessionWithStatus, getCachedProfile, isSupabaseConfigured } from './auth.js';
 import { supabase } from './supabase.js';
 
 const accountList = $('#account-list');
@@ -35,19 +35,23 @@ async function init() {
     return;
   }
 
-  currentSession = await getSession();
-  if (!currentSession) {
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
+    window.location.replace(redirectUrl);
+    return;
+  }
+  if (!session) {
     window.location.href = '/login/';
     return;
   }
+  currentSession = session;
 
-  const profile = await getCachedProfile(currentSession.user.id);
   if (!profile || profile.role !== 'admin') {
     window.location.href = '/';
     return;
   }
 
-  renderChrome('/admin-accounts/', currentSession, profile);
+  renderChrome('/admin-accounts/', session, profile);
   $('#account-search').addEventListener('input', renderAccounts);
   $('#account-filter').addEventListener('change', renderAccounts);
   accountList.addEventListener('click', onAccountAction);

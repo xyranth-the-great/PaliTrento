@@ -44,6 +44,7 @@
   <div style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px" role="tablist">
     <button class="tab-btn" role="tab" aria-selected="true" data-tab="products">Products</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">Orders</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="verification">Business Verification</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="analytics">Analytics</button>
   </div>
 
@@ -63,6 +64,42 @@
     <h3 style="margin-bottom:16px">Pickup Orders</h3>
     <div id="orders-list"></div>
     <p class="muted" id="no-orders" style="display:none;text-align:center;padding:32px">No orders yet.</p>
+  </div>
+
+  <!-- Business Verification tab -->
+  <div id="tab-verification" role="tabpanel" style="display:none">
+    <h3 style="margin-bottom:8px">Business Verification</h3>
+    <p class="muted" style="margin-bottom:24px">LGU requires all businesses to submit three documents within 15 days of registration.</p>
+
+    <div class="card" id="verification-card" style="padding:20px;margin-bottom:24px;display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div>
+          <h4 style="margin:0 0 4px">Verification Status</h4>
+          <p class="muted" id="verification-status-text"></p>
+        </div>
+        <span id="verification-status-badge" class="pill"></span>
+      </div>
+
+      <div id="compliance-deadline" style="display:none;margin-bottom:16px;padding:16px;background:var(--amber-light);border:1px solid var(--amber);border-radius:var(--r-lg)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <strong>Compliance Deadline</strong>
+          <span id="deadline-countdown" class="pill warn" style="font-size:.9rem;font-weight:700"></span>
+        </div>
+        <p class="muted" style="margin:0;font-size:.85rem">You must submit all three required documents by this date to avoid automatic suspension.</p>
+        <p id="deadline-date" class="muted" style="margin:8px 0 0;font-size:.8rem"></p>
+      </div>
+
+      <div id="documents-approved" style="display:none;padding:16px;background:var(--ok-bg);border:1px solid var(--ok);border-radius:var(--r-lg)">
+        <p style="margin:0;color:var(--ok)"><strong>All documents approved!</strong> Your business is verified and the compliance deadline has been removed.</p>
+      </div>
+    </div>
+
+    <div class="card" id="documents-card" style="padding:20px;display:none">
+      <h4 style="margin:0 0 16px">Required Documents</h4>
+      <div id="documents-list"></div>
+    </div>
+
+    <p class="muted" id="verification-not-available" style="display:none;text-align:center;padding:32px">Business verification is available after your store is submitted for LGU review.</p>
   </div>
 
   <!-- Analytics tab -->

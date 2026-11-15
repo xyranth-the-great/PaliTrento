@@ -3,51 +3,238 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Checking Account Status | PaliTrento</title>
+<title>Account Status Check | PaliTrento</title>
 <meta name="description" content="Verifying your account status...">
 <link rel="icon" type="image/png" href="/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <style>
-  .status-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--pad); }
-  .status-card { width: 100%; max-width: 500px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 40px; text-align: center; }
-  .status-spinner { width: 48px; height: 48px; margin: 0 auto 24px; border: 4px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+  .auth-status-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--pad); }
+  .auth-status-card { width: 100%; max-width: 480px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 40px; text-align: center; }
+  .auth-status-icon { width: 80px; height: 80px; margin: 0 auto 24px; background: var(--muted-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+  .auth-status-icon svg { width: 40px; height: 40px; }
+  .auth-status-title { font-size: 1.5rem; color: var(--primary-dark); margin: 0 0 8px; }
+  .auth-status-subtitle { color: var(--muted); margin: 0 0 32px; }
+  .auth-status-details { background: var(--muted-bg); border-radius: var(--r-lg); padding: 20px; margin-bottom: 24px; text-align: left; }
+  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-label { color: var(--muted); font-size: 0.9rem; }
+  .detail-value { font-weight: 600; color: var(--ink); text-align: right; max-width: 60%; word-break: break-word; }
+  .spinner { width: 40px; height: 40px; margin: 0 auto 16px; border: 4px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .status-title { font-size: 1.25rem; color: var(--primary-dark); margin: 0 0 8px; }
-  .status-message { color: var(--muted); font-size: 0.95rem; }
-  .status-debug { color: var(--muted); font-size: 0.75rem; margin-top: 16px; font-family: monospace; text-align: left; background: var(--muted-bg); padding: 16px; border-radius: var(--r-md); max-height: 300px; overflow: auto; }
-  .debug-line { margin: 4px 0; }
-  .debug-error { color: var(--bad); }
-  .debug-success { color: var(--ok); }
-  .debug-warning { color: var(--warn); }
-  .btn { display: inline-block; margin-top: 16px; padding: 10px 20px; background: var(--primary); color: white; text-decoration: none; border-radius: var(--r-md); }
-  .btn-secondary { background: var(--muted-bg); color: var(--ink); }
-  .result-box { background: var(--muted-bg); padding: 16px; border-radius: var(--r-md); margin-top: 16px; font-family: monospace; font-size: 0.8rem; text-align: left; white-space: pre-wrap; }
-  .actions { margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   @media (max-width: 480px) {
-    .status-card { padding: 24px; }
-    .status-title { font-size: 1.1rem; }
+    .auth-status-card { padding: 24px; }
+    .auth-status-title { font-size: 1.25rem; }
+    .detail-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .detail-value { text-align: left; max-width: 100%; }
   }
 </style>
 </head>
 <body>
 <div id="chrome-top"></div>
-<main class="status-page">
-  <div class="status-card" role="status" aria-live="polite">
-    <div class="status-spinner" aria-hidden="true"></div>
-    <h1 class="status-title">Checking Account Status</h1>
-    <p class="status-message">Please wait while we verify your account...</p>
-    <div class="status-debug" id="debug-log"></div>
-    <div id="result-box" class="result-box" style="display:none"></div>
-    <div class="actions" id="actions" style="display:none">
-      <a href="/suspended/" class="btn" id="goto-suspended">Go to Suspended Page</a>
-      <a href="/banned/" class="btn btn-secondary" id="goto-banned">Go to Banned Page</a>
-      <a href="/login/" class="btn btn-secondary" id="goto-login">Go to Login</a>
+<main class="auth-status-page">
+  <div class="auth-status-card" role="status" aria-live="polite">
+    <div class="auth-status-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spinner">
+        <circle cx="12" cy="12" r="10"></circle>
+      </svg>
     </div>
+    <h1 class="auth-status-title">Verifying Account Status</h1>
+    <p class="auth-status-subtitle">Please wait while we check your account status...</p>
+
+    <div class="auth-status-details" id="status-details" style="display:none">
+      <div class="detail-row">
+        <span class="detail-label">Account Status</span>
+        <span class="detail-value" id="status-value">—</span>
+      </div>
+      <div class="detail-row" id="suspended-row" style="display:none">
+        <span class="detail-label">Suspended Until</span>
+        <span class="detail-value" id="suspended-until">—</span>
+      </div>
+      <div class="detail-row" id="banned-row" style="display:none">
+        <span class="detail-label">Banned On</span>
+        <span class="detail-value" id="banned-at">—</span>
+      </div>
+      <div class="detail-row" id="reason-row" style="display:none">
+        <span class="detail-label">Reason</span>
+        <span class="detail-value" id="status-reason">—</span>
+      </div>
+    </div>
+
+    <p class="auth-status-subtitle" id="redirect-message" style="display:none"></p>
   </div>
 </main>
 <div id="chrome-foot"></div>
-<script type="module" src="/js/auth-status.js"></script>
+<script type="module">
+import { renderChrome, $, esc } from './js/ui.js';
+import { supabase } from './js/supabase.js';
+
+function formatDate(date) {
+  return date.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+// Get email from URL params
+function getEmailFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('email')?.toLowerCase();
+}
+
+async function checkProfileByEmail(email) {
+  console.log('[auth-status] Checking profile for email:', email);
+
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason, email')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[auth-status] Profile query failed:', error);
+      showError('Failed to verify account. Please try again.');
+      return;
+    }
+
+    if (!profile) {
+      console.warn('[auth-status] Profile not found for email:', email);
+      showError('Account not found. Please contact support.');
+      return;
+    }
+
+    console.log('[auth-status] Profile found:', profile);
+    showStatus(profile);
+
+    const now = Date.now();
+
+    if (profile.account_status === 'banned') {
+      redirectTo('/banned/', 'Your account has been permanently banned. Redirecting...');
+      return;
+    }
+
+    if (profile.account_status === 'suspended') {
+      if (profile.suspended_until && new Date(profile.suspended_until).getTime() <= now) {
+        // Suspension expired - trigger auto-restore
+        console.log('[auth-status] Suspension expired, triggering auto-restore...');
+        showChecking('Suspension expired. Restoring access...');
+        try {
+          await supabase.rpc('auto_restore_expired_suspensions');
+        } catch (e) {
+          console.warn('[auth-status] Auto-restore failed:', e);
+        }
+        // Reload to get fresh status
+        setTimeout(() => window.location.reload(), 1000);
+        return;
+      }
+      redirectTo('/suspended/', 'Your account is temporarily suspended. Redirecting...');
+      return;
+    }
+
+    // Active account
+    redirectTo('/', 'Your account is active. Redirecting...');
+
+  } catch (err) {
+    console.error('[auth-status] Exception:', err);
+    showError('An error occurred. Please try again.');
+  }
+}
+
+async function checkProfileBySession() {
+  console.log('[auth-status] Checking session...');
+
+  if (!supabase) {
+    showError('Service unavailable. Please try again later.');
+    return;
+  }
+
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    console.error('[auth-status] Session error:', sessionError);
+    window.location.href = '/login/';
+    return;
+  }
+
+  if (!session) {
+    console.log('[auth-status] No active session');
+    window.location.href = '/login/';
+    return;
+  }
+
+  const sessionEmail = session.user.email?.toLowerCase();
+  if (!sessionEmail) {
+    console.error('[auth-status] No email in session');
+    window.location.href = '/login/';
+    return;
+  }
+
+  console.log('[auth-status] Session found for:', sessionEmail);
+  await checkProfileByEmail(sessionEmail);
+}
+
+function showStatus(profile) {
+  $('#status-details').style.display = 'block';
+  $('#status-value').textContent = profile.account_status?.charAt(0).toUpperCase() + profile.account_status?.slice(1) || 'Unknown';
+
+  if (profile.account_status === 'suspended') {
+    $('#suspended-row').style.display = 'flex';
+    $('#suspended-until').textContent = profile.suspended_until ? formatDate(new Date(profile.suspended_until)) : 'Permanent';
+    if (profile.suspension_reason) {
+      $('#reason-row').style.display = 'flex';
+      $('#status-reason').textContent = profile.suspension_reason;
+    }
+  } else if (profile.account_status === 'banned') {
+    $('#banned-row').style.display = 'flex';
+    $('#banned-at').textContent = profile.banned_at ? formatDate(new Date(profile.banned_at)) : 'Unknown';
+    if (profile.ban_reason) {
+      $('#reason-row').style.display = 'flex';
+      $('#status-reason').textContent = profile.ban_reason;
+    }
+  }
+}
+
+function showChecking(message) {
+  $('#status-details').style.display = 'none';
+  $('#redirect-message').style.display = 'block';
+  $('#redirect-message').textContent = message;
+  const icon = document.querySelector('.auth-status-icon');
+  if (icon) {
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spinner"><circle cx="12" cy="12" r="10"></circle></svg>';
+  }
+}
+
+function redirectTo(path, message) {
+  showChecking(message);
+  setTimeout(() => window.location.replace(path), 1500);
+}
+
+function showError(message) {
+  $('#auth-status-title').textContent = 'Verification Failed';
+  $('#auth-status-subtitle').textContent = message;
+  const icon = document.querySelector('.auth-status-icon');
+  if (icon) {
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--bad)"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+  }
+}
+
+async function init() {
+  // Render chrome without session (public page)
+  renderChrome('/', null, null);
+
+  // PRIORITY 1: Check URL param first (for login redirect flow)
+  const urlEmail = getEmailFromUrl();
+  if (urlEmail) {
+    console.log('[auth-status] Email from URL param:', urlEmail);
+    await checkProfileByEmail(urlEmail);
+    return;
+  }
+
+  // PRIORITY 2: Check session (for protected page redirects)
+  console.log('[auth-status] No URL email, checking session...');
+  await checkProfileBySession();
+}
+
+init();
+</script>
 </body>
 </html>

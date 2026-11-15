@@ -95,6 +95,7 @@ async function loadStatus() {
   const email = getEmailFromUrl();
   if (!email || !supabase) {
     console.error('No email parameter provided for banned page');
+    window.location.href = '/';
     return;
   }
 
@@ -103,7 +104,7 @@ async function loadStatus() {
 }
 
 async function loadStatusByEmail(email) {
-  const { data: profiles, error } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('id, account_status, banned_at, ban_reason')
     .eq('email', email)
@@ -111,35 +112,37 @@ async function loadStatusByEmail(email) {
 
   if (error) {
     console.error('Failed to load profile:', error);
+    window.location.href = '/';
     return;
   }
 
-  if (!profiles) {
+  if (!profile) {
     console.error('Profile not found for email:', email);
+    window.location.href = '/';
     return;
   }
 
   // Check if account is actually banned
-  if (profiles.account_status !== 'banned') {
-    // Not banned - redirect home
-    window.location.href = '/';
+  if (profile.account_status !== 'banned') {
+    // Not banned - redirect to auth-status to verify
+    window.location.href = `/auth-status/?email=${encodeURIComponent(email)}`;
     return;
   }
 
-  renderStatus(profiles);
+  renderStatus(profile);
 }
 
-function renderStatus(status) {
+function renderStatus(profile) {
   // Double-check: only show if actually banned
-  if (status.account_status !== 'banned') {
-    window.location.href = '/';
+  if (profile.account_status !== 'banned') {
+    window.location.href = '/auth-status/?email=' + encodeURIComponent(getEmailFromUrl() || '');
     return;
   }
 
-  const bannedAt = status.banned_at ? new Date(status.banned_at) : null;
+  const bannedAt = profile.banned_at ? new Date(profile.banned_at) : null;
 
   $('#banned-date').textContent = bannedAt ? formatDate(bannedAt) : 'Unknown';
-  $('#ban-reason').textContent = status.ban_reason ?? 'No reason provided';
+  $('#ban-reason').textContent = profile.ban_reason ?? 'No reason provided';
 }
 
 $('#back-btn')?.addEventListener('click', () => {

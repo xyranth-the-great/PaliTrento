@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Support Management | PaliTrento Admin</title>
+<meta name="description" content="Manage and respond to user support tickets.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .admin-support-page .wrap { max-width: 1200px; }
+  .support-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; align-items: end; }
+  .support-filters > * { flex: 1; min-width: 180px; }
+  .support-table { width: 100%; border-collapse: collapse; }
+  .support-table th, .support-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--line); }
+  .support-table th { font-weight: 700; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .support-table tr:hover { background: var(--muted-bg); }
+  .ticket-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .ticket-status-open { background: var(--info-bg); color: var(--info); }
+  .ticket-status-in_progress { background: var(--warn-bg); color: var(--warn); }
+  .ticket-status-waiting_for_user { background: var(--amber-light); color: var(--amber); }
+  .ticket-status-resolved { background: var(--ok-bg); color: var(--ok); }
+  .ticket-status-closed { background: var(--muted-bg); color: var(--muted); }
+  .ticket-category { font-size: 0.8rem; color: var(--muted); }
+  .ticket-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ticket-actions .btn { padding: 6px 12px; font-size: 0.8rem; }
+  .modal-content { max-height: 80vh; overflow: auto; }
+  .ticket-thread { max-height: 400px; overflow: auto; margin-bottom: 16px; }
+  .ticket-message { padding: 12px; background: var(--muted-bg); border-radius: var(--r-md); margin-bottom: 8px; }
+  .ticket-message.admin { background: var(--info-bg); }
+  .message-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+  .message-content { color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
+  .reply-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .admin-notes-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+  @media (max-width: 760px) {
+    .support-table { font-size: 0.85rem; }
+    .support-table th, .support-table td { padding: 8px; }
+    .ticket-actions { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="admin-support-page">
+<div class="wrap" style="padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Support Management</h1>
+      <p class="muted">View and respond to user support tickets.</p>
+    </div>
+    <a href="/admin/" class="btn alt">Back to Admin Dashboard</a>
+  </div>
+
+  <div class="card" style="padding:20px">
+    <div class="support-filters">
+      <div>
+        <label for="filter-search" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Search</label>
+        <input id="filter-search" type="search" placeholder="Ticket ID, subject, or user" autocomplete="off">
+      </div>
+      <div>
+        <label for="filter-category" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Category</label>
+        <select id="filter-category">
+          <option value="">All Categories</option>
+          <option value="ACCOUNT_PROBLEMS">Account Problems</option>
+          <option value="LOGIN_AUTHENTICATION">Login & Authentication</option>
+          <option value="BUSINESS_VERIFICATION">Business Verification</option>
+          <option value="STORE_MANAGEMENT">Store Management</option>
+          <option value="PRODUCT_LISTINGS">Product Listings</option>
+          <option value="REPORTS_MODERATION">Reports & Moderation</option>
+          <option value="PAYMENTS_PRICING">Payments & Pricing</option>
+          <option value="TECHNICAL_ISSUES">Technical Issues</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      <div>
+        <label for="filter-status" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Status</label>
+        <select id="filter-status">
+          <option value="">All Statuses</option>
+          <option value="OPEN">Open</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="WAITING_FOR_USER">Waiting for User</option>
+          <option value="RESOLVED">Resolved</option>
+          <option value="CLOSED">Closed</option>
+        </select>
+      </div>
+    </div>
+
+    <p id="support-message" class="muted" role="status" aria-live="polite" style="margin-top:16px">Loading tickets...</p>
+
+    <div style="overflow-x:auto">
+      <table class="support-table" id="support-table" style="display:none">
+        <thead>
+          <tr>
+            <th>Ticket ID</th>
+            <th>Subject</th>
+            <th>User</th>
+            <th>Category</th>
+            <th>Created</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="support-body"></tbody>
+      </table>
+    </div>
+
+    <p id="no-support" class="muted" style="display:none;text-align:center;padding:32px">No tickets match this filter.</p>
+  </div>
+</div>
+</main>
+<div id="chrome-foot"></div>
+
+<!-- Ticket Detail Modal -->
+<dialog id="ticket-modal" class="modal" style="max-width:800px">
+  <form id="ticket-form">
+    <h2 id="modal-title" style="margin:0 0 8px">Ticket Details</h2>
+    <p id="modal-meta" class="muted" style="margin:0 0 16px"></p>
+
+    <div class="ticket-thread" id="ticket-thread"></div>
+
+    <div class="reply-form">
+      <label for="admin-reply">Admin Reply</label>
+      <textarea id="admin-reply" rows="3" placeholder="Type your response to the user..."></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button type="button" class="btn" id="reply-send">Send Reply</button>
+      </div>
+    </div>
+
+    <div class="admin-notes-form">
+      <label for="admin-notes">Internal Notes (admin only)</label>
+      <textarea id="admin-notes" rows="3" maxlength="1000" placeholder="Internal notes for other administrators"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button type="button" class="btn alt" id="notes-save">Save Notes</button>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <label for="ticket-status">Update Status</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="btn ok" data-status="OPEN">Open</button>
+        <button type="button" class="btn ok" data-status="IN_PROGRESS">In Progress</button>
+        <button type="button" class="btn warn" data-status="WAITING_FOR_USER">Waiting for User</button>
+        <button type="button" class="btn ok" data-status="RESOLVED">Resolve</button>
+        <button type="button" class="btn" data-status="CLOSED">Close</button>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+      <button type="button" class="btn alt" id="modal-close">Close</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { renderChrome, $, esc } from './js/ui.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './js/auth.js';
+import { supabase } from './js/supabase.js';
+import { isSupabaseConfigured } from './js/auth.js';
+
+const modal = $('#ticket-modal');
+let currentTicket = null;
+let tickets = [];
+
+async function init() {
+  if (!isSupabaseConfigured()) return;
+
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
+    return;
+  }
+
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
+    window.location.replace(redirectUrl);
+    return;
+  }
+  if (!session) {
+    window.location.href = '/login/';
+    return;
+  }
+
+  if (!profile || profile.role !== 'admin') {
+    window.location.href = '/';
+    return;
+  }
+
+  renderChrome('/admin-support/', session, profile);
+
+  // Bind filters
+  ['filter-search', 'filter-category', 'filter-status'].forEach(id => {
+    $('#' + id)?.addEventListener('input', debounce(() => renderTickets(), 300));
+    $('#' + id)?.addEventListener('change', () => renderTickets());
+  });
+
+  // Modal events
+  $('#modal-close')?.addEventListener('click', () => modal.close());
+  modal?.addEventListener('click', (e) => { if (e.target === modal) modal.close(); });
+
+  // Reply send
+  $('#reply-send')?.addEventListener('click', sendAdminReply);
+
+  // Notes save
+  $('#notes-save')?.addEventListener('click', saveAdminNotes);
+
+  // Status buttons
+  $$('#ticket-form [data-status]').forEach(btn => {
+    btn.addEventListener('click', () => updateTicketStatus(btn.dataset.status));
+  });
+
+  await loadTickets();
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+async function loadTickets() {
+  const { data, error } = await supabase
+    .from('support_tickets')
+    .select('*, profiles!support_tickets_user_id_fkey(full_name, email), support_messages(id, is_from_admin, read_at)')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Load tickets error:', error);
+    $('#support-message').textContent = 'Failed to load tickets.';
+    return;
+  }
+
+  tickets = data || [];
+  renderTickets();
+}
+
+function renderTickets() {
+  const search = $('#filter-search').value.trim().toLowerCase();
+  const category = $('#filter-category').value;
+  const status = $('#filter-status').value;
+
+  let filtered = tickets.filter(t => {
+    const user = t.profiles;
+    const matchesSearch = !search ||
+      t.id.toLowerCase().includes(search) ||
+      t.subject.toLowerCase().includes(search) ||
+      user?.full_name?.toLowerCase().includes(search) ||
+      user?.email?.toLowerCase().includes(search);
+    const matchesCategory = !category || t.category === category;
+    const matchesStatus = !status || t.status === status;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const tbody = $('#support-body');
+  const table = $('#support-table');
+  const noResults = $('#no-support');
+  const msg = $('#support-message');
+
+  msg.textContent = filtered.length ? `${filtered.length} ticket(s)` : 'No tickets found.';
+
+  if (filtered.length === 0) {
+    table.style.display = 'none';
+    noResults.style.display = 'block';
+    return;
+  }
+
+  noResults.style.display = 'none';
+  table.style.display = 'table';
+
+  tbody.innerHTML = filtered.map(t => {
+    const user = t.profiles;
+    const unreadCount = t.support_messages?.filter(m => m.is_from_admin && !m.read_at).length || 0;
+    const statusClasses = {
+      OPEN: 'ticket-status-open',
+      IN_PROGRESS: 'ticket-status-in_progress',
+      WAITING_FOR_USER: 'ticket-status-waiting_for_user',
+      RESOLVED: 'ticket-status-resolved',
+      CLOSED: 'ticket-status-closed'
+    };
+    const statusLabels = {
+      OPEN: 'Open',
+      IN_PROGRESS: 'In Progress',
+      WAITING_FOR_USER: 'Waiting for User',
+      RESOLVED: 'Resolved',
+      CLOSED: 'Closed'
+    };
+
+    return `
+      <tr data-id="${t.id}">
+        <td><code style="font-size:.75rem">${t.id.slice(0,8)}...</code></td>
+        <td>${esc(t.subject)}</td>
+        <td>${esc(user?.full_name || user?.email || 'Unknown')}</td>
+        <td><span class="ticket-category">${formatCategory(t.category)}</span></td>
+        <td>${t.created_at ? new Date(t.created_at).toLocaleString('en-PH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—'}</td>
+        <td>
+          <span class="ticket-status ${statusClasses[t.status] || 'ticket-status-open'}">${statusLabels[t.status] || t.status}</span>
+          ${unreadCount > 0 ? `<span class="pill info" style="font-size:.65rem;margin-left:6px">${unreadCount} new</span>` : ''}
+        </td>
+        <td>
+          <div class="ticket-actions">
+            <button class="btn alt" data-view="${t.id}">View</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Bind view buttons
+  tbody.querySelectorAll('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => openTicketModal(btn.dataset.view));
+  });
+}
+
+function formatCategory(cat) {
+  return ({
+    ACCOUNT_PROBLEMS: 'Account Problems',
+    LOGIN_AUTHENTICATION: 'Login & Authentication',
+    BUSINESS_VERIFICATION: 'Business Verification',
+    STORE_MANAGEMENT: 'Store Management',
+    PRODUCT_LISTINGS: 'Product Listings',
+    REPORTS_MODERATION: 'Reports & Moderation',
+    PAYMENTS_PRICING: 'Payments & Pricing',
+    TECHNICAL_ISSUES: 'Technical Issues',
+    OTHER: 'Other'
+  })[cat] || cat;
+}
+
+async function openTicketModal(ticketId) {
+  try {
+    const { data: ticket, error } = await supabase
+      .from('support_tickets')
+      .select('*, profiles!support_tickets_user_id_fkey(full_name, email), support_messages(id, sender_id, content, is_from_admin, read_at, created_at, attachment_path, attachment_name), profiles!support_messages_sender_id_fkey(full_name)')
+      .eq('id', ticketId)
+      .maybeSingle();
+
+    if (error || !ticket) {
+      alert('Ticket not found');
+      return;
+    }
+
+    currentTicket = ticket;
+    const statusLabels = {
+      OPEN: 'Open', IN_PROGRESS: 'In Progress', WAITING_FOR_USER: 'Waiting for User',
+      RESOLVED: 'Resolved', CLOSED: 'Closed'
+    };
+
+    $('#modal-title').textContent = ticket.subject;
+    $('#modal-meta').textContent = `ID: ${ticket.id} · User: ${ticket.profiles?.full_name || ticket.profiles?.email} · Category: ${formatCategory(ticket.category)} · Status: ${statusLabels[ticket.status]} · Created: ${new Date(ticket.created_at).toLocaleString('en-PH')}`;
+
+    // Render thread
+    const messages = (ticket.support_messages || []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    $('#ticket-thread').innerHTML = messages.map(msg => {
+      const sender = msg.profiles;
+      return `
+        <div class="ticket-message ${msg.is_from_admin ? 'admin' : ''}">
+          <div class="message-header">
+            <span>${msg.is_from_admin ? 'Administrator' : `User (${sender?.full_name || 'User'})`}</span>
+            <span>${new Date(msg.created_at).toLocaleString('en-PH')}</span>
+          </div>
+          <div class="message-content">${esc(msg.content)}</div>
+          ${msg.attachment_path ? `<p style="margin-top:8px;font-size:.85rem"><button class="btn alt" style="font-size:.7rem;padding:4px 8px" onclick="viewSupportAttachment('${msg.attachment_path}')">📎 ${esc(msg.attachment_name || 'Attachment')}</button></p>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // Mark admin messages as read
+    const unreadAdmin = messages.filter(m => m.is_from_admin && !m.read_at);
+    if (unreadAdmin.length > 0) {
+      await supabase
+        .from('support_messages')
+        .update({ read_at: new Date().toISOString() })
+        .in('id', unreadAdmin.map(m => m.id));
+    }
+
+    // Fill admin notes
+    $('#admin-notes').value = ''; // We'll add this column later if needed
+
+    // Show/hide reply form based on status
+    const replyForm = document.querySelector('.reply-form');
+    if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED') {
+      replyForm.style.display = 'none';
+    } else {
+      replyForm.style.display = 'block';
+    }
+
+    modal.showModal();
+  } catch (err) {
+    console.error('Open ticket modal error:', err);
+    alert('Failed to load ticket');
+  }
+}
+
+async function sendAdminReply() {
+  if (!currentTicket) return;
+
+  const message = $('#admin-reply').value.trim();
+  if (!message) return;
+
+  const btn = $('#reply-send');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  try {
+    const { error } = await supabase.rpc('add_support_message', {
+      p_ticket_id: currentTicket.id,
+      p_content: message
+    });
+
+    if (error) throw error;
+
+    $('#admin-reply').value = '';
+    await openTicketModal(currentTicket.id);
+  } catch (err) {
+    console.error('Reply error:', err);
+    alert(err.message || 'Failed to send reply');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send Reply';
+  }
+}
+
+async function saveAdminNotes() {
+  if (!currentTicket) return;
+
+  const notes = $('#admin-notes').value.trim();
+  // We'll implement this if we add admin_notes column
+  alert('Admin notes saved (feature coming soon)');
+}
+
+async function updateTicketStatus(newStatus) {
+  if (!currentTicket) return;
+
+  const btn = document.querySelector(`#ticket-form [data-status="${newStatus}"]`);
+  const originalText = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+  }
+
+  try {
+    const { error } = await supabase.rpc('admin_update_ticket_status', {
+      p_actor_id: (await supabase.auth.getUser()).data.user.id,
+      p_ticket_id: currentTicket.id,
+      p_status: newStatus
+    });
+
+    if (error) throw error;
+
+    // Refresh
+    await loadTickets();
+    await openTicketModal(currentTicket.id);
+  } catch (err) {
+    console.error('Update ticket status error:', err);
+    alert(err.message || 'Failed to update status');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+}
+
+// Global for attachment viewing
+window.viewSupportAttachment = async function(filePath) {
+  try {
+    const { data, error } = await supabase.storage
+      .from('support-attachments')
+      .createSignedUrl(filePath, 60 * 60);
+    if (error) throw error;
+    window.open(data.signedUrl, '_blank');
+  } catch (err) {
+    console.error('View attachment error:', err);
+    alert('Could not open attachment');
+  }
+};
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports Management | PaliTrento Admin</title>
+<meta name="description" content="Manage and review user reports for businesses and products.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .admin-reports-page .wrap { max-width: 1200px; }
+  .reports-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
+  .reports-tabs .tab-btn { background: none; border: none; padding: 12px 20px; font: 600 0.95rem var(--font); color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; }
+  .reports-tabs .tab-btn:hover { color: var(--ink); }
+  .reports-tabs .tab-btn[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); }
+  .reports-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; align-items: end; }
+  .reports-filters > * { flex: 1; min-width: 180px; }
+  .reports-table { width: 100%; border-collapse: collapse; }
+  .reports-table th, .reports-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--line); }
+  .reports-table th { font-weight: 700; font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .reports-table tr:hover { background: var(--muted-bg); }
+  .report-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .report-status-open { background: var(--info-bg); color: var(--info); }
+  .report-status-under_review { background: var(--warn-bg); color: var(--warn); }
+  .report-status-resolved { background: var(--ok-bg); color: var(--ok); }
+  .report-status-dismissed { background: var(--muted-bg); color: var(--muted); }
+  .report-reason { font-size: 0.8rem; color: var(--muted); }
+  .report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .report-actions .btn { padding: 6px 12px; font-size: 0.8rem; }
+  .modal-content { max-height: 80vh; overflow: auto; }
+  .report-detail { line-height: 1.6; }
+  .report-detail p { margin: 8px 0; }
+  @media (max-width: 760px) {
+    .reports-table { font-size: 0.85rem; }
+    .reports-table th, .reports-table td { padding: 8px; }
+    .report-actions { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div id="chrome-top"></div>
+<main class="admin-reports-page">
+<div class="wrap" style="padding-top:24px;padding-bottom:48px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1 style="margin:0">Reports Management</h1>
+      <p class="muted">Review and resolve user reports for businesses and products.</p>
+    </div>
+    <a href="/admin/" class="btn alt">Back to Admin Dashboard</a>
+  </div>
+
+  <div class="reports-tabs" role="tablist">
+    <button class="tab-btn" role="tab" aria-selected="true" data-tab="business">Business Reports</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="product">Product Reports</button>
+  </div>
+
+  <div id="tab-business" role="tabpanel">
+    <div class="card" style="padding:20px">
+      <div class="reports-filters">
+        <div>
+          <label for="b-filter-search" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Search</label>
+          <input id="b-filter-search" type="search" placeholder="Business name, TRN, or reporter" autocomplete="off">
+        </div>
+        <div>
+          <label for="b-filter-reason" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Reason</label>
+          <select id="b-filter-reason">
+            <option value="">All Reasons</option>
+            <option value="INAPPROPRIATE_CONTENT">Inappropriate Content</option>
+            <option value="MISLEADING_INFORMATION">Misleading Information</option>
+            <option value="SUSPECTED_FRAUD">Suspected Fraud</option>
+            <option value="FAKE_IDENTITY">Fake Identity</option>
+            <option value="PROHIBITED_PRODUCTS">Prohibited Products</option>
+            <option value="HARASSMENT">Harassment</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="b-filter-status" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Status</label>
+          <select id="b-filter-status">
+            <option value="">All Statuses</option>
+            <option value="OPEN">Open</option>
+            <option value="UNDER_REVIEW">Under Review</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="DISMISSED">Dismissed</option>
+          </select>
+        </div>
+      </div>
+
+      <p id="b-reports-message" class="muted" role="status" aria-live="polite" style="margin-top:16px">Loading reports...</p>
+
+      <div style="overflow-x:auto">
+        <table class="reports-table" id="b-reports-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Business</th>
+              <th>TRN</th>
+              <th>Reporter</th>
+              <th>Reason</th>
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="b-reports-body"></tbody>
+        </table>
+      </div>
+
+      <p id="b-no-reports" class="muted" style="display:none;text-align:center;padding:32px">No reports match this filter.</p>
+    </div>
+  </div>
+
+  <div id="tab-product" role="tabpanel" style="display:none">
+    <div class="card" style="padding:20px">
+      <div class="reports-filters">
+        <div>
+          <label for="p-filter-search" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Search</label>
+          <input id="p-filter-search" type="search" placeholder="Product name, store, or reporter" autocomplete="off">
+        </div>
+        <div>
+          <label for="p-filter-reason" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Reason</label>
+          <select id="p-filter-reason">
+            <option value="">All Reasons</option>
+            <option value="INAPPROPRIATE_PRODUCT">Inappropriate Product</option>
+            <option value="PROHIBITED_PRODUCT">Prohibited Product</option>
+            <option value="MISLEADING_DESCRIPTION">Misleading Description</option>
+            <option value="FRAUDULENT_LISTING">Fraudulent Listing</option>
+            <option value="INCORRECT_PRICING">Incorrect Pricing</option>
+            <option value="COPYRIGHT_CONCERN">Copyright Concern</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="p-filter-status" style="display:block;margin-bottom:6px;font-weight:600;font-size:.85rem">Status</label>
+          <select id="p-filter-status">
+            <option value="">All Statuses</option>
+            <option value="OPEN">Open</option>
+            <option value="UNDER_REVIEW">Under Review</option>
+            <option value="RESOLVED">Resolved</option>
+            <option value="DISMISSED">Dismissed</option>
+          </select>
+        </div>
+      </div>
+
+      <p id="p-reports-message" class="muted" role="status" aria-live="polite" style="margin-top:16px">Loading reports...</p>
+
+      <div style="overflow-x:auto">
+        <table class="reports-table" id="p-reports-table" style="display:none">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Store</th>
+              <th>Reporter</th>
+              <th>Reason</th>
+              <th>Submitted</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="p-reports-body"></tbody>
+        </table>
+      </div>
+
+      <p id="p-no-reports" class="muted" style="display:none;text-align:center;padding:32px">No reports match this filter.</p>
+    </div>
+  </div>
+</div>
+</main>
+<div id="chrome-foot"></div>
+
+<!-- Report Detail Modal -->
+<dialog id="report-modal" class="modal" style="max-width:700px">
+  <form id="report-form">
+    <h2 id="report-modal-title" style="margin:0 0 8px">Report Details</h2>
+    <p id="report-modal-info" class="muted" style="margin:0 0 16px"></p>
+
+    <div class="report-detail" id="report-detail"></div>
+
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)">
+      <label for="admin-notes">Administrator Notes</label>
+      <textarea id="admin-notes" rows="3" maxlength="1000" placeholder="Internal notes (visible to admins only)"></textarea>
+    </div>
+
+    <div style="margin-top:16px">
+      <label for="report-status">Update Status</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button type="button" class="btn ok" data-status="UNDER_REVIEW">Under Review</button>
+        <button type="button" class="btn ok" data-status="RESOLVED">Resolve</button>
+        <button type="button" class="btn warn" data-status="DISMISSED">Dismiss</button>
+        <button type="button" class="btn" data-status="OPEN">Reopen</button>
+      </div>
+    </div>
+
+    <p id="report-modal-message" class="muted" role="status" aria-live="polite" style="margin-top:12px"></p>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+      <button type="button" class="btn alt" id="report-close">Close</button>
+      <button type="button" class="btn bad" id="report-moderate" style="display:none">Moderate Account</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { renderChrome, $, esc, CATS } from './js/ui.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './js/auth.js';
+import { supabase } from './js/supabase.js';
+import { isSupabaseConfigured } from './js/auth.js';
+
+const modal = $('#report-modal');
+const form = $('#report-form');
+let currentReport = null;
+let currentReportType = null; // 'business' or 'product'
+let businessReports = [];
+let productReports = [];
+
+async function init() {
+  if (!isSupabaseConfigured()) return;
+
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
+    return;
+  }
+
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
+    window.location.replace(redirectUrl);
+    return;
+  }
+  if (!session) {
+    window.location.href = '/login/';
+    return;
+  }
+
+  if (!profile || profile.role !== 'admin') {
+    window.location.href = '/';
+    return;
+  }
+
+  renderChrome('/admin-reports-management/', session, profile);
+
+  // Tab switching
+  $$('.reports-tabs .tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.reports-tabs .tab-btn').forEach(b => {
+        b.setAttribute('aria-selected', b === btn);
+      });
+      $$('[role="tabpanel"]').forEach(p => {
+        p.style.display = p.id === `tab-${btn.dataset.tab}` ? 'block' : 'none';
+      });
+    });
+  });
+
+  // Bind filters
+  ['b-filter-search', 'b-filter-reason', 'b-filter-status'].forEach(id => {
+    $('#' + id)?.addEventListener('input', debounce(() => renderBusinessReports(), 300));
+    $('#' + id)?.addEventListener('change', () => renderBusinessReports());
+  });
+  ['p-filter-search', 'p-filter-reason', 'p-filter-status'].forEach(id => {
+    $('#' + id)?.addEventListener('input', debounce(() => renderProductReports(), 300));
+    $('#' + id)?.addEventListener('change', () => renderProductReports());
+  });
+
+  // Modal close
+  $('#report-close')?.addEventListener('click', () => modal.close());
+  modal?.addEventListener('click', (e) => { if (e.target === modal) modal.close(); });
+
+  // Status buttons
+  $$('#report-form [data-status]').forEach(btn => {
+    btn.addEventListener('click', () => updateReportStatus(btn.dataset.status));
+  });
+
+  // Moderate button
+  $('#report-moderate')?.addEventListener('click', () => {
+    if (currentReport?.store_id) {
+      window.open(`/admin-accounts/?target=${currentReport.store_id}`, '_blank');
+    }
+    modal.close();
+  });
+
+  await loadAllReports();
+}
+
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
+
+async function loadAllReports() {
+  // Load business reports
+  const { data: bReports, error: bError } = await supabase
+    .from('business_reports')
+    .select('*, stores(business_name, trn_code), profiles!business_reports_reporter_id_fkey(full_name, email)')
+    .order('created_at', { ascending: false });
+
+  if (bError) console.error('Business reports error:', bError);
+  businessReports = bReports || [];
+
+  // Load product reports
+  const { data: pReports, error: pError } = await supabase
+    .from('product_reports')
+    .select('*, products(name, store_id), stores(business_name, trn_code), profiles!product_reports_reporter_id_fkey(full_name, email)')
+    .order('created_at', { ascending: false });
+
+  if (pError) console.error('Product reports error:', pError);
+  productReports = pReports || [];
+
+  renderBusinessReports();
+  renderProductReports();
+}
+
+function renderBusinessReports() {
+  const search = $('#b-filter-search').value.trim().toLowerCase();
+  const reason = $('#b-filter-reason').value;
+  const status = $('#b-filter-status').value;
+
+  let filtered = businessReports.filter(r => {
+    const store = r.stores;
+    const reporter = r.profiles;
+    const matchesSearch = !search ||
+      store?.business_name?.toLowerCase().includes(search) ||
+      store?.trn_code?.toLowerCase().includes(search) ||
+      reporter?.full_name?.toLowerCase().includes(search) ||
+      reporter?.email?.toLowerCase().includes(search);
+    const matchesReason = !reason || r.reason === reason;
+    const matchesStatus = !status || r.status === status;
+    return matchesSearch && matchesReason && matchesStatus;
+  });
+
+  const tbody = $('#b-reports-body');
+  const table = $('#b-reports-table');
+  const noResults = $('#b-no-reports');
+  const msg = $('#b-reports-message');
+
+  msg.textContent = filtered.length ? `${filtered.length} report(s)` : 'No reports found.';
+
+  if (filtered.length === 0) {
+    table.style.display = 'none';
+    noResults.style.display = 'block';
+    return;
+  }
+
+  noResults.style.display = 'none';
+  table.style.display = 'table';
+
+  tbody.innerHTML = filtered.map(r => {
+    const store = r.stores;
+    const reporter = r.profiles;
+    const statusClasses = {
+      OPEN: 'report-status-open',
+      UNDER_REVIEW: 'report-status-under_review',
+      RESOLVED: 'report-status-resolved',
+      DISMISSED: 'report-status-dismissed'
+    };
+    const statusLabels = {
+      OPEN: 'Open',
+      UNDER_REVIEW: 'Under Review',
+      RESOLVED: 'Resolved',
+      DISMISSED: 'Dismissed'
+    };
+
+    return `
+      <tr data-id="${r.id}">
+        <td>${esc(store?.business_name || 'Unknown')}</td>
+        <td>${esc(store?.trn_code || '—')}</td>
+        <td>${esc(reporter?.full_name || reporter?.email || 'Unknown')}</td>
+        <td><span class="report-reason">${formatReason(r.reason)}</span></td>
+        <td>${r.created_at ? new Date(r.created_at).toLocaleString('en-PH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—'}</td>
+        <td><span class="report-status ${statusClasses[r.status] || 'report-status-open'}">${statusLabels[r.status] || r.status}</span></td>
+        <td>
+          <div class="report-actions">
+            <button class="btn alt" data-action="view" data-type="business" data-id="${r.id}">View</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  bindReportActions('business');
+}
+
+function renderProductReports() {
+  const search = $('#p-filter-search').value.trim().toLowerCase();
+  const reason = $('#p-filter-reason').value;
+  const status = $('#p-filter-status').value;
+
+  let filtered = productReports.filter(r => {
+    const product = r.products;
+    const store = r.stores;
+    const reporter = r.profiles;
+    const matchesSearch = !search ||
+      product?.name?.toLowerCase().includes(search) ||
+      store?.business_name?.toLowerCase().includes(search) ||
+      store?.trn_code?.toLowerCase().includes(search) ||
+      reporter?.full_name?.toLowerCase().includes(search) ||
+      reporter?.email?.toLowerCase().includes(search);
+    const matchesReason = !reason || r.reason === reason;
+    const matchesStatus = !status || r.status === status;
+    return matchesSearch && matchesReason && matchesStatus;
+  });
+
+  const tbody = $('#p-reports-body');
+  const table = $('#p-reports-table');
+  const noResults = $('#p-no-reports');
+  const msg = $('#p-reports-message');
+
+  msg.textContent = filtered.length ? `${filtered.length} report(s)` : 'No reports found.';
+
+  if (filtered.length === 0) {
+    table.style.display = 'none';
+    noResults.style.display = 'block';
+    return;
+  }
+
+  noResults.style.display = 'none';
+  table.style.display = 'table';
+
+  tbody.innerHTML = filtered.map(r => {
+    const product = r.products;
+    const store = r.stores;
+    const reporter = r.profiles;
+    const statusClasses = {
+      OPEN: 'report-status-open',
+      UNDER_REVIEW: 'report-status-under_review',
+      RESOLVED: 'report-status-resolved',
+      DISMISSED: 'report-status-dismissed'
+    };
+    const statusLabels = {
+      OPEN: 'Open',
+      UNDER_REVIEW: 'Under Review',
+      RESOLVED: 'Resolved',
+      DISMISSED: 'Dismissed'
+    };
+
+    return `
+      <tr data-id="${r.id}">
+        <td>${esc(product?.name || 'Unknown')}</td>
+        <td>${esc(store?.business_name || 'Unknown')}</td>
+        <td>${esc(reporter?.full_name || reporter?.email || 'Unknown')}</td>
+        <td><span class="report-reason">${formatReason(r.reason)}</span></td>
+        <td>${r.created_at ? new Date(r.created_at).toLocaleString('en-PH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '—'}</td>
+        <td><span class="report-status ${statusClasses[r.status] || 'report-status-open'}">${statusLabels[r.status] || r.status}</span></td>
+        <td>
+          <div class="report-actions">
+            <button class="btn alt" data-action="view" data-type="product" data-id="${r.id}">View</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  bindReportActions('product');
+}
+
+function formatReason(reason) {
+  return ({
+    INAPPROPRIATE_CONTENT: 'Inappropriate Content',
+    MISLEADING_INFORMATION: 'Misleading Information',
+    SUSPECTED_FRAUD: 'Suspected Fraud',
+    FAKE_IDENTITY: 'Fake Identity',
+    PROHIBITED_PRODUCTS: 'Prohibited Products',
+    HARASSMENT: 'Harassment',
+    OTHER: 'Other',
+    INAPPROPRIATE_PRODUCT: 'Inappropriate Product',
+    PROHIBITED_PRODUCT: 'Prohibited Product',
+    MISLEADING_DESCRIPTION: 'Misleading Description',
+    FRAUDULENT_LISTING: 'Fraudulent Listing',
+    INCORRECT_PRICING: 'Incorrect Pricing',
+    COPYRIGHT_CONCERN: 'Copyright Concern'
+  })[reason] || reason;
+}
+
+function bindReportActions(type) {
+  const tableId = type === 'business' ? 'b-reports-table' : 'p-reports-table';
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  table.querySelectorAll('[data-action="view"]').forEach(btn => {
+    btn.addEventListener('click', () => openReportModal(btn.dataset.id, type));
+  });
+}
+
+async function openReportModal(reportId, type) {
+  currentReportType = type;
+  currentReport = type === 'business'
+    ? businessReports.find(r => r.id === reportId)
+    : productReports.find(r => r.id === reportId);
+
+  if (!currentReport) return;
+
+  const store = currentReport.stores;
+  const product = currentReport.products;
+  const reporter = currentReport.profiles;
+
+  if (type === 'business') {
+    $('#report-modal-title').textContent = `Business Report: ${esc(store?.business_name || 'Unknown')}`;
+    $('#report-modal-info').textContent = `TRN: ${esc(store?.trn_code || '—')} · Reporter: ${esc(reporter?.full_name || reporter?.email || 'Unknown')}`;
+    $('#report-detail').innerHTML = `
+      <p><strong>Reason:</strong> ${formatReason(currentReport.reason)}</p>
+      <p><strong>Description:</strong> ${esc(currentReport.description || 'No description')}</p>
+      <p><strong>Submitted:</strong> ${currentReport.created_at ? new Date(currentReport.created_at).toLocaleString('en-PH') : '—'}</p>
+      <p><strong>Current Status:</strong> <span class="report-status report-status-${currentReport.status.toLowerCase()}">${currentReport.status}</span></p>
+      ${currentReport.admin_notes ? `<p><strong>Admin Notes:</strong> ${esc(currentReport.admin_notes)}</p>` : ''}
+      ${currentReport.resolved_at ? `<p><strong>Resolved:</strong> ${new Date(currentReport.resolved_at).toLocaleString('en-PH')} by admin</p>` : ''}
+    `;
+    $('#report-moderate').style.display = store?.user_id ? 'inline-flex' : 'none';
+    $('#report-moderate').dataset.targetId = store?.user_id;
+  } else {
+    $('#report-modal-title').textContent = `Product Report: ${esc(product?.name || 'Unknown')}`;
+    $('#report-modal-info').textContent = `Store: ${esc(store?.business_name || 'Unknown')} (${esc(store?.trn_code || '—')}) · Reporter: ${esc(reporter?.full_name || reporter?.email || 'Unknown')}`;
+    $('#report-detail').innerHTML = `
+      <p><strong>Reason:</strong> ${formatReason(currentReport.reason)}</p>
+      <p><strong>Description:</strong> ${esc(currentReport.description || 'No description')}</p>
+      <p><strong>Submitted:</strong> ${currentReport.created_at ? new Date(currentReport.created_at).toLocaleString('en-PH') : '—'}</p>
+      <p><strong>Current Status:</strong> <span class="report-status report-status-${currentReport.status.toLowerCase()}">${currentReport.status}</span></p>
+      ${currentReport.admin_notes ? `<p><strong>Admin Notes:</strong> ${esc(currentReport.admin_notes)}</p>` : ''}
+      ${currentReport.resolved_at ? `<p><strong>Resolved:</strong> ${new Date(currentReport.resolved_at).toLocaleString('en-PH')} by admin</p>` : ''}
+    `;
+    $('#report-moderate').style.display = 'none';
+  }
+
+  $('#admin-notes').value = currentReport.admin_notes || '';
+  modal.showModal();
+}
+
+async function updateReportStatus(newStatus) {
+  if (!currentReport || !currentReportType) return;
+
+  const adminNotes = $('#admin-notes').value.trim();
+
+  const btn = document.querySelector(`#report-form [data-status="${newStatus}"]`);
+  const originalText = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+  }
+  $('#report-modal-message').textContent = '';
+
+  try {
+    const { error } = await supabase.rpc('admin_update_report_status', {
+      p_actor_id: (await supabase.auth.getUser()).data.user.id,
+      p_report_type: currentReportType.toUpperCase(),
+      p_report_id: currentReport.id,
+      p_status: newStatus,
+      p_admin_notes: adminNotes || null
+    });
+
+    if (error) throw error;
+
+    $('#report-modal-message').textContent = 'Status updated successfully';
+    $('#report-modal-message').className = 'pill ok';
+
+    // Refresh
+    await loadAllReports();
+    modal.close();
+  } catch (err) {
+    console.error('Update report status error:', err);
+    $('#report-modal-message').textContent = err.message || 'Failed to update status';
+    $('#report-modal-message').className = 'pill bad';
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>

@@ -5,18 +5,20 @@ import fs from 'node:fs';
 const pages = [
   'index', 'explore', 'map', 'products', 'business', 'register', 'login',
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
-  'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
+  'chat', 'admin', 'admin-verification', 'admin-verification-docs', 'admin-prices', 'admin-reports', 'admin-reports-management', 'admin-accounts', 'admin-support',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status'
+  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status',
+  'report-business', 'report-product', 'support'
 ];
 
 // Pages that should be directories (clean URLs) vs files
 const directoryPages = new Set([
   'explore', 'map', 'products', 'business', 'register', 'login',
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
-  'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
+  'chat', 'admin', 'admin-verification', 'admin-verification-docs', 'admin-prices', 'admin-reports', 'admin-reports-management', 'admin-accounts', 'admin-support',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status'
+  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status',
+  'report-business', 'report-product', 'support'
 ]);
 
 // Build input object for rollupOptions
@@ -93,7 +95,7 @@ export default defineConfig({
     target: 'es2022' },
   build: {
     target: 'es2022',
-    outDir: 'dist',
+    outDir: '/tmp/palitrento-dist',
     rollupOptions: { input }
   }
 });
