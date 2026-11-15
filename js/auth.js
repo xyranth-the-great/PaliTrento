@@ -20,6 +20,17 @@ export function checkAuthErrorParams() {
   const errorCode = searchParams.get('error_code') || hashParams.get('error_code');
   const errorDesc = searchParams.get('error_description') || hashParams.get('error_description');
 
+  // Handle Supabase auth errors that redirect back to the site
+  // These occur when Supabase rejects the login before creating a session
+  if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
+      errorDesc?.toLowerCase().includes('banned') ||
+      errorDesc?.toLowerCase().includes('suspended')) {
+    // Redirect to auth-status page which checks the database for actual status
+    // Include email from sessionStorage if available (saved during login form input)
+    const lastEmail = sessionStorage.getItem('palitrento_last_login_email');
+    return lastEmail ? `/auth-status/?email=${encodeURIComponent(lastEmail)}` : '/auth-status/';
+  }
+
   // Only handle OAuth/magic link redirect errors, not email/password errors
   // Email/password errors are handled by form submit handler
   if (errorCode === 'access_denied' && errorDesc?.includes('email_not_confirmed')) {

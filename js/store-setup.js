@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, BARANGAYS, CATS, PAY } from './ui.js';
-import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams, getSession } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
