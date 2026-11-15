@@ -6,7 +6,7 @@
 -- 1. Business Reports table
 create table if not exists public.business_reports (
   id uuid primary key default gen_random_uuid(),
-  reporter_id uuid not null references auth.users(id) on delete cascade,
+  reporter_id uuid not null,
   store_id uuid not null references public.stores(id) on delete cascade,
   reason text not null check (reason in (
     'INAPPROPRIATE_CONTENT',
@@ -32,11 +32,12 @@ create index if not exists business_reports_status_idx on public.business_report
 create index if not exists business_reports_reason_idx on public.business_reports(reason);
 
 -- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+-- Drop existing FK to auth.users if it exists, then add FK to profiles with the standard name
 alter table public.business_reports
-  add constraint business_reports_reporter_id_fkey_profiles
-  foreign key (reporter_id) references public.profiles(id) on delete cascade
-  not valid;
-alter table public.business_reports validate constraint business_reports_reporter_id_fkey_profiles;
+  drop constraint if exists business_reports_reporter_id_fkey;
+alter table public.business_reports
+  add constraint business_reports_reporter_id_fkey
+  foreign key (reporter_id) references public.profiles(id) on delete cascade;
 
 alter table public.business_reports enable row level security;
 
@@ -55,7 +56,7 @@ create policy "users create business reports" on public.business_reports
 -- 2. Product Reports table
 create table if not exists public.product_reports (
   id uuid primary key default gen_random_uuid(),
-  reporter_id uuid not null references auth.users(id) on delete cascade,
+  reporter_id uuid not null,
   product_id uuid not null references public.products(id) on delete cascade,
   store_id uuid not null references public.stores(id) on delete cascade,
   reason text not null check (reason in (
@@ -83,11 +84,12 @@ create index if not exists product_reports_status_idx on public.product_reports(
 create index if not exists product_reports_reason_idx on public.product_reports(reason);
 
 -- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+-- Drop existing FK to auth.users if it exists, then add FK to profiles with the standard name
 alter table public.product_reports
-  add constraint product_reports_reporter_id_fkey_profiles
-  foreign key (reporter_id) references public.profiles(id) on delete cascade
-  not valid;
-alter table public.product_reports validate constraint product_reports_reporter_id_fkey_profiles;
+  drop constraint if exists product_reports_reporter_id_fkey;
+alter table public.product_reports
+  add constraint product_reports_reporter_id_fkey
+  foreign key (reporter_id) references public.profiles(id) on delete cascade;
 
 alter table public.product_reports enable row level security;
 

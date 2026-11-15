@@ -6,7 +6,7 @@
 -- 1. Support Tickets table
 create table if not exists public.support_tickets (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null,
   subject text not null,
   category text not null check (category in (
     'ACCOUNT_PROBLEMS',
@@ -37,13 +37,12 @@ create index if not exists support_tickets_category_idx on public.support_ticket
 create index if not exists support_tickets_assigned_idx on public.support_tickets(assigned_admin_id);
 
 -- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+-- Drop existing FK to auth.users if it exists, then add FK to profiles with the standard name
 alter table public.support_tickets
-  add constraint support_tickets_user_id_fkey_profiles
-  foreign key (user_id) references public.profiles(id) on delete cascade
-  not valid;
-alter table public.support_tickets validate constraint support_tickets_user_id_fkey_profiles;
-
-alter table public.support_tickets enable row level security;
+  drop constraint if exists support_tickets_user_id_fkey;
+alter table public.support_tickets
+  add constraint support_tickets_user_id_fkey
+  foreign key (user_id) references public.profiles(id) on delete cascade;
 
 -- Users can read their own tickets
 drop policy if exists "user read own support tickets" on public.support_tickets;
@@ -68,7 +67,7 @@ create policy "user update own support tickets" on public.support_tickets
 create table if not exists public.support_messages (
   id uuid primary key default gen_random_uuid(),
   ticket_id uuid not null references public.support_tickets(id) on delete cascade,
-  sender_id uuid not null references auth.users(id) on delete cascade,
+  sender_id uuid not null,
   content text not null,
   attachment_path text,
   attachment_name text,
@@ -83,11 +82,12 @@ create index if not exists support_messages_ticket_idx on public.support_message
 create index if not exists support_messages_sender_idx on public.support_messages(sender_id);
 
 -- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+-- Drop existing FK to auth.users if it exists, then add FK to profiles with the standard name
 alter table public.support_messages
-  add constraint support_messages_sender_id_fkey_profiles
-  foreign key (sender_id) references public.profiles(id) on delete cascade
-  not valid;
-alter table public.support_messages validate constraint support_messages_sender_id_fkey_profiles;
+  drop constraint if exists support_messages_sender_id_fkey;
+alter table public.support_messages
+  add constraint support_messages_sender_id_fkey
+  foreign key (sender_id) references public.profiles(id) on delete cascade;
 
 alter table public.support_messages enable row level security;
 
