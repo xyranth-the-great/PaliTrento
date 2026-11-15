@@ -31,6 +31,13 @@ create index if not exists business_reports_store_idx on public.business_reports
 create index if not exists business_reports_status_idx on public.business_reports(status);
 create index if not exists business_reports_reason_idx on public.business_reports(reason);
 
+-- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+alter table public.business_reports
+  add constraint business_reports_reporter_id_fkey_profiles
+  foreign key (reporter_id) references public.profiles(id) on delete cascade
+  not valid;
+alter table public.business_reports validate constraint business_reports_reporter_id_fkey_profiles;
+
 alter table public.business_reports enable row level security;
 
 -- Reporters can read their own reports
@@ -74,6 +81,13 @@ create index if not exists product_reports_product_idx on public.product_reports
 create index if not exists product_reports_store_idx on public.product_reports(store_id);
 create index if not exists product_reports_status_idx on public.product_reports(status);
 create index if not exists product_reports_reason_idx on public.product_reports(reason);
+
+-- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+alter table public.product_reports
+  add constraint product_reports_reporter_id_fkey_profiles
+  foreign key (reporter_id) references public.profiles(id) on delete cascade
+  not valid;
+alter table public.product_reports validate constraint product_reports_reporter_id_fkey_profiles;
 
 alter table public.product_reports enable row level security;
 

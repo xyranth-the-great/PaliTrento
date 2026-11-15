@@ -36,6 +36,13 @@ create index if not exists support_tickets_status_idx on public.support_tickets(
 create index if not exists support_tickets_category_idx on public.support_tickets(category);
 create index if not exists support_tickets_assigned_idx on public.support_tickets(assigned_admin_id);
 
+-- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+alter table public.support_tickets
+  add constraint support_tickets_user_id_fkey_profiles
+  foreign key (user_id) references public.profiles(id) on delete cascade
+  not valid;
+alter table public.support_tickets validate constraint support_tickets_user_id_fkey_profiles;
+
 alter table public.support_tickets enable row level security;
 
 -- Users can read their own tickets
@@ -74,6 +81,13 @@ create table if not exists public.support_messages (
 
 create index if not exists support_messages_ticket_idx on public.support_messages(ticket_id);
 create index if not exists support_messages_sender_idx on public.support_messages(sender_id);
+
+-- Add FK to profiles for PostgREST relationship resolution (profiles.id = auth.users.id)
+alter table public.support_messages
+  add constraint support_messages_sender_id_fkey_profiles
+  foreign key (sender_id) references public.profiles(id) on delete cascade
+  not valid;
+alter table public.support_messages validate constraint support_messages_sender_id_fkey_profiles;
 
 alter table public.support_messages enable row level security;
 
