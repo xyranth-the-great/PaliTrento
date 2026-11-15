@@ -485,15 +485,21 @@ async function generatePDF(options) {
       }
     }
 
-    if (mapDataUrl) {
+    if (mapDataUrl && mapDataUrl.startsWith('data:image/')) {
       // Draw the static map image
-      pdf.addImage(mapDataUrl, 'PNG', mapX, currentY, mapW, mapH);
-      // Border
-      pdf.setDrawColor('#dcdad3');
-      pdf.setLineWidth(0.4);
-      pdf.rect(mapX, currentY, mapW, mapH, 'S');
-      console.log('[Standee] Map image drawn to PDF');
-    } else {
+      try {
+        pdf.addImage(mapDataUrl, 'PNG', mapX, currentY, mapW, mapH);
+        // Border
+        pdf.setDrawColor('#dcdad3');
+        pdf.setLineWidth(0.4);
+        pdf.rect(mapX, currentY, mapW, mapH, 'S');
+        console.log('[Standee] Map image drawn to PDF');
+      } catch (imgErr) {
+        console.warn('[Standee] Failed to add map image to PDF:', imgErr);
+        mapDataUrl = ''; // force fallback
+      }
+    }
+    if (!mapDataUrl) {
       // Fallback: placeholder box with coordinates (more visible)
       pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
       pdf.setDrawColor('#dcdad3');
