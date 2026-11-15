@@ -10,14 +10,216 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <style>
-  .account-row { display:grid; grid-template-columns:minmax(180px,1.3fr) minmax(120px,.8fr) minmax(190px,1fr) minmax(130px,.7fr); gap:12px; align-items:center; padding:16px 0; border-bottom:1px solid var(--line); }
-  .account-actions { display:flex; gap:8px; min-width:0; }
-  .account-actions select { min-width:0; flex:1; }
-  .moderation-dialog { width:min(480px,calc(100% - 32px)); border:1px solid var(--line); border-radius:var(--r-lg); padding:24px; color:var(--ink); background:var(--card); }
-  .moderation-dialog::backdrop { background:rgba(15,23,42,.48); }
-  @media (max-width:760px) {
-    .account-row { grid-template-columns:1fr; gap:8px; }
-    .account-actions { margin-top:4px; }
+  /* Account row - Flexbox layout that prevents overflow */
+  .account-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 24px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+    min-width: 0;
+  }
+
+  .account-identity {
+    flex: 1 1 200px;
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .account-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink);
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .account-email {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  .account-role {
+    flex: 0 0 auto;
+    min-width: 100px;
+  }
+  .account-role .pill {
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .account-status {
+    flex: 1 1 160px;
+    min-width: 140px;
+  }
+  .account-status .pill {
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .account-status .suspension-reason {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .account-status .ban-reason {
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  .account-actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+  }
+  .account-actions select {
+    flex: 1 1 200px;
+    min-width: 180px;
+    max-width: 280px;
+  }
+  .account-actions .btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+
+  .account-history {
+    flex: 1 1 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .account-history summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+  }
+  .account-history summary:hover {
+    text-decoration: underline;
+  }
+  .account-history div {
+    padding-top: 8px;
+    font-size: 0.8rem;
+  }
+  .account-history strong {
+    color: var(--ink);
+  }
+  .account-history .muted {
+    color: var(--muted);
+  }
+  .account-history .actor-name {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-left: 8px;
+  }
+
+  .account-actions select:focus-visible,
+  .account-actions .btn:focus-visible {
+    outline: 3px solid var(--amber);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+
+  .account-actions select:disabled,
+  .account-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Moderation dialog */
+  .moderation-dialog {
+    width: min(520px, calc(100% - 32px));
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 24px;
+    color: var(--ink);
+    background: var(--card);
+  }
+  .moderation-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.48);
+  }
+
+  .dialog-field {
+    margin-bottom: 16px;
+  }
+  .dialog-field label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+  .dialog-field select,
+  .dialog-field input,
+  .dialog-field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+  }
+  .dialog-field select:focus,
+  .dialog-field input:focus,
+  .dialog-field textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-dark);
+  }
+  .dialog-field .hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .dialog-field .field-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .dialog-field .field-row > * {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  /* Responsive */
+  @media (max-width: 760px) {
+    .account-row { gap: 12px; }
+    .account-identity { flex-basis: 100%; min-width: 0; }
+    .account-role, .account-status { flex-basis: auto; min-width: 0; }
+    .account-actions { flex-basis: 100%; width: 100%; justify-content: stretch; }
+    .account-actions select { flex: 1 1 auto; min-width: 0; max-width: none; }
+    .account-actions .btn { flex: 0 0 auto; }
+    .account-history { flex-basis: 100%; }
+    .moderation-dialog { width: calc(100% - 24px); max-width: none; padding: 20px; }
+    .dialog-field .field-row > * { min-width: 0; flex: 1 1 100%; }
+  }
+
+  @media (max-width: 420px) {
+    .account-row { gap: 8px; padding: 12px 0; }
+    .account-name { font-size: 0.9rem; }
+    .account-email { font-size: 0.8rem; }
+    .account-actions { gap: 6px; }
+    .account-actions select { font-size: 0.85rem; padding: 8px 10px; }
+    .account-actions .btn { padding: 8px 12px; font-size: 0.8rem; }
   }
 </style>
 </head>
@@ -28,7 +230,7 @@
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
     <div>
       <h1 style="margin:0">Account Moderation</h1>
-      <p class="muted">Warnings and suspensions are recorded with the administrator and reason.</p>
+      <p class="muted">Warnings, suspensions, and bans are recorded with the administrator and reason.</p>
     </div>
     <a href="/admin/" class="btn alt">Back to dashboard</a>
   </div>
@@ -45,6 +247,7 @@
           <option value="all">All accounts</option>
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
+          <option value="banned">Banned</option>
         </select>
       </label>
     </div>
@@ -59,20 +262,40 @@
   <form id="moderation-form">
     <h2 id="moderation-title" style="margin:0 0 8px">Moderate account</h2>
     <p id="moderation-account" class="muted" style="margin:0 0 16px"></p>
-    <label id="duration-field" style="display:block;margin-bottom:14px">
-      <span style="display:block;margin-bottom:6px">Suspension period</span>
-      <select id="moderation-duration">
-        <option value="24">24 hours</option>
-        <option value="168">7 days</option>
-        <option value="720">30 days</option>
-      </select>
-    </label>
-    <label style="display:block;margin-bottom:16px">
-      <span style="display:block;margin-bottom:6px">Reason</span>
-      <textarea id="moderation-reason" rows="4" maxlength="1000" required placeholder="Explain the policy violation"></textarea>
-    </label>
+
+    <!-- Suspension Duration Field -->
+    <div class="dialog-field" id="duration-field" style="display:none">
+      <label>Suspension duration</label>
+      <div class="field-row">
+        <select id="moderation-duration">
+          <option value="24">1 Day (24 hours)</option>
+          <option value="72">3 Days</option>
+          <option value="168">7 Days</option>
+          <option value="336">14 Days</option>
+          <option value="720">30 Days</option>
+          <option value="custom">Custom duration…</option>
+        </select>
+        <input type="number" id="custom-duration-days" min="1" max="365" placeholder="Days" style="display:none" aria-label="Custom duration in days">
+      </div>
+      <p class="hint">Select a preset or choose "Custom duration" to enter a specific number of days.</p>
+    </div>
+
+    <!-- Warning Message Field -->
+    <div class="dialog-field" id="warning-field" style="display:none">
+      <label>Warning message <span style="color:var(--bad)">*</span></label>
+      <textarea id="warning-message" rows="3" maxlength="1000" required placeholder="Enter the warning message to send to the user"></textarea>
+      <p class="hint">This message will be sent as a notification to the user.</p>
+    </div>
+
+    <!-- Reason Field (for suspend/ban/restore/unban) -->
+    <div class="dialog-field" id="reason-field">
+      <label>Reason <span style="color:var(--bad)">*</span></label>
+      <textarea id="moderation-reason" rows="4" maxlength="1000" required placeholder="Explain the policy violation or reason for this action"></textarea>
+    </div>
+
     <p id="moderation-message" class="muted" role="status" aria-live="polite"></p>
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+
+    <div class="dialog-actions">
       <button type="button" class="btn alt" id="moderation-cancel">Cancel</button>
       <button type="submit" class="btn" id="moderation-submit">Confirm</button>
     </div>

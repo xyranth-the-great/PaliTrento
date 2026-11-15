@@ -11,13 +11,21 @@ export async function getSession() {
   if (session) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('account_status, suspended_until, suspension_reason')
+      .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason')
       .eq('id', session.user.id)
       .maybeSingle();
+
+    if (profile?.account_status === 'banned') {
+      sessionStorage.setItem('palitrento_account_notice', profile.ban_reason || 'Your account has been permanently banned. Contact PaliTrento administrators for help.');
+      clearProfileCache();
+      await supabase.auth.signOut({ scope: 'local' });
+      return null;
+    }
+
     const isSuspended = profile?.account_status === 'suspended'
       && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
     if (isSuspended) {
-      sessionStorage.setItem('palitrento_account_notice', profile.suspension_reason || 'Your account is suspended. Contact PaliTrento administrators for help.');
+      sessionStorage.setItem('palitrento_account_notice', profile.suspension_reason || 'Your account is temporarily suspended. Contact PaliTrento administrators for help.');
       clearProfileCache();
       await supabase.auth.signOut({ scope: 'local' });
       return null;
@@ -193,8 +201,11 @@ export function isNewGoogleAccount(user) {
 export function getAuthErrorMessage(error) {
   if (!error) return 'Something went wrong';
   const msg = error.message?.toLowerCase() ?? '';
-  if (msg.includes('banned') || msg.includes('suspended')) {
-    return 'This account is suspended. Contact PaliTrento administrators for help.';
+  if (msg.includes('banned')) {
+    return 'This account has been permanently banned. Contact PaliTrento administrators for help.';
+  }
+  if (msg.includes('suspended')) {
+    return 'This account is temporarily suspended. Contact PaliTrento administrators for help.';
   }
   if (msg.includes('invalid login credentials') || msg.includes('wrong password') || msg.includes('invalid email or password')) {
     return 'Wrong email or password';
@@ -215,6 +226,63 @@ export function getAuthErrorMessage(error) {
     return 'Please enter a valid email address';
   }
   return 'Something went wrong. Please try again.';
+}
+
+/**
+ * Check account status after login and redirect if suspended/banned
+ * Returns the redirect path or null if account is active
+ */
+export async function checkAccountStatusAndRedirect() {
+  if (!supabase) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('account_status, suspended_until, banned_at')
+    .eq('id', session.user.id)
+    .maybeSingle();
+
+  if (!profile) return null;
+
+  if (profile.account_status === 'banned') {
+    return '/banned/';
+  }
+
+  const isSuspended = profile.account_status === 'suspended'
+    && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
+  if (isSuspended) {
+    return '/suspended/';
+  }
+
+  // Check if suspension expired - auto restore
+  if (profile.account_status === 'suspended' && profile.suspended_until && new Date(profile.suspended_until).getTime() <= Date.now()) {
+    // Suspension expired, trigger auto-restore via RPC
+    try {
+      await supabase.rpc('auto_restore_expired_suspensions');
+    } catch {
+      // Ignore errors, the restrictive policies will handle access
+    }
+    // Reload to get updated status
+    window.location.reload();
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Check account status and redirect if needed.
+ * Can be called from any page to enforce access restrictions.
+ * Returns true if redirect happened, false if account is active.
+ */
+export async function enforceAccountStatus() {
+  const redirectPath = await checkAccountStatusAndRedirect();
+  if (redirectPath) {
+    window.location.replace(redirectPath);
+    return true;
+  }
+  return false;
 }
 
 // ===== Unread Message Counts =====

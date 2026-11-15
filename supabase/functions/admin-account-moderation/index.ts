@@ -14,6 +14,33 @@ function respond(body: unknown, status = 200) {
   })
 }
 
+// Helper to send notification to user
+async function sendWarningNotification(
+  service: ReturnType<typeof createClient>,
+  targetUserId: string,
+  reason: string,
+  actorName: string
+) {
+  try {
+    // Create advisory for the user (warning category)
+    const { error } = await service
+      .from('advisories')
+      .insert({
+        title: 'Account Warning',
+        body: `Warning from ${actorName}: ${reason}`,
+        category: 'GENERAL', // Using GENERAL as warning category
+        priority: 'normal',
+        published_at: new Date().toISOString(),
+        created_by: targetUserId, // System user or admin
+      })
+    if (error) {
+      console.error('Failed to create warning advisory:', error)
+    }
+  } catch (e) {
+    console.error('Error sending warning notification:', e)
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return respond({ error: 'Method not allowed' }, 405)
@@ -39,7 +66,7 @@ serve(async (req) => {
     })
     const { data: actor, error: actorError } = await service
       .from('profiles')
-      .select('role, account_status, suspended_until')
+      .select('role, account_status, suspended_until, full_name')
       .eq('id', userData.user.id)
       .single()
 
@@ -50,13 +77,18 @@ serve(async (req) => {
     }
 
     const body = await req.json()
+
+    // Supported durations in hours: 1d=24, 3d=72, 7d=168, 14d=336, 30d=720
+    const SUPPORTED_DURATIONS = [24, 72, 168, 336, 720]
+
     if (body.action === 'list') {
       const { data: profiles, error: profilesError } = await service
         .from('profiles')
-        .select('id, full_name, role, account_status, suspended_until, suspension_reason, created_at')
+        .select('id, full_name, role, account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason, created_at')
         .order('created_at', { ascending: false })
       if (profilesError) throw profilesError
 
+      // Fetch all auth users for emails
       const users = []
       for (let page = 1; page <= 100; page++) {
         const { data, error } = await service.auth.admin.listUsers({ page, perPage: 1000 })
@@ -65,9 +97,10 @@ serve(async (req) => {
         if (data.users.length < 1000) break
       }
 
+      // Fetch moderation history
       const { data: actions, error: actionsError } = await service
         .from('account_moderation_actions')
-        .select('target_user_id, action, reason, expires_at, created_at')
+        .select('target_user_id, actor_user_id, action, reason, expires_at, created_at')
         .order('created_at', { ascending: false })
         .limit(5000)
       if (actionsError) throw actionsError
@@ -76,23 +109,49 @@ serve(async (req) => {
       const historyById = new Map<string, typeof actions>()
       for (const action of actions ?? []) {
         const history = historyById.get(action.target_user_id) ?? []
-        if (history.length < 5) history.push(action)
+        if (history.length < 10) history.push(action) // Increased from 5 to 10
         historyById.set(action.target_user_id, history)
       }
+
+      // Fetch actor names for history
+      const actorIds = [...new Set(actions?.map(a => a.actor_user_id) ?? [])]
+      const { data: actorProfiles } = await service
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', actorIds)
+      const actorNameById = new Map((actorProfiles ?? []).map(a => [a.id, a.full_name]))
 
       return respond({
         accounts: (profiles ?? []).map((profile) => ({
           ...profile,
           email: emailById.get(profile.id) ?? '',
-          recent_actions: historyById.get(profile.id) ?? [],
+          recent_actions: (historyById.get(profile.id) ?? []).map(action => ({
+            ...action,
+            actor_name: actorNameById.get(action.actor_user_id) ?? 'Unknown admin',
+          })),
         })),
       })
     }
 
     if (body.action === 'moderate') {
-      const { targetUserId, moderationAction, reason, durationHours } = body
+      const { targetUserId, moderationAction, reason, durationHours, customDurationDays } = body
       if (typeof targetUserId !== 'string' || typeof reason !== 'string') {
         return respond({ error: 'A target account and reason are required' }, 400)
+      }
+
+      // Validate duration
+      let finalDurationHours: number | null = null
+      let finalCustomDays: number | null = null
+
+      if (moderationAction === 'suspend_temporary') {
+        if (customDurationDays && customDurationDays > 0) {
+          finalCustomDays = customDurationDays
+          finalDurationHours = customDurationDays * 24
+        } else if (durationHours && SUPPORTED_DURATIONS.includes(durationHours)) {
+          finalDurationHours = durationHours
+        } else {
+          return respond({ error: 'Choose a supported temporary suspension duration (1, 3, 7, 14, 30 days, or custom)' }, 400)
+        }
       }
 
       const { data: result, error: moderationError } = await service.rpc('admin_moderate_account', {
@@ -100,22 +159,44 @@ serve(async (req) => {
         p_target_user_id: targetUserId,
         p_action: moderationAction,
         p_reason: reason,
-        p_duration_hours: durationHours ?? null,
+        p_duration_hours: finalDurationHours,
+        p_custom_duration_days: finalCustomDays,
       })
       if (moderationError) return respond({ error: moderationError.message }, 400)
 
+      // Update Supabase Auth ban_duration for sessions
       let authWarning = null
-      if (moderationAction === 'suspend_temporary' || moderationAction === 'suspend_permanent' || moderationAction === 'restore') {
-        const banDuration = moderationAction === 'restore'
-          ? 'none'
-          : moderationAction === 'suspend_permanent'
+      if (moderationAction === 'suspend_temporary' || moderationAction === 'suspend_permanent' || moderationAction === 'ban') {
+        const banDuration = moderationAction === 'suspend_permanent'
+          ? '876000h' // 100 years
+          : moderationAction === 'ban'
             ? '876000h'
-            : `${durationHours}h`
+            : `${finalDurationHours}h`
         const { error } = await service.auth.admin.updateUserById(targetUserId, { ban_duration: banDuration })
         if (error) authWarning = 'Database access is blocked, but the sign-in lock could not be updated. Check Supabase Auth configuration.'
+      } else if (moderationAction === 'restore' || moderationAction === 'unban') {
+        const { error } = await service.auth.admin.updateUserById(targetUserId, { ban_duration: 'none' })
+        if (error) authWarning = 'Account restored in database, but the sign-in lock could not be updated.'
+      }
+
+      // Send warning notification for warn action
+      if (moderationAction === 'warn') {
+        await sendWarningNotification(service, targetUserId, reason, actor?.full_name ?? 'Admin')
       }
 
       return respond({ result, warning: authWarning })
+    }
+
+    if (body.action === 'get_status') {
+      const { targetUserId } = body
+      if (!targetUserId) {
+        return respond({ error: 'Target user ID required' }, 400)
+      }
+
+      const { data, error } = await service.rpc('get_account_status', { p_user_id: targetUserId })
+      if (error) return respond({ error: error.message }, 400)
+
+      return respond({ status: data })
     }
 
     return respond({ error: 'Unsupported request' }, 400)

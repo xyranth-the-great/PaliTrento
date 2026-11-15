@@ -7,7 +7,7 @@ const pages = [
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement', 'advisories'
+  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned'
 ];
 
 // Pages that should be directories (clean URLs) vs files
@@ -16,7 +16,7 @@ const directoryPages = new Set([
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
   'chat', 'admin', 'admin-verification', 'admin-prices', 'admin-reports', 'admin-accounts',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
-  'reset-password', 'terms-and-agreement', 'advisories'
+  'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned'
 ]);
 
 // Build input object for rollupOptions

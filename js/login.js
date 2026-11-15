@@ -1,6 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange, checkAccountStatusAndRedirect, getCachedProfile } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
@@ -35,8 +35,13 @@ function redirectAfterLogin(role) {
   window.location.replace(getPostLoginPath(role));
 }
 
-onAuthStateChange((event, session) => {
+onAuthStateChange(async (event, session) => {
   if (session && event === 'SIGNED_IN') {
+    const redirectPath = await checkAccountStatusAndRedirect();
+    if (redirectPath) {
+      window.location.replace(redirectPath);
+      return;
+    }
     redirectAfterLogin(session.user.user_metadata?.role);
   }
 });
@@ -120,6 +125,11 @@ form.addEventListener('submit', async (e) => {
     }
 
     if (data.session) {
+      const redirectPath = await checkAccountStatusAndRedirect();
+      if (redirectPath) {
+        window.location.replace(redirectPath);
+        return;
+      }
       const profile = await getCachedProfile(data.session.user.id);
       redirectAfterLogin(profile?.role || data.session.user.user_metadata?.role);
     } else if (data.user && !data.user.email_confirmed_at) {
