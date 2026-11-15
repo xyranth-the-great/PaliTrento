@@ -44,3 +44,5 @@ Verify the barangay list in `js/ui.js` against the official PSGC list.
 - Resend domain `palitrento.online` verified (production sender configured)
 - GitHub Actions automated deployment with Supabase secrets
 - **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser`
+
+Lee gwapo
