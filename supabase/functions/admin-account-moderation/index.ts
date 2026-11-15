@@ -105,7 +105,7 @@ serve(async (req) => {
         .limit(5000)
       if (actionsError) throw actionsError
 
-      const emailById = new Map(users.map((user) => [user.id, user.email ?? '']))
+      const userById = new Map(users.map((user) => [user.id, user]))
       const historyById = new Map<string, typeof actions>()
       for (const action of actions ?? []) {
         const history = historyById.get(action.target_user_id) ?? []
@@ -122,14 +122,18 @@ serve(async (req) => {
       const actorNameById = new Map((actorProfiles ?? []).map(a => [a.id, a.full_name]))
 
       return respond({
-        accounts: (profiles ?? []).map((profile) => ({
-          ...profile,
-          email: emailById.get(profile.id) ?? '',
-          recent_actions: (historyById.get(profile.id) ?? []).map(action => ({
-            ...action,
-            actor_name: actorNameById.get(action.actor_user_id) ?? 'Unknown admin',
-          })),
-        })),
+        accounts: (profiles ?? []).map((profile) => {
+          const authUser = userById.get(profile.id)
+          return {
+            ...profile,
+            email: authUser?.email ?? '',
+            auth_banned: Boolean(authUser?.banned_until && Date.parse(authUser.banned_until) > Date.now()),
+            recent_actions: (historyById.get(profile.id) ?? []).map(action => ({
+              ...action,
+              actor_name: actorNameById.get(action.actor_user_id) ?? 'Unknown admin',
+            })),
+          }
+        }),
       })
     }
 
@@ -137,6 +141,12 @@ serve(async (req) => {
       const { targetUserId, moderationAction, reason, durationHours, customDurationDays } = body
       if (typeof targetUserId !== 'string' || typeof reason !== 'string') {
         return respond({ error: 'A target account and reason are required' }, 400)
+      }
+      if (!['warn', 'suspend_temporary', 'suspend_permanent', 'ban', 'restore', 'unban'].includes(moderationAction)) {
+        return respond({ error: 'Unsupported moderation action' }, 400)
+      }
+      if (targetUserId === userData.user.id) {
+        return respond({ error: 'You cannot moderate your own account' }, 400)
       }
 
       // Validate duration
@@ -151,6 +161,16 @@ serve(async (req) => {
           finalDurationHours = durationHours
         } else {
           return respond({ error: 'Choose a supported temporary suspension duration (1, 3, 7, 14, 30 days, or custom)' }, 400)
+        }
+      }
+
+      if (moderationAction === 'restore' || moderationAction === 'unban') {
+        const { error: authUnbanError } = await service.auth.admin.updateUserById(
+          targetUserId,
+          { ban_duration: 'none' },
+        )
+        if (authUnbanError) {
+          return respond({ error: `Could not restore sign-in access: ${authUnbanError.message}` }, 400)
         }
       }
 

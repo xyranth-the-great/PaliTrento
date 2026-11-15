@@ -135,6 +135,9 @@ function getAvailableActions(account) {
       { value: 'suspend_permanent', label: 'Permanent suspension' },
       { value: 'ban', label: 'Permanent ban' }
     );
+    if (account.auth_banned) {
+      baseActions.push({ value: 'restore', label: 'Clear sign-in restriction' });
+    }
   } else if (status === 'suspended') {
     baseActions.push(
       { value: 'restore', label: 'Restore access' }
@@ -187,6 +190,13 @@ function renderAccounts() {
     } else if (expired) {
       statusText = 'Suspension expired';
       statusPillClass = 'warn';
+      if (account.auth_banned) {
+        statusExtra = '<div class="suspension-reason">Supabase sign-in is still blocked</div>';
+      }
+    } else if (account.auth_banned) {
+      statusText = 'Active · sign-in blocked';
+      statusPillClass = 'warn';
+      statusExtra = '<div class="suspension-reason">Use “Clear sign-in restriction” to restore login.</div>';
     } else {
       statusText = 'Active';
       statusPillClass = 'ok';
