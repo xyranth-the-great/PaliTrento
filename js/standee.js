@@ -20,6 +20,7 @@ let currentSession = null;
 let qrDataUrl = null;
 let pdfGenerator = null;
 let currentQRCanvas = null;
+let mapDataUrl = null; // captured map image
 
 async function init() {
   console.log('[Standee] Initializing...');
@@ -86,6 +87,7 @@ async function loadStore(explicitStoreId = null) {
 
   currentStore = store;
   renderStoreInfo();
+  await initMapCapture();
 }
 
 function renderStoreInfo() {
@@ -155,6 +157,165 @@ async function initQRCode() {
   } catch (err) {
     console.error('QR code generation failed:', err);
     showError('Failed to generate QR code: ' + err.message);
+  }
+}
+
+// Load Leaflet from CDN
+async function loadLeaflet() {
+  if (window.L) return;
+
+  await new Promise((resolve, reject) => {
+    if (document.querySelector('script[src*="leaflet"]')) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+
+  // Load Leaflet CSS
+  if (!document.querySelector('link[href*="leaflet.css"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+  }
+}
+
+// Initialize and capture map for PDF
+async function initMapCapture() {
+  const s = currentStore;
+  if (!s.lat || !s.lng) {
+    console.log('[Standee] No coordinates for map capture');
+    return;
+  }
+
+  try {
+    console.log('[Standee] Initializing map capture...');
+    await loadLeaflet();
+
+    const mapContainer = document.getElementById('map-capture');
+    if (!mapContainer) {
+      console.warn('[Standee] Map capture container not found');
+      return;
+    }
+
+    // Create map
+    const map = L.map(mapContainer, {
+      center: [s.lat, s.lng],
+      zoom: 16,
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      keyboard: false,
+      tap: false,
+    });
+
+    // Add OSM tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Add marker
+    L.marker([s.lat, s.lng], {
+      icon: L.divIcon({
+        className: 'custom-marker',
+        html: '<div style="width:24px;height:24px;background:#b91c1c;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"><div style="width:12px;height:12px;background:white;border-radius:50%;margin:6px 0 0 6px;transform:rotate(45deg)"></div></div>',
+        iconSize: [24, 24],
+        iconAnchor: [12, 24],
+      })
+    }).addTo(map);
+
+    // Wait for tiles to load
+    await new Promise(resolve => {
+      let tilesLoaded = 0;
+      map.on('tileload', () => {
+        tilesLoaded++;
+        if (tilesLoaded >= 3) resolve();
+      });
+      // Fallback timeout
+      setTimeout(resolve, 3000);
+    });
+
+    // Capture map as image
+    const canvas = document.createElement('canvas');
+    const mapSize = map.getSize();
+    canvas.width = mapSize.x;
+    canvas.height = mapSize.y;
+    const ctx = canvas.getContext('2d');
+
+    // Get all tile images
+    const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
+    const markerPane = mapContainer.querySelector('.leaflet-marker-pane');
+
+    // Draw tiles
+    if (tilePane) {
+      const tiles = tilePane.querySelectorAll('img');
+      for (const tile of tiles) {
+        if (tile.complete) {
+          const rect = tile.getBoundingClientRect();
+          const mapRect = mapContainer.getBoundingClientRect();
+          ctx.drawImage(
+            tile,
+            rect.left - mapRect.left,
+            rect.top - mapRect.top,
+            rect.width,
+            rect.height
+          );
+        }
+      }
+    }
+
+    // Draw marker
+    if (markerPane) {
+      const markers = markerPane.querySelectorAll('img, div[style]');
+      for (const marker of markers) {
+        const rect = marker.getBoundingClientRect();
+        const mapRect = mapContainer.getBoundingClientRect();
+        if (marker.tagName === 'IMG' && marker.complete) {
+          ctx.drawImage(
+            marker,
+            rect.left - mapRect.left,
+            rect.top - mapRect.top,
+            rect.width,
+            rect.height
+          );
+        } else if (marker.tagName === 'DIV') {
+          // For divIcon, draw a simple marker manually
+          ctx.fillStyle = '#b91c1c';
+          ctx.beginPath();
+          ctx.arc(
+            rect.left - mapRect.left + rect.width/2,
+            rect.top - mapRect.top + rect.height,
+            12, 0, Math.PI * 2
+          );
+          ctx.fill();
+          ctx.fillStyle = 'white';
+          ctx.beginPath();
+          ctx.arc(
+            rect.left - mapRect.left + rect.width/2,
+            rect.top - mapRect.top + rect.height,
+            6, 0, Math.PI * 2
+          );
+          ctx.fill();
+        }
+      }
+    }
+
+    mapDataUrl = canvas.toDataURL('image/png');
+    console.log('[Standee] Map captured, data URL length:', mapDataUrl.length);
+
+    map.remove();
+  } catch (e) {
+    console.warn('[Standee] Map capture failed:', e);
+    mapDataUrl = null;
   }
 }
 
@@ -459,52 +620,23 @@ async function generatePDF(options) {
     const mapX = margin;
     const mapW = contentWidth;
 
-    // Fetch static map via Supabase Edge Function (no CORS issues)
-    let mapDataUrl = '';
-    if (s.lat && s.lng && supabase) {
-      try {
-        const mapWidthPx = Math.round(mapW * 2.83);
-        const mapHeightPx = Math.round(mapH * 2.83);
-        const zoom = 16;
-
-        console.log('[Standee] Fetching static map via Edge Function...', { lat: s.lat, lng: s.lng, zoom, width: mapWidthPx, height: mapHeightPx });
-        const { data, error } = await supabase.functions.invoke('fetch-static-map', {
-          body: { lat: s.lat, lng: s.lng, zoom, width: mapWidthPx, height: mapHeightPx }
-        });
-
-        console.log('[Standee] Edge Function response:', { data, error });
-
-        if (error) {
-          console.warn('[Standee] Edge Function error:', error.message, error.context);
-        } else if (data?.success && data?.imageBase64) {
-          mapDataUrl = `data:${data.mimeType};base64,${data.imageBase64}`;
-          console.log('[Standee] Map loaded via Edge Function, data URL length:', mapDataUrl.length);
-        } else if (data?.error) {
-          console.warn('[Standee] Edge Function returned error:', data.error);
-        } else {
-          console.warn('[Standee] Edge Function returned unexpected data:', data);
-        }
-      } catch (e) {
-        console.warn('[Standee] Could not load static map via Edge Function:', e);
-      }
-    }
-
+    // Use captured map from Leaflet (mapDataUrl is set by initMapCapture)
     if (mapDataUrl && mapDataUrl.startsWith('data:image/')) {
-      // Draw the static map image
+      // Draw the captured map image
       try {
         pdf.addImage(mapDataUrl, 'PNG', mapX, currentY, mapW, mapH);
         // Border
         pdf.setDrawColor('#dcdad3');
         pdf.setLineWidth(0.4);
         pdf.rect(mapX, currentY, mapW, mapH, 'S');
-        console.log('[Standee] Map image drawn to PDF');
+        console.log('[Standee] Captured map drawn to PDF');
       } catch (imgErr) {
-        console.warn('[Standee] Failed to add map image to PDF:', imgErr);
+        console.warn('[Standee] Failed to add captured map to PDF:', imgErr);
         mapDataUrl = ''; // force fallback
       }
     }
     if (!mapDataUrl) {
-      // Fallback: placeholder box with coordinates (more visible)
+      // Fallback: placeholder box with coordinates
       pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
       pdf.setDrawColor('#dcdad3');
       pdf.setLineWidth(0.4);
@@ -519,7 +651,7 @@ async function generatePDF(options) {
       });
 
       // Add note about map
-      pdfGenerator.addText('(Static map unavailable — showing coordinates)', pageWidth / 2, coordY + (isA5 ? 3.5 : 4), {
+      pdfGenerator.addText('(Map capture unavailable — showing coordinates)', pageWidth / 2, coordY + (isA5 ? 3.5 : 4), {
         fontSize: isA5 ? 5.5 : 6,
         color: '#999',
         align: 'center'
