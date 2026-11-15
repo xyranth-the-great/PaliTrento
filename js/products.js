@@ -8,10 +8,10 @@ if (authErrorRedirect) {
   window.location.replace(authErrorRedirect);
 }
 
-const { session, profile, redirectPath } = await getSessionWithStatus();
+const { session, profile, redirectUrl } = await getSessionWithStatus();
 
-if (redirectPath) {
-  window.location.replace(redirectPath);
+if (redirectUrl) {
+  window.location.replace(redirectUrl);
 }
 renderChrome('/products/', session, profile);
 

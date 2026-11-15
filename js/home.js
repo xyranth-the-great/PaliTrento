@@ -12,11 +12,11 @@ if (authErrorRedirect) {
   window.location.replace(authErrorRedirect);
 }
 
-const { session, profile, redirectPath } = await getSessionWithStatus();
+const { session, profile, redirectUrl } = await getSessionWithStatus();
 
-// Redirect suspended/banned users (from database check)
-if (redirectPath) {
-  window.location.replace(redirectPath);
+// Redirect suspended/banned users (from database check) - includes email param
+if (redirectUrl) {
+  window.location.replace(redirectUrl);
 }
 
 const postLoginPath = getPostLoginPath(profile?.role || session?.user?.user_metadata?.role);

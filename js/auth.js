@@ -38,19 +38,20 @@ export async function getSession() {
 
 /**
  * Get session with account status check.
- * Returns { session, profile, redirectPath } where redirectPath is set if account is suspended/banned.
+ * Returns { session, profile, redirectPath, redirectUrl } where redirectPath is set if account is suspended/banned.
+ * redirectUrl includes email parameter for suspended/banned pages.
  * Does NOT sign out - caller should handle redirect.
  */
 export async function getSessionWithStatus() {
-  if (!supabase) return { session: null, profile: null, redirectPath: null };
+  if (!supabase) return { session: null, profile: null, redirectPath: null, redirectUrl: null };
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { session: null, profile: null, redirectPath: null };
+  if (!session) return { session: null, profile: null, redirectPath: null, redirectUrl: null };
 
   let profile = null;
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason, role, full_name, barangay, avatar_url')
+      .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason, role, full_name, barangay, avatar_url, email')
       .eq('id', session.user.id)
       .maybeSingle();
     if (error) {
@@ -61,18 +62,30 @@ export async function getSessionWithStatus() {
     console.warn('[getSessionWithStatus] Profile query failed:', err);
   }
 
-  if (!profile) return { session, profile: null, redirectPath: null };
+  if (!profile) return { session, profile: null, redirectPath: null, redirectUrl: null };
 
   // Check for banned
   if (profile.account_status === 'banned') {
-    return { session, profile, redirectPath: '/banned/' };
+    const email = profile.email || session.user.email;
+    return {
+      session,
+      profile,
+      redirectPath: '/banned/',
+      redirectUrl: email ? `/banned/?email=${encodeURIComponent(email)}` : '/banned/'
+    };
   }
 
   // Check for active suspension
   const isSuspended = profile.account_status === 'suspended'
     && (!profile.suspended_until || new Date(profile.suspended_until).getTime() > Date.now());
   if (isSuspended) {
-    return { session, profile, redirectPath: '/suspended/' };
+    const email = profile.email || session.user.email;
+    return {
+      session,
+      profile,
+      redirectPath: '/suspended/',
+      redirectUrl: email ? `/suspended/?email=${encodeURIComponent(email)}` : '/suspended/'
+    };
   }
 
   // Check for expired suspension - auto restore
@@ -83,10 +96,10 @@ export async function getSessionWithStatus() {
       // Ignore
     }
     window.location.reload();
-    return { session, profile, redirectPath: null };
+    return { session, profile, redirectPath: null, redirectUrl: null };
   }
 
-  return { session, profile, redirectPath: null };
+  return { session, profile, redirectPath: null, redirectUrl: null };
 }
 
 export async function getProfile(userId) {

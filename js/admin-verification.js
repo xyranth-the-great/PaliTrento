@@ -23,8 +23,8 @@ async function init() {
     return;
   }
 
-  const { session, profile, redirectPath } = await getSessionWithStatus();
-  if (redirectPath) {
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
     window.location.replace(redirectPath);
     return;
   }

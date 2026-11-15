@@ -32,9 +32,9 @@ async function loadAccount() {
     return;
   }
 
-  const { session, profile, redirectPath } = await getSessionWithStatus();
-  if (redirectPath) {
-    window.location.replace(redirectPath);
+  const { session, profile, redirectUrl } = await getSessionWithStatus();
+  if (redirectUrl) {
+    window.location.replace(redirectUrl);
     return;
   }
   if (!session) {
