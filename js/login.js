@@ -14,7 +14,7 @@ async function init() {
     if (email) sessionStorage.setItem('palitrento_last_login_email', email);
   });
 
-  // Check for auth error params FIRST (from Supabase redirect)
+  // Check for auth error params from Supabase redirect (OAuth/magic link only)
   const authErrorRedirect = checkAuthErrorParams();
   if (authErrorRedirect) {
     // Include last entered email if available

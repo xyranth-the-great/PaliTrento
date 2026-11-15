@@ -7,8 +7,8 @@ const UNREAD_CACHE_KEY = 'palitrento_unread_counts';
 
 /**
  * Check URL for Supabase auth error parameters (in search or hash)
- * Returns redirect path if banned/suspended error detected, else null
- * Redirects to /auth-status/ which checks the database for actual status
+ * Returns redirect path for OAuth/magic link errors, else null
+ * For email/password login, errors are handled by form submit handler
  */
 export function checkAuthErrorParams() {
   if (typeof window === 'undefined') return null;
@@ -20,12 +20,13 @@ export function checkAuthErrorParams() {
   const errorCode = searchParams.get('error_code') || hashParams.get('error_code');
   const errorDesc = searchParams.get('error_description') || hashParams.get('error_description');
 
-  if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
-      errorDesc?.toLowerCase().includes('banned') ||
-      errorDesc?.toLowerCase().includes('suspended')) {
-    // Redirect to auth-status page which checks the database for actual status
-    const lastEmail = sessionStorage.getItem('palitrento_last_login_email');
-    return lastEmail ? `/auth-status/?email=${encodeURIComponent(lastEmail)}` : '/auth-status/';
+  // Only handle OAuth/magic link redirect errors, not email/password errors
+  // Email/password errors are handled by form submit handler
+  if (errorCode === 'access_denied' && errorDesc?.includes('email_not_confirmed')) {
+    return '/verify/';
+  }
+  if (errorCode === 'access_denied' && errorDesc?.includes('signup_disabled')) {
+    return '/login/';
   }
   return null;
 }

@@ -16,9 +16,35 @@ function logDebug(msg, type = 'info') {
   }
 }
 
-function getEmailFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('email')?.toLowerCase();
+function showResult(obj) {
+  const box = $('#result-box');
+  if (box) {
+    box.style.display = 'block';
+    box.textContent = JSON.stringify(obj, null, 2);
+  }
+}
+
+function showActions(profile) {
+  const actions = $('#actions');
+  if (!actions) return;
+  actions.style.display = 'block';
+  const suspendedBtn = $('#goto-suspended');
+  const bannedBtn = $('#goto-banned');
+  const loginBtn = $('#goto-login');
+
+  if (profile.account_status === 'suspended') {
+    suspendedBtn.style.display = 'inline-block';
+    bannedBtn.style.display = 'none';
+    loginBtn.style.display = 'none';
+  } else if (profile.account_status === 'banned') {
+    suspendedBtn.style.display = 'none';
+    bannedBtn.style.display = 'inline-block';
+    loginBtn.style.display = 'none';
+  } else {
+    suspendedBtn.style.display = 'none';
+    bannedBtn.style.display = 'none';
+    loginBtn.style.display = 'inline-block';
+  }
 }
 
 async function checkProfileByEmail(email) {
@@ -28,7 +54,7 @@ async function checkProfileByEmail(email) {
     logDebug('Querying profiles table for email: ' + email);
     const { data: profile, error } = await supabase
       .from('profiles')
-      .select('account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason, email')
+      .select('account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason, email, id')
       .eq('email', email)
       .maybeSingle();
 
@@ -36,15 +62,19 @@ async function checkProfileByEmail(email) {
 
     if (error) {
       logDebug('ERROR: Profile query failed: ' + error.message, 'error');
+      showResult({ error: error.message, hint: 'Check RLS policies or email column' });
       return;
     }
 
     if (!profile) {
       logDebug('Profile not found for email: ' + email, 'warn');
+      showResult({ error: 'Profile not found', email: email, hint: 'Check email spelling or run add-profile-email.sql migration' });
       return;
     }
 
     logDebug('Profile found: account_status=' + profile.account_status + ', suspended_until=' + (profile.suspended_until || 'null'), 'success');
+    showResult(profile);
+    showActions(profile);
 
     const now = Date.now();
 
@@ -77,12 +107,19 @@ async function checkProfileByEmail(email) {
 
   } catch (err) {
     logDebug('EXCEPTION: ' + err, 'error');
+    showResult({ exception: String(err) });
   }
+}
+
+function getEmailFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('email')?.toLowerCase();
 }
 
 async function checkAccountStatus() {
   logDebug('Starting auth status check...');
 
+  // PRIORITY 1: Check URL param first (for login redirect flow)
   const urlEmail = getEmailFromUrl();
   if (urlEmail) {
     logDebug('Email from URL param: ' + urlEmail);
@@ -90,6 +127,7 @@ async function checkAccountStatus() {
     return;
   }
 
+  // PRIORITY 2: Check session (for protected page redirects)
   logDebug('No URL email, checking session...');
 
   if (!supabase) {
@@ -114,6 +152,7 @@ async function checkAccountStatus() {
 
   logDebug('Session found for user: ' + session.user.id);
 
+  // Get email from session
   const sessionEmail = session.user.email?.toLowerCase();
   if (!sessionEmail) {
     logDebug('ERROR: No email in session', 'error');

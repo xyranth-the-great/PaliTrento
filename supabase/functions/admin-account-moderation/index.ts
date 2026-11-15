@@ -164,27 +164,12 @@ serve(async (req) => {
       })
       if (moderationError) return respond({ error: moderationError.message }, 400)
 
-      // Update Supabase Auth ban_duration for sessions
-      let authWarning = null
-      if (moderationAction === 'suspend_temporary' || moderationAction === 'suspend_permanent' || moderationAction === 'ban') {
-        const banDuration = moderationAction === 'suspend_permanent'
-          ? '876000h' // 100 years
-          : moderationAction === 'ban'
-            ? '876000h'
-            : `${finalDurationHours}h`
-        const { error } = await service.auth.admin.updateUserById(targetUserId, { ban_duration: banDuration })
-        if (error) authWarning = 'Database access is blocked, but the sign-in lock could not be updated. Check Supabase Auth configuration.'
-      } else if (moderationAction === 'restore' || moderationAction === 'unban') {
-        const { error } = await service.auth.admin.updateUserById(targetUserId, { ban_duration: 'none' })
-        if (error) authWarning = 'Account restored in database, but the sign-in lock could not be updated.'
-      }
-
       // Send warning notification for warn action
       if (moderationAction === 'warn') {
         await sendWarningNotification(service, targetUserId, reason, actor?.full_name ?? 'Admin')
       }
 
-      return respond({ result, warning: authWarning })
+      return respond({ result })
     }
 
     if (body.action === 'get_status') {
