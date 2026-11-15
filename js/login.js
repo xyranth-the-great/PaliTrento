@@ -14,19 +14,23 @@ async function init() {
     if (email) sessionStorage.setItem('palitrento_last_login_email', email);
   });
 
-  const loginParams = new URLSearchParams(window.location.search);
-  if (loginParams.get('clear_session') === '1' && supabase) {
-    const { error } = await supabase.auth.signOut({ scope: 'local' });
-    if (error) {
-      console.error('[login] Could not clear local session:', error);
-      renderChrome('/login/');
-      showMsg('We could not clear the previous sign-in session. Please try again or contact support.', 'bad');
-      return;
+  const returnToLogin = new URLSearchParams(window.location.search).get('clear_session') === '1';
+  let clearSessionError = null;
+  if (returnToLogin && supabase) {
+    try {
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      clearSessionError = error;
+    } catch (error) {
+      clearSessionError = error;
     }
 
-    const cleanUrl = new URL(window.location.href);
-    cleanUrl.searchParams.delete('clear_session');
-    window.history.replaceState(window.history.state, '', cleanUrl);
+    if (clearSessionError) {
+      console.error('[login] Could not clear local session:', clearSessionError);
+    } else {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('clear_session');
+      window.history.replaceState(window.history.state, '', cleanUrl);
+    }
   }
 
   // Check for auth error params from Supabase redirect (OAuth/magic link only)
@@ -43,12 +47,15 @@ async function init() {
   }
 
   const session = await getSession();
-  if (session) {
+  if (session && !returnToLogin) {
     redirectAfterLogin(session.user.user_metadata?.role);
     return;
   }
 
   renderChrome('/login/');
+  if (clearSessionError) {
+    showMsg('The previous session could not be cleared, but you can still sign in again here.', 'warn');
+  }
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Login is not available right now')}</p>`;
