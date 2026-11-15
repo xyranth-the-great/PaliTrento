@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
-import { getSessionWithStatus, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured, getLoginUnavailableMessage } from './auth.js';
 
@@ -12,6 +12,13 @@ let currentOrders = [];
 async function loadOrders() {
   if (!isSupabaseConfigured()) {
     showMsg(getLoginUnavailableMessage(), 'warn');
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

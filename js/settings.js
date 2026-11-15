@@ -2,7 +2,7 @@ import { renderChrome, $, esc, BARANGAYS, peso, startAdvisoryToastListener } fro
 import { supabase } from './supabase.js';
 import {
   getSessionWithStatus, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
-  signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache
+  signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache, checkAuthErrorParams
 } from './auth.js';
 import { subscribeToPush, unsubscribeFromPush, updatePushUI, requestNotificationPermission } from './push.js';
 
@@ -52,7 +52,14 @@ function switchTab(tab, moveFocus = false) {
 // ===== Load Settings =====
 async function loadSettings() {
   if (!isSupabaseConfigured()) {
-    showMsg(getLoginUnavailableMessage(), 'warn');
+    showMsg(getLoginUnavailableMessage()), 'warn';
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

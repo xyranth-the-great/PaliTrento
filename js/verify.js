@@ -1,7 +1,7 @@
 import { renderChrome, $, esc } from './ui.js';
 import { getSession, getCachedProfile } from './auth.js';
 import { sendEmailOTP, verifyEmailOTP, resendEmailOTP } from './email-otp.js';
-import { isSupabaseConfigured, getLoginUnavailableMessage, getAuthErrorMessage } from './auth.js';
+import { isSupabaseConfigured, getLoginUnavailableMessage, getAuthErrorMessage, checkAuthErrorParams } from './auth.js';
 
 const form = $('#verify-form');
 const msgEl = $('#verify-message');
@@ -20,6 +20,12 @@ console.log('[Verify] URL:', window.location.href);
 console.log('[Verify] Email param:', email);
 console.log('[Verify] Purpose param:', purpose);
 console.log('[Verify] Next param:', nextPage);
+
+// Check for auth error params from Supabase redirect
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 let resendCooldownTimer = null;
 let cooldownSeconds = 0;

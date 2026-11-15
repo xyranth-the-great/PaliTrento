@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
-import { getSessionWithStatus, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
@@ -24,6 +24,13 @@ let channel = null;
 async function init() {
   if (!isSupabaseConfigured()) {
     showError('Supabase not configured');
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

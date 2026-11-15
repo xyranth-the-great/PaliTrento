@@ -2,7 +2,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderChrome, $, esc, CATS, PAY, badges, openPill, hours, productCard, startAdvisoryToastListener } from './ui.js';
 import { getStore, getProducts } from './data.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
+
+// Check for auth error params from Supabase redirect
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 const { session, profile, redirectPath } = await getSessionWithStatus();
 

@@ -1,10 +1,16 @@
 import { $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, checkAuthErrorParams } from './auth.js';
 
 const form = $('#reset-form');
 const msgEl = $('#reset-message');
 let recoverySessionReady = false;
+
+// Check for auth error params from Supabase redirect (before hash parsing)
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 async function init() {
   // Check if we have a valid session from the password reset link FIRST, before rendering chrome

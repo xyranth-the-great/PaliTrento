@@ -5,6 +5,29 @@ const PROFILE_CACHE_KEY = 'palitrento_profile_cache';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const UNREAD_CACHE_KEY = 'palitrento_unread_counts';
 
+/**
+ * Check URL for Supabase auth error parameters (in search or hash)
+ * Returns redirect path if banned/suspended error detected, else null
+ */
+export function checkAuthErrorParams() {
+  if (typeof window === 'undefined') return null;
+
+  // Check both search params and hash params
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+
+  const errorCode = searchParams.get('error_code') || hashParams.get('error_code');
+  const errorDesc = searchParams.get('error_description') || hashParams.get('error_description');
+
+  if (errorCode === 'user_banned' || errorDesc?.toLowerCase().includes('banned')) {
+    return '/banned/';
+  }
+  if (errorCode === 'user_suspended' || errorDesc?.toLowerCase().includes('suspended')) {
+    return '/suspended/';
+  }
+  return null;
+}
+
 export async function getSession() {
   if (!supabase) return null;
   const { data: { session } } = await supabase.auth.getSession();

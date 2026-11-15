@@ -1,9 +1,15 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, checkAuthErrorParams } from './auth.js';
 
 const form = $('#forgot-form');
 const msgEl = $('#forgot-message');
+
+// Check for auth error params from Supabase redirect
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 async function init() {
   const session = await getSession();

@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, isOpen, hours, badges } from './ui.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
@@ -22,6 +22,13 @@ let storeMarker = null;
 async function init() {
   if (!isSupabaseConfigured()) {
     showError('Supabase not configured');
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

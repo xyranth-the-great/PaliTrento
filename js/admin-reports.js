@@ -1,10 +1,17 @@
 import { renderChrome, $, esc, CATS, BARANGAYS } from './ui.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
 async function init() {
   if (!isSupabaseConfigured()) return;
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
+    return;
+  }
 
   const { session, profile, redirectPath } = await getSessionWithStatus();
   if (redirectPath) {

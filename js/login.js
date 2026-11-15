@@ -1,24 +1,16 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange, checkAccountStatusAndRedirect, getCachedProfile } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange, checkAccountStatusAndRedirect, getCachedProfile, checkAuthErrorParams } from './auth.js';
 
 const form = $('#login-form');
 const msgEl = $('#login-message');
 const googleBtn = $('#google-login-btn');
 
 async function init() {
-  // Check for auth error parameters from Supabase redirect (banned/suspended users)
-  const urlParams = new URLSearchParams(window.location.search);
-  const errorCode = urlParams.get('error_code');
-  const errorDesc = urlParams.get('error_description');
-
-  if (errorCode === 'user_banned' || errorDesc?.toLowerCase().includes('banned')) {
-    // Redirect to banned page
-    window.location.replace('/banned/');
-    return;
-  }
-  if (errorCode === 'user_suspended' || errorDesc?.toLowerCase().includes('suspended')) {
-    window.location.replace('/suspended/');
+  // Check for auth error params FIRST (from Supabase redirect)
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

@@ -1,13 +1,20 @@
 import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
-import { getSessionWithStatus, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { initPushNotifications } from './push.js';
 
+// Check for auth error params FIRST (before any session check)
+// This handles Supabase redirect for banned/suspended users
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
+
 const { session, profile, redirectPath } = await getSessionWithStatus();
 
-// Redirect suspended/banned users
+// Redirect suspended/banned users (from database check)
 if (redirectPath) {
   window.location.replace(redirectPath);
 }
@@ -64,7 +71,7 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
   } else {
     $('#home-tagline').innerHTML = `Tara, Palit <img class="tagline-logo" src="${logoUrl}" alt="T">a sa Trento!`;
 
-    $('#chips').innerHTML = Object.entries(CATS).map(([k, v]) => `<a class="chip" href="explore.html?cat=${k}">${v}</a>`).join('');
+    $('#chips').innerHTML = Object.entries(CATS).map(([k, v]) => `<a class="chip" href="/explore/?cat=${encodeURIComponent(k)}">${v}</a>`).join('');
     const [stores, products] = await Promise.all([getStores(), getProducts()]);
     const storeById = new Map(stores.map(store => [store.id, store]));
     const approvedProducts = products.filter(product => storeById.has(product.store_id));

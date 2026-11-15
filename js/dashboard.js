@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, CATS, UNITS, PAY, peso, badges, srp, startAdvisoryToastListener } from './ui.js';
-import { getSessionWithStatus, clearProfileCache, startOrderStatusListener } from './auth.js';
+import { getSessionWithStatus, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage, uploadProductImage, deleteProductImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -18,6 +18,13 @@ let paymentCountdownInterval = null;
 
 async function init() {
   if (!isSupabaseConfigured()) return;
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
+    return;
+  }
 
   const { session, profile, redirectPath } = await getSessionWithStatus();
   if (redirectPath) {

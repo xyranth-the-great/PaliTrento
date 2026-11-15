@@ -1,6 +1,12 @@
 import { renderChrome, $, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS, startAdvisoryToastListener } from './ui.js';
 import { getStores, getProducts } from './data.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
+
+// Check for auth error params from Supabase redirect
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 const { session, profile, redirectPath } = await getSessionWithStatus();
 

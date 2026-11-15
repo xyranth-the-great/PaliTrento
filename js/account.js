@@ -2,7 +2,7 @@ import { renderChrome, $, esc, BARANGAYS, peso } from './ui.js';
 import { supabase } from './supabase.js';
 import {
   getSessionWithStatus, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
-  signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache
+  signOut, onAuthStateChange, isSupabaseConfigured, getLoginUnavailableMessage, clearProfileCache, checkAuthErrorParams
 } from './auth.js';
 
 const contentEl = $('#account-content');
@@ -22,6 +22,13 @@ let currentSession = null;
 async function loadAccount() {
   if (!isSupabaseConfigured()) {
     showMsg(getLoginUnavailableMessage(), 'warn');
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

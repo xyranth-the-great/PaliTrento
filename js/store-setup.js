@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, BARANGAYS, CATS, PAY } from './ui.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
@@ -26,6 +26,13 @@ const steps = {
 async function init() {
   if (!isSupabaseConfigured()) {
     showMsg('Store setup requires Supabase configuration.', 'warn');
+    return;
+  }
+
+  // Check for auth error params from Supabase redirect
+  const authErrorRedirect = checkAuthErrorParams();
+  if (authErrorRedirect) {
+    window.location.replace(authErrorRedirect);
     return;
   }
 

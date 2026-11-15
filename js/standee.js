@@ -1,5 +1,5 @@
 import { renderChrome, $, esc, CATS, PAY, badges, hours, isOpen } from './ui.js';
-import { getSessionWithStatus } from './auth.js';
+import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { generateQRCode, generateQRCodeDataURL } from './qrcode.js';
 import { createPDFGenerator } from './pdf-generator.js';

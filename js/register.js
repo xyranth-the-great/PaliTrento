@@ -1,6 +1,6 @@
 import { renderChrome, $, esc, BARANGAYS } from './ui.js';
 import { supabase } from './supabase.js';
-import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getOAuthRedirectUrl } from './auth.js';
+import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getOAuthRedirectUrl, checkAuthErrorParams } from './auth.js';
 import { sendEmailOTP } from './email-otp.js';
 
 const form = $('#register-form');
@@ -9,6 +9,12 @@ const showPasswordCheckbox = $('#show-password');
 const emailInput = $('#email');
 const emailWarning = $('#email-warning');
 const googleBtn = $('#google-register-btn');
+
+// Check for auth error params from Supabase redirect
+const authErrorRedirect = checkAuthErrorParams();
+if (authErrorRedirect) {
+  window.location.replace(authErrorRedirect);
+}
 
 showPasswordCheckbox.addEventListener('change', () => {
   const inputType = showPasswordCheckbox.checked ? 'text' : 'password';
