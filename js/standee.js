@@ -642,39 +642,15 @@ async function generatePDF(options) {
 
     // Use captured map from Leaflet (mapDataUrl is set by initMapCapture)
     if (mapDataUrl && mapDataUrl.startsWith('data:image/')) {
-      // Draw the captured map image at its natural aspect ratio, centered in the box
+      // Draw the captured map image STRETCHED to fill the entire box
       try {
-        // Create a temporary image to get dimensions
-        const img = new Image();
-        img.src = mapDataUrl;
-        await new Promise(resolve => { img.onload = resolve; });
+        pdf.addImage(mapDataUrl, 'PNG', mapX, currentY, mapW, mapH);
 
-        const imgAspect = img.width / img.height; // ~1.78 for 400x225 (16:9)
-        const boxAspect = mapW / mapH; // ~6 for PDF box
-
-        let drawW, drawH, drawX, drawY;
-
-        if (imgAspect > boxAspect) {
-          // Image is wider than box - fit to width
-          drawW = mapW;
-          drawH = mapW / imgAspect;
-          drawX = mapX;
-          drawY = currentY + (mapH - drawH) / 2;
-        } else {
-          // Image is taller than box - fit to height
-          drawH = mapH;
-          drawW = mapH * imgAspect;
-          drawX = mapX + (mapW - drawW) / 2;
-          drawY = currentY;
-        }
-
-        pdf.addImage(mapDataUrl, 'PNG', drawX, drawY, drawW, drawH);
-
-        // Border around the box (not the image)
+        // Border around the box
         pdf.setDrawColor('#dcdad3');
         pdf.setLineWidth(0.4);
         pdf.rect(mapX, currentY, mapW, mapH, 'S');
-        console.log('[Standee] Captured map drawn to PDF (preserved aspect ratio)');
+        console.log('[Standee] Captured map drawn to PDF (stretched to fill box)');
       } catch (imgErr) {
         console.warn('[Standee] Failed to add captured map to PDF:', imgErr);
         mapDataUrl = ''; // force fallback
