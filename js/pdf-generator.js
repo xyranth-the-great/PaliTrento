@@ -110,16 +110,11 @@ class PDFGenerator {
 
     const lines = this.doc.splitTextToSize(text, maxWidth);
     let currentY = y;
+    const startX = typeof x === 'number' ? x : this.margin;
+    const textAlign = align === 'center' || align === 'right' ? align : 'left';
 
-    lines.forEach((line, index) => {
-      let x = this.margin;
-      if (align === 'center') {
-        x = this.pageWidth / 2;
-      } else if (align === 'right') {
-        x = this.pageWidth - this.margin;
-      }
-
-      this.doc.text(line, x, currentY, { align });
+    lines.forEach((line) => {
+      this.doc.text(line, startX, currentY, { align: textAlign });
       currentY += fontSize * lineHeight;
     });
 

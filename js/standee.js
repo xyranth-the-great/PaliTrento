@@ -289,11 +289,12 @@ async function generatePDF(options) {
   const pdf = pdfGenerator.doc;
   const pageWidth = pdfGenerator.pageWidth;
   const pageHeight = pdfGenerator.pageHeight;
-  const margin = 10; // Tighter margin for A5
+  const isA5 = pageWidth <= 160;
+  const margin = isA5 ? 8 : 10;
   const contentWidth = pageWidth - 2 * margin;
 
   // Footer reserve: line (3) + text1 (4) + gap (1) + text2 (3) + bottom margin (3) = ~14mm
-  const FOOTER_HEIGHT = 14;
+  const FOOTER_HEIGHT = isA5 ? 12 : 14;
   const footerY = pageHeight - FOOTER_HEIGHT;
   const maxContentY = footerY - 4; // 4mm gap before footer line
 
@@ -369,7 +370,7 @@ async function generatePDF(options) {
   currentY += 4;
 
   // ===== DETAILS ROW (two-column layout for space efficiency) =====
-  const labelW = 20;
+  const labelW = isA5 ? 18 : 20;
   const valX = margin + labelW;
   const valW = contentWidth - labelW;
 
@@ -433,7 +434,7 @@ async function generatePDF(options) {
 
   // ===== QR SECTION (fills remaining space, but stops before footer) =====
   // Reserve space for: divider(4) + label(5) + QR(min35) + gap(2) + url(4) + tagline(5) = ~55mm
-  const qrReserve = 55;
+  const qrReserve = isA5 ? 48 : 55;
   if (currentY > maxContentY - qrReserve) {
     currentY = maxContentY - qrReserve;
   }
@@ -451,9 +452,9 @@ async function generatePDF(options) {
 
   // QR Code - sized to fit available space
   if (qrDataUrl) {
-    const availableH = maxContentY - currentY - 10; // leave 10mm for URL + tagline
-    const maxQrSize = Math.min(55, contentWidth * 0.7, availableH);
-    const qrSize = Math.max(35, maxQrSize);
+    const availableH = maxContentY - currentY - (isA5 ? 8 : 10);
+    const maxQrSize = Math.min(isA5 ? 42 : 55, contentWidth * 0.7, availableH);
+    const qrSize = Math.max(isA5 ? 32 : 35, maxQrSize);
     const qrX = (pageWidth - qrSize) / 2;
     pdfGenerator.addQRCode(qrDataUrl, qrX, currentY, qrSize);
     currentY += qrSize + 2;
