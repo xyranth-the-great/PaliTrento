@@ -94,56 +94,44 @@ function getEmailFromUrl() {
 async function loadStatus() {
   const email = getEmailFromUrl();
   if (!email || !supabase) {
-    // No email param, try to get from session if available
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      window.location.href = '/login/';
-      return;
-    }
-    await loadStatusByUserId(session.user.id);
+    // No email param - show error or redirect home
+    console.error('No email parameter provided for banned page');
     return;
   }
 
-  // Fetch profile by email
+  // Fetch profile by email directly (NO session check)
   await loadStatusByEmail(email);
 }
 
 async function loadStatusByEmail(email) {
-  const { data: profile } = await supabase
+  const { data: profiles, error } = await supabase
     .from('profiles')
     .select('id, account_status, banned_at, ban_reason')
     .eq('email', email)
     .maybeSingle();
 
-  if (!profile) {
+  if (error) {
+    console.error('Failed to load profile:', error);
+    return;
+  }
+
+  if (!profiles) {
     console.error('Profile not found for email:', email);
     return;
   }
 
-  renderStatus(profile);
-}
-
-async function loadStatusByUserId(userId) {
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('account_status, banned_at, ban_reason')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error || !profile) {
-    console.error('Failed to load account status:', error);
-    return;
-  }
-
-  if (profile.account_status !== 'banned') {
+  // Check if account is actually banned
+  if (profiles.account_status !== 'banned') {
+    // Not banned - redirect home
     window.location.href = '/';
     return;
   }
 
-  renderStatus(profile);
+  renderStatus(profiles);
 }
 
 function renderStatus(status) {
+  // Double-check: only show if actually banned
   if (status.account_status !== 'banned') {
     window.location.href = '/';
     return;
@@ -160,7 +148,7 @@ $('#back-btn')?.addEventListener('click', () => {
 });
 
 async function init() {
-  // Render chrome without session
+  // Render chrome without session (public page)
   renderChrome('/', null, null);
   await loadStatus();
 }

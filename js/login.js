@@ -5,12 +5,22 @@ import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath
 const form = $('#login-form');
 const msgEl = $('#login-message');
 const googleBtn = $('#google-login-btn');
+const emailInput = $('#email');
 
 async function init() {
+  // Store email in sessionStorage as user types (for auth error redirect)
+  emailInput?.addEventListener('input', () => {
+    const email = emailInput.value.trim().toLowerCase();
+    if (email) sessionStorage.setItem('palitrento_last_login_email', email);
+  });
+
   // Check for auth error params FIRST (from Supabase redirect)
   const authErrorRedirect = checkAuthErrorParams();
   if (authErrorRedirect) {
-    window.location.replace(authErrorRedirect);
+    // Include last entered email if available
+    const lastEmail = sessionStorage.getItem('palitrento_last_login_email');
+    const redirectUrl = lastEmail ? `${authErrorRedirect}?email=${encodeURIComponent(lastEmail)}` : authErrorRedirect;
+    window.location.replace(redirectUrl);
     return;
   }
 

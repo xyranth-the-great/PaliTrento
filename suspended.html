@@ -110,64 +110,44 @@ function getEmailFromUrl() {
 async function loadStatus() {
   const email = getEmailFromUrl();
   if (!email || !supabase) {
-    // No email param, try to get from session if available
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      window.location.href = '/login/';
-      return;
-    }
-    // Use session user ID
-    await loadStatusByUserId(session.user.id);
+    // No email param - show error or redirect home
+    console.error('No email parameter provided for suspended page');
     return;
   }
 
-  // Fetch profile by email
+  // Fetch profile by email directly (NO session check)
   await loadStatusByEmail(email);
 }
 
 async function loadStatusByEmail(email) {
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason')
-    .eq('id', (await supabase.from('profiles').select('id').eq('email', email).maybeSingle()).data?.id)
-    .maybeSingle();
-
-  // Better: use a direct query by email
-  const { data: profiles } = await supabase
+  const { data: profiles, error } = await supabase
     .from('profiles')
     .select('id, account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason')
     .eq('email', email)
     .maybeSingle();
+
+  if (error) {
+    console.error('Failed to load profile:', error);
+    return;
+  }
 
   if (!profiles) {
     console.error('Profile not found for email:', email);
     return;
   }
 
-  renderStatus(profiles);
-}
-
-async function loadStatusByUserId(userId) {
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('account_status, suspended_until, suspension_reason, suspended_at, banned_at, ban_reason')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error || !profile) {
-    console.error('Failed to load account status:', error);
-    return;
-  }
-
-  if (profile.account_status !== 'suspended' || (profile.suspended_until && new Date(profile.suspended_until).getTime() <= Date.now())) {
+  // Check if account is actually suspended
+  if (profiles.account_status !== 'suspended' || (profiles.suspended_until && new Date(profiles.suspended_until).getTime() <= Date.now())) {
+    // Not suspended or suspension expired - redirect home
     window.location.href = '/';
     return;
   }
 
-  renderStatus(profile);
+  renderStatus(profiles);
 }
 
 function renderStatus(status) {
+  // Double-check: only show if actually suspended
   if (status.account_status !== 'suspended' || (status.suspended_until && new Date(status.suspended_until).getTime() <= Date.now())) {
     window.location.href = '/';
     return;
@@ -206,7 +186,7 @@ $('#back-btn')?.addEventListener('click', () => {
 });
 
 async function init() {
-  // Render chrome without session
+  // Render chrome without session (public page)
   renderChrome('/', null, null);
   await loadStatus();
 }
