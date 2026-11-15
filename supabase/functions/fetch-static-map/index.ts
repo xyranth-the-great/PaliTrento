@@ -5,16 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Use a static map service that works from Supabase Edge Functions
-// Stadia Maps (tiles.stadiamaps.com) works well and supports CORS
-function buildStaticMapUrl(lat: number, lng: number, zoom: number, width: number, height: number): string {
-  // Use Stadia Maps static map API (free tier, no API key needed for low volume)
-  // Format: https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}.png
-  // But for static image we need a different approach - use their static map service
-  // Actually, let's use the Stadia Maps static map which supports center, zoom, size, markers
-  return `https://tiles.stadiamaps.com/staticmap?center=${lat},${lng}&zoom=${zoom}&size=${width}x${height}&markers=${lat},${lng},red-pushpin&key=`;
-}
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -39,12 +29,12 @@ serve(async (req) => {
     const h = height || 200;
 
     // Try multiple static map providers in order
+    // Note: Some return 403 but still serve the image - we accept image/png on any status
     const providers = [
-      // Stadia Maps - known to work from edge functions
+      // Stadia Maps static map (often returns 403 but serves PNG)
       `https://tiles.stadiamaps.com/staticmap?center=${lat},${lng}&zoom=${z}&size=${w}x${h}&markers=${lat},${lng},red-pushpin`,
       // MapTiler (free tier)
       `https://api.maptiler.com/maps/streets/static/${lat},${lng},${z}/${w}x${h}.png?key=`,
-      // OpenStreetMap tile-based (construct from tiles)
     ];
 
     let imageBase64 = '';
@@ -57,15 +47,18 @@ serve(async (req) => {
         const response = await fetch(staticMapUrl);
         console.log('[fetch-static-map] Response status:', response.status, response.statusText);
 
-        if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        console.log('[fetch-static-map] Response content-type:', contentType);
+
+        // Accept image even on error status (some providers return 403 with image)
+        const isImage = contentType?.startsWith('image/') || false;
+
+        if (!response.ok && !isImage) {
           const errorText = await response.text();
           console.warn('[fetch-static-map] Provider failed:', staticMapUrl, response.status, errorText);
           lastError = `${response.status}: ${errorText}`;
           continue;
         }
-
-        const contentType = response.headers.get('content-type');
-        console.log('[fetch-static-map] Response content-type:', contentType);
 
         const imageBlob = await response.blob();
         const arrayBuffer = await imageBlob.arrayBuffer();
