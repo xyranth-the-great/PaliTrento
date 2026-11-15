@@ -17,10 +17,7 @@ async function init() {
   // Check for auth error params from Supabase redirect (OAuth/magic link only)
   const authErrorRedirect = checkAuthErrorParams();
   if (authErrorRedirect) {
-    // Include last entered email if available
-    const lastEmail = sessionStorage.getItem('palitrento_last_login_email');
-    const redirectUrl = lastEmail ? `${authErrorRedirect}?email=${encodeURIComponent(lastEmail)}` : authErrorRedirect;
-    window.location.replace(redirectUrl);
+    window.location.replace(authErrorRedirect);
     return;
   }
 
@@ -145,9 +142,11 @@ form.addEventListener('submit', async (e) => {
       if (errorCode === 'user_banned' || errorCode === 'user_suspended' ||
           errorMsg.toLowerCase().includes('banned') ||
           errorMsg.toLowerCase().includes('suspended')) {
-        // Redirect to auth-status page which checks the database for actual status
-        console.log('[login] Auth error indicates banned/suspended, redirecting to auth-status');
-        window.location.replace(`/auth-status/?email=${encodeURIComponent(email)}`);
+        const status = errorCode === 'user_suspended' || errorMsg.toLowerCase().includes('suspended')
+          ? 'suspended'
+          : 'banned';
+        console.log('[login] Auth error indicates a restricted account, redirecting to auth-status');
+        window.location.replace(`/auth-status/?email=${encodeURIComponent(email)}&status=${status}`);
         return;
       }
 

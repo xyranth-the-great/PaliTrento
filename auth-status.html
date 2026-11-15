@@ -86,8 +86,20 @@ function getEmailFromUrl() {
   return params.get('email')?.toLowerCase();
 }
 
+function getStatusDetailsFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get('status');
+  return {
+    status: status === 'suspended' || status === 'banned' ? status : null,
+    until: params.get('until'),
+    reason: params.get('reason'),
+    since: params.get('since')
+  };
+}
+
 async function checkProfileByEmail(email) {
   console.log('[auth-status] Checking profile for email:', email);
+  const statusDetails = getStatusDetailsFromUrl();
 
   try {
     const { data: profile, error } = await supabase
@@ -98,12 +110,20 @@ async function checkProfileByEmail(email) {
 
     if (error) {
       console.error('[auth-status] Profile query failed:', error);
+      if (statusDetails.status) {
+        showRestrictedStatus(statusDetails.status, null, statusDetails, 'The sign-in check found a restricted account, but account details could not be loaded.');
+        return;
+      }
       showError('Failed to verify account. Please try again.');
       return;
     }
 
     if (!profile) {
       console.warn('[auth-status] Profile not found for email:', email);
+      if (statusDetails.status) {
+        showRestrictedStatus(statusDetails.status, null, statusDetails, 'The sign-in check found a restricted account, but account details could not be loaded.');
+        return;
+      }
       showError('Account not found. Please contact support.');
       return;
     }
@@ -112,9 +132,26 @@ async function checkProfileByEmail(email) {
     console.log('[auth-status] Current time:', new Date().toISOString());
     console.log('[auth-status] Suspended until:', profile.suspended_until);
     console.log('[auth-status] Account status:', profile.account_status);
-    showStatus(profile);
+    showStatus(profile, statusDetails.status, statusDetails);
 
     const now = Date.now();
+
+    if (profile.account_status === 'active' && statusDetails.status) {
+      const expiryValue = statusDetails.until || profile.suspended_until;
+      const expiry = statusDetails.status === 'suspended' && expiryValue
+        ? formatDate(new Date(expiryValue))
+        : null;
+      const mismatchMessage = statusDetails.status === 'suspended'
+        ? expiry
+          ? `The sign-in check reports a suspension ending ${expiry}, but the profile status says Active. Please contact support if this date is incorrect.`
+          : 'The sign-in check reports a suspension, but no expiry date was found in the profile. Please contact support to confirm your restoration time.'
+        : 'Sign-in reports that this account is banned, but the profile record says Active. Please contact support to confirm your account status.';
+      showPersistentMessage(
+        statusDetails.status === 'suspended' ? 'Your account is suspended' : 'Your account is banned',
+        mismatchMessage
+      );
+      return;
+    }
 
     if (profile.account_status === 'banned') {
       showPersistentMessage(
@@ -175,6 +212,14 @@ async function checkProfileByEmail(email) {
   }
 }
 
+function showRestrictedStatus(status, profile, statusDetails, message) {
+  showStatus(profile || {}, status, statusDetails);
+  showPersistentMessage(
+    status === 'suspended' ? 'Your account is suspended' : 'Your account is banned',
+    message
+  );
+}
+
 async function checkProfileBySession() {
   console.log('[auth-status] Checking session...');
 
@@ -208,23 +253,32 @@ async function checkProfileBySession() {
   await checkProfileByEmail(sessionEmail);
 }
 
-function showStatus(profile) {
+function showStatus(profile, statusHint = null, statusDetails = {}) {
+  const status = profile.account_status === 'active' && statusHint
+    ? statusHint
+    : profile.account_status || statusHint;
   $('#status-details').style.display = 'block';
-  $('#status-value').textContent = profile.account_status?.charAt(0).toUpperCase() + profile.account_status?.slice(1) || 'Unknown';
+  $('#status-value').textContent = status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
 
-  if (profile.account_status === 'suspended') {
+  if (status === 'suspended') {
     $('#suspended-row').style.display = 'flex';
-    $('#suspended-until').textContent = profile.suspended_until ? formatDate(new Date(profile.suspended_until)) : 'Permanent';
-    if (profile.suspension_reason) {
+    const suspendedUntil = profile.suspended_until || statusDetails.until;
+    $('#suspended-until').textContent = suspendedUntil
+      ? formatDate(new Date(suspendedUntil))
+      : profile.account_status === 'suspended' ? 'Permanent' : 'Unavailable';
+    const suspensionReason = profile.suspension_reason || statusDetails.reason;
+    if (suspensionReason || profile.account_status !== 'suspended') {
       $('#reason-row').style.display = 'flex';
-      $('#status-reason').textContent = profile.suspension_reason;
+      $('#status-reason').textContent = suspensionReason || 'Not available';
     }
-  } else if (profile.account_status === 'banned') {
+  } else if (status === 'banned') {
     $('#banned-row').style.display = 'flex';
-    $('#banned-at').textContent = profile.banned_at ? formatDate(new Date(profile.banned_at)) : 'Unknown';
-    if (profile.ban_reason) {
+    const bannedAt = profile.banned_at || statusDetails.since;
+    $('#banned-at').textContent = bannedAt ? formatDate(new Date(bannedAt)) : 'Unknown';
+    const banReason = profile.ban_reason || statusDetails.reason;
+    if (banReason || profile.account_status !== 'banned') {
       $('#reason-row').style.display = 'flex';
-      $('#status-reason').textContent = profile.ban_reason;
+      $('#status-reason').textContent = banReason || 'Not available';
     }
   }
 }
@@ -272,6 +326,17 @@ async function init() {
   if (urlEmail) {
     console.log('[auth-status] Email from URL param:', urlEmail);
     await checkProfileByEmail(urlEmail);
+    return;
+  }
+
+  const statusDetails = getStatusDetailsFromUrl();
+  if (statusDetails.status) {
+    showRestrictedStatus(
+      statusDetails.status,
+      null,
+      statusDetails,
+      'The sign-in check found a restricted account, but we could not identify it to load more details.'
+    );
     return;
   }
 
