@@ -195,8 +195,9 @@ async function initMapCapture() {
   }
 
   // Create a temporary container - hidden from start
+  // Use 16:9 aspect ratio (wider) to better fill the PDF box
   const containerWrapper = document.createElement('div');
-  containerWrapper.style.cssText = 'position:fixed;top:0;left:0;width:400px;height:300px;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;visibility:hidden;';
+  containerWrapper.style.cssText = 'position:fixed;top:0;left:0;width:400px;height:225px;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;visibility:hidden;';
   const mapContainer = document.createElement('div');
   mapContainer.id = 'map-capture';
   mapContainer.style.width = '100%';
@@ -634,7 +635,8 @@ async function generatePDF(options) {
     currentY = pdfGenerator.addText('Location', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
     currentY += 1.5;
 
-    const mapH = isA5 ? 22 : 25;
+    // Use 16:9 box to match captured map (wider = better fill)
+    const mapH = isA5 ? 20 : 24; // slightly shorter box, ~16:9 with contentWidth
     const mapX = margin;
     const mapW = contentWidth;
 
@@ -647,7 +649,7 @@ async function generatePDF(options) {
         img.src = mapDataUrl;
         await new Promise(resolve => { img.onload = resolve; });
 
-        const imgAspect = img.width / img.height; // ~1.33 for 400x300
+        const imgAspect = img.width / img.height; // ~1.78 for 400x225 (16:9)
         const boxAspect = mapW / mapH; // ~6 for PDF box
 
         let drawW, drawH, drawX, drawY;
