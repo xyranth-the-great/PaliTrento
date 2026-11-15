@@ -194,19 +194,19 @@ async function initMapCapture() {
     return;
   }
 
+  // Create a temporary container in the document body (visible for layout)
+  const containerWrapper = document.createElement('div');
+  containerWrapper.style.cssText = 'position:fixed;top:0;left:0;width:400px;height:300px;z-index:-1;pointer-events:none;overflow:hidden;';
+  const mapContainer = document.createElement('div');
+  mapContainer.id = 'map-capture';
+  mapContainer.style.width = '100%';
+  mapContainer.style.height = '100%';
+  containerWrapper.appendChild(mapContainer);
+  document.body.appendChild(containerWrapper);
+
   try {
     console.log('[Standee] Initializing map capture...');
     await loadLeaflet();
-
-    const mapContainer = document.getElementById('map-capture');
-    if (!mapContainer) {
-      console.warn('[Standee] Map capture container not found');
-      return;
-    }
-
-    // Container is already in layout (opacity:0), just ensure dimensions
-    mapContainer.style.width = '400px';
-    mapContainer.style.height = '300px';
 
     // Create map
     const map = L.map(mapContainer, {
@@ -281,7 +281,7 @@ async function initMapCapture() {
       }
     }
 
-    // Draw marker at calculated position (center of map at marker lat/lng)
+    // Draw marker at calculated position
     const markerEl = mapContainer.querySelector('.custom-marker');
     if (markerEl) {
       const rect = markerEl.getBoundingClientRect();
@@ -306,9 +306,9 @@ async function initMapCapture() {
       ctx.arc(cx, cy - 12, 6, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Fallback: draw marker at map center (where the coordinate is)
+      // Fallback: draw marker at map center
       const centerX = mapSize.x / 2;
-      const centerY = mapSize.y / 2 + 12; // offset for pin bottom
+      const centerY = mapSize.y / 2 + 12;
       ctx.fillStyle = '#b91c1c';
       ctx.beginPath();
       ctx.moveTo(centerX, centerY);
@@ -328,6 +328,11 @@ async function initMapCapture() {
   } catch (e) {
     console.error('[Standee] Map capture failed:', e);
     mapDataUrl = null;
+  } finally {
+    // Clean up temporary container
+    if (containerWrapper.parentNode) {
+      containerWrapper.parentNode.removeChild(containerWrapper);
+    }
   }
 }
 
