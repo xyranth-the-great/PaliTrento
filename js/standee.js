@@ -458,19 +458,52 @@ async function generatePDF(options) {
     const mapX = margin;
     const mapW = contentWidth;
 
-    // Map background with border
-    pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
-    pdf.setDrawColor('#dcdad3');
-    pdf.setLineWidth(0.4);
-    pdf.rect(mapX, currentY, mapW, mapH, 'S');
+    // Try to fetch static map from OpenStreetMap
+    let mapDataUrl = '';
+    if (s.lat && s.lng) {
+      try {
+        // Use openstreetmap.de static map API (free, no API key)
+        // Size in pixels: convert mm to px at ~72 DPI (1mm ≈ 2.83px)
+        const mapWidthPx = Math.round(mapW * 2.83);
+        const mapHeightPx = Math.round(mapH * 2.83);
+        const zoom = 16; // good detail level for a store location
+        const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${s.lat},${s.lng}&zoom=${zoom}&size=${mapWidthPx}x${mapHeightPx}&markers=${s.lat},${s.lng},red-pushpin`;
 
-    // Coordinates centered in map
-    const coordY = currentY + mapH / 2 + (isA5 ? 1 : 1.5); // slight adjustment for vertical centering
-    pdfGenerator.addText(`Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, coordY, {
-      fontSize: isA5 ? 6.5 : 7.5,
-      color: '#999',
-      align: 'center'
-    });
+        const response = await fetch(staticMapUrl);
+        if (response.ok) {
+          const blob = await response.blob();
+          mapDataUrl = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+          });
+        }
+      } catch (e) {
+        console.warn('Could not load static map:', e);
+      }
+    }
+
+    if (mapDataUrl) {
+      // Draw the static map image
+      pdf.addImage(mapDataUrl, 'PNG', mapX, currentY, mapW, mapH);
+      // Border
+      pdf.setDrawColor('#dcdad3');
+      pdf.setLineWidth(0.4);
+      pdf.rect(mapX, currentY, mapW, mapH, 'S');
+    } else {
+      // Fallback: placeholder box with coordinates
+      pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
+      pdf.setDrawColor('#dcdad3');
+      pdf.setLineWidth(0.4);
+      pdf.rect(mapX, currentY, mapW, mapH, 'S');
+
+      const coordY = currentY + mapH / 2 + (isA5 ? 1 : 1.5);
+      pdfGenerator.addText(`Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, coordY, {
+        fontSize: isA5 ? 6.5 : 7.5,
+        color: '#999',
+        align: 'center'
+      });
+    }
 
     // Advance Y to after the map box
     currentY += mapH + (isA5 ? 3 : 4);
