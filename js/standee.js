@@ -212,7 +212,7 @@ async function initMapCapture() {
     // Create map
     const map = L.map(mapContainer, {
       center: [s.lat, s.lng],
-      zoom: 16,
+      zoom: 18, // Higher zoom = more detail, closer view
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -635,8 +635,8 @@ async function generatePDF(options) {
     currentY = pdfGenerator.addText('Location', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
     currentY += 1.5;
 
-    // Use 16:9 box to match captured map (wider = better fill)
-    const mapH = isA5 ? 20 : 24; // slightly shorter box, ~16:9 with contentWidth
+    // Taller box for better map visibility
+    const mapH = isA5 ? 28 : 34; // taller box for more detail
     const mapX = margin;
     const mapW = contentWidth;
 
