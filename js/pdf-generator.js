@@ -154,11 +154,11 @@ class PDFGenerator {
 
     if (!text) return 0;
 
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(fontSize);
     this.doc.setFont('helvetica', 'bold');
     const textWidth = this.doc.getTextWidth(text);
     const badgeWidth = textWidth + 2 * paddingX;
-    const badgeHeight = 10 + 2 * paddingY;
+    const badgeHeight = fontSize * 1.2 + 2 * paddingY;
 
     // Draw rounded rectangle background (with fallback)
     this.doc.setFillColor(backgroundColor);
@@ -175,11 +175,12 @@ class PDFGenerator {
       this.doc.rect(x, y, badgeWidth, badgeHeight, 'F');
     }
 
-    // Add text
+    // Add text - vertically centered
     this.doc.setTextColor(textColor);
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(fontSize);
     this.doc.setFont('helvetica', 'bold');
-    this.doc.text(text, x + paddingX, y + 6.5);
+    const textY = y + (badgeHeight / 2) + (fontSize * 0.35);
+    this.doc.text(text, x + paddingX, textY);
 
     return badgeHeight;
   }
