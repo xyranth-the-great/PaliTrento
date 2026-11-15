@@ -24,6 +24,7 @@
   .btn { display: inline-block; margin-top: 16px; padding: 10px 20px; background: var(--primary); color: white; text-decoration: none; border-radius: var(--r-md); }
   .btn-secondary { background: var(--muted-bg); color: var(--ink); }
   .result-box { background: var(--muted-bg); padding: 16px; border-radius: var(--r-md); margin-top: 16px; font-family: monospace; font-size: 0.8rem; text-align: left; white-space: pre-wrap; }
+  .actions { margin-top: 16px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
   @media (max-width: 480px) {
     .status-card { padding: 24px; }
     .status-title { font-size: 1.1rem; }
@@ -39,7 +40,7 @@
     <p class="status-message">Please wait while we verify your account...</p>
     <div class="status-debug" id="debug-log"></div>
     <div id="result-box" class="result-box" style="display:none"></div>
-    <div id="actions" style="display:none">
+    <div class="actions" id="actions" style="display:none">
       <a href="/suspended/" class="btn" id="goto-suspended">Go to Suspended Page</a>
       <a href="/banned/" class="btn btn-secondary" id="goto-banned">Go to Banned Page</a>
       <a href="/login/" class="btn btn-secondary" id="goto-login">Go to Login</a>
@@ -64,11 +65,6 @@ function logDebug(msg, type = 'info') {
     el.appendChild(line);
     el.scrollTop = el.scrollHeight;
   }
-}
-
-function getEmailFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('email')?.toLowerCase();
 }
 
 function showResult(obj) {
@@ -100,23 +96,43 @@ function showActions(profile) {
 }
 
 async function checkAccountStatus() {
-  const email = getEmailFromUrl();
-  logDebug('Email from URL: ' + (email || 'none'));
-
-  if (!email) {
-    logDebug('ERROR: No email parameter provided', 'error');
-    return;
-  }
+  logDebug('Starting auth status check...');
 
   if (!supabase) {
     logDebug('ERROR: Supabase not configured', 'error');
     return;
   }
 
-  logDebug('Supabase client available, querying profiles...');
+  // Get session first
+  logDebug('Getting session...');
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    logDebug('Session error: ' + sessionError.message, 'error');
+    showResult({ error: 'Session error', details: sessionError.message });
+    return;
+  }
+
+  if (!session) {
+    logDebug('No active session - redirecting to login', 'warn');
+    window.location.href = '/login/';
+    return;
+  }
+
+  logDebug('Session found for user: ' + session.user.id);
+
+  // Get email from session
+  const email = session.user.email?.toLowerCase();
+  if (!email) {
+    logDebug('ERROR: No email in session', 'error');
+    showResult({ error: 'No email in session' });
+    return;
+  }
+
+  logDebug('Email from session: ' + email);
 
   try {
-    // Fetch profile by email (profiles table now has email column)
+    // Fetch profile by email
     logDebug('Querying profiles table for email: ' + email);
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -147,21 +163,31 @@ async function checkAccountStatus() {
 
     if (profile.account_status === 'banned') {
       logDebug('Account is BANNED - ready to redirect to /banned/', 'success');
+      window.location.replace('/banned/');
       return;
     }
 
     if (profile.account_status === 'suspended') {
       // Check if suspension expired
       if (profile.suspended_until && new Date(profile.suspended_until).getTime() <= now) {
-        logDebug('Suspension expired - ready to trigger auto-restore', 'warn');
+        logDebug('Suspension expired - triggering auto-restore...', 'warn');
+        try {
+          await supabase.rpc('auto_restore_expired_suspensions');
+          logDebug('Auto-restore called, reloading...');
+        } catch (e) {
+          logDebug('Auto-restore failed: ' + e);
+        }
+        window.location.reload();
         return;
       }
-      logDebug('Account is SUSPENDED - ready to redirect to /suspended/', 'success');
+      logDebug('Account is SUSPENDED - redirecting to /suspended/', 'success');
+      window.location.replace('/suspended/');
       return;
     }
 
     // Account is active
-    logDebug('Account is ACTIVE - ready to redirect to /login/', 'info');
+    logDebug('Account is ACTIVE - redirecting to /', 'info');
+    window.location.href = '/';
     return;
 
   } catch (err) {
@@ -174,7 +200,6 @@ async function checkAccountStatus() {
 renderChrome('/', null, null);
 
 // Start checking
-logDebug('Starting auth status check...');
 checkAccountStatus();
 </script>
 </body>
