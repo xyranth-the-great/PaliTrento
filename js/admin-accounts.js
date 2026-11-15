@@ -341,11 +341,15 @@ async function submitModeration(event) {
 
     console.log('[admin-accounts] Sending moderation request:', request);
     const { data, error } = await supabase.functions.invoke('admin-account-moderation', { body: request });
-    console.log('[admin-accounts] Moderation response:', data, error);
+    console.log('[admin-accounts] Moderation response - data:', data, 'error:', error);
+    console.log('[admin-accounts] Moderation response - data.result:', data?.result);
+    console.log('[admin-accounts] Moderation response - data.warning:', data?.warning);
     if (error || data?.error) {
       moderationMessage.textContent = data?.error || error?.message || 'Moderation failed. Try again.';
+      console.error('[admin-accounts] Moderation failed:', data?.error || error);
       return;
     }
+    console.log('[admin-accounts] Moderation succeeded');
 
     dialog.close();
     listMessage.textContent = data.warning
