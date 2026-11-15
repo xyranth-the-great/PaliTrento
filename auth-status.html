@@ -11,12 +11,19 @@
 <link rel="stylesheet" href="/styles.css">
 <style>
   .status-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--pad); }
-  .status-card { width: 100%; max-width: 400px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 40px; text-align: center; }
+  .status-card { width: 100%; max-width: 500px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 40px; text-align: center; }
   .status-spinner { width: 48px; height: 48px; margin: 0 auto 24px; border: 4px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .status-title { font-size: 1.25rem; color: var(--primary-dark); margin: 0 0 8px; }
   .status-message { color: var(--muted); font-size: 0.95rem; }
-  .status-debug { color: var(--muted); font-size: 0.75rem; margin-top: 16px; font-family: monospace; text-align: left; }
+  .status-debug { color: var(--muted); font-size: 0.75rem; margin-top: 16px; font-family: monospace; text-align: left; background: var(--muted-bg); padding: 16px; border-radius: var(--r-md); max-height: 300px; overflow: auto; }
+  .debug-line { margin: 4px 0; }
+  .debug-error { color: var(--bad); }
+  .debug-success { color: var(--ok); }
+  .debug-warning { color: var(--warn); }
+  .btn { display: inline-block; margin-top: 16px; padding: 10px 20px; background: var(--primary); color: white; text-decoration: none; border-radius: var(--r-md); }
+  .btn-secondary { background: var(--muted-bg); color: var(--ink); }
+  .result-box { background: var(--muted-bg); padding: 16px; border-radius: var(--r-md); margin-top: 16px; font-family: monospace; font-size: 0.8rem; text-align: left; white-space: pre-wrap; }
   @media (max-width: 480px) {
     .status-card { padding: 24px; }
     .status-title { font-size: 1.1rem; }
@@ -31,6 +38,12 @@
     <h1 class="status-title">Checking Account Status</h1>
     <p class="status-message">Please wait while we verify your account...</p>
     <div class="status-debug" id="debug-log"></div>
+    <div id="result-box" class="result-box" style="display:none"></div>
+    <div id="actions" style="display:none">
+      <a href="/suspended/" class="btn" id="goto-suspended">Go to Suspended Page</a>
+      <a href="/banned/" class="btn btn-secondary" id="goto-banned">Go to Banned Page</a>
+      <a href="/login/" class="btn btn-secondary" id="goto-login">Go to Login</a>
+    </div>
   </div>
 </main>
 <div id="chrome-foot"></div>
@@ -38,10 +51,19 @@
 import { renderChrome, $, esc } from './js/ui.js';
 import { supabase } from './js/supabase.js';
 
-function logDebug(msg) {
+function logDebug(msg, type = 'info') {
   console.log('[auth-status]', msg);
   const el = $('#debug-log');
-  if (el) el.textContent += '\n' + new Date().toLocaleTimeString() + ' ' + msg;
+  if (el) {
+    const line = document.createElement('div');
+    line.className = 'debug-line';
+    if (type === 'error') line.classList.add('debug-error');
+    if (type === 'success') line.classList.add('debug-success');
+    if (type === 'warn') line.classList.add('debug-warning');
+    line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+    el.appendChild(line);
+    el.scrollTop = el.scrollHeight;
+  }
 }
 
 function getEmailFromUrl() {
@@ -49,19 +71,45 @@ function getEmailFromUrl() {
   return params.get('email')?.toLowerCase();
 }
 
+function showResult(obj) {
+  const box = $('#result-box');
+  box.style.display = 'block';
+  box.textContent = JSON.stringify(obj, null, 2);
+}
+
+function showActions(profile) {
+  const actions = $('#actions');
+  actions.style.display = 'block';
+  const suspendedBtn = $('#goto-suspended');
+  const bannedBtn = $('#goto-banned');
+  const loginBtn = $('#goto-login');
+
+  if (profile.account_status === 'suspended') {
+    suspendedBtn.style.display = 'inline-block';
+    bannedBtn.style.display = 'none';
+    loginBtn.style.display = 'none';
+  } else if (profile.account_status === 'banned') {
+    suspendedBtn.style.display = 'none';
+    bannedBtn.style.display = 'inline-block';
+    loginBtn.style.display = 'none';
+  } else {
+    suspendedBtn.style.display = 'none';
+    bannedBtn.style.display = 'none';
+    loginBtn.style.display = 'inline-block';
+  }
+}
+
 async function checkAccountStatus() {
   const email = getEmailFromUrl();
   logDebug('Email from URL: ' + (email || 'none'));
 
   if (!email) {
-    logDebug('ERROR: No email parameter provided');
-    window.location.href = '/login/';
+    logDebug('ERROR: No email parameter provided', 'error');
     return;
   }
 
   if (!supabase) {
-    logDebug('ERROR: Supabase not configured');
-    window.location.href = '/login/';
+    logDebug('ERROR: Supabase not configured', 'error');
     return;
   }
 
@@ -76,57 +124,49 @@ async function checkAccountStatus() {
       .eq('email', email)
       .maybeSingle();
 
-    logDebug('Query result - error: ' + (error?.message || 'none') + ', profile: ' + (profile ? 'found' : 'null'));
+    logDebug('Query result - error: ' + (error?.message || 'none') + ', profile: ' + (profile ? 'found' : 'null'), error ? 'error' : 'success');
 
     if (error) {
-      logDebug('ERROR: Profile query failed: ' + error.message);
-      // Don't redirect to login on query error - show error state
+      logDebug('ERROR: Profile query failed: ' + error.message, 'error');
+      showResult({ error: error.message, hint: 'Check RLS policies or email column' });
       return;
     }
 
     if (!profile) {
-      logDebug('Profile not found for email: ' + email);
-      // Profile not found - might be a new user or email not synced yet
-      window.location.href = '/login/';
+      logDebug('Profile not found for email: ' + email, 'warn');
+      showResult({ error: 'Profile not found', email: email, hint: 'Check email spelling or run add-profile-email.sql migration' });
       return;
     }
 
-    logDebug('Profile found: account_status=' + profile.account_status + ', suspended_until=' + (profile.suspended_until || 'null'));
+    logDebug('Profile found: account_status=' + profile.account_status + ', suspended_until=' + (profile.suspended_until || 'null'), 'success');
+    showResult(profile);
+    showActions(profile);
 
     // Check actual account status in database
     const now = Date.now();
 
     if (profile.account_status === 'banned') {
-      logDebug('Account is BANNED, redirecting to /banned/');
-      window.location.replace('/banned/?email=' + encodeURIComponent(email));
+      logDebug('Account is BANNED - ready to redirect to /banned/', 'success');
       return;
     }
 
     if (profile.account_status === 'suspended') {
       // Check if suspension expired
       if (profile.suspended_until && new Date(profile.suspended_until).getTime() <= now) {
-        logDebug('Suspension expired, triggering auto-restore...');
-        try {
-          await supabase.rpc('auto_restore_expired_suspensions');
-          logDebug('Auto-restore called, reloading...');
-        } catch (e) {
-          logDebug('Auto-restore failed: ' + e);
-        }
-        window.location.reload();
+        logDebug('Suspension expired - ready to trigger auto-restore', 'warn');
         return;
       }
-      logDebug('Account is SUSPENDED, redirecting to /suspended/');
-      window.location.replace('/suspended/?email=' + encodeURIComponent(email));
+      logDebug('Account is SUSPENDED - ready to redirect to /suspended/', 'success');
       return;
     }
 
-    // Account is active - redirect to login (normal flow)
-    logDebug('Account is ACTIVE, redirecting to /login/');
-    window.location.href = '/login/';
+    // Account is active
+    logDebug('Account is ACTIVE - ready to redirect to /login/', 'info');
+    return;
+
   } catch (err) {
-    logDebug('EXCEPTION: ' + err);
-    console.error('Auth status check error:', err);
-    // Don't redirect on exception - let user see error
+    logDebug('EXCEPTION: ' + err, 'error');
+    showResult({ exception: String(err) });
   }
 }
 
