@@ -117,7 +117,10 @@ async function checkProfileByEmail(email) {
     const now = Date.now();
 
     if (profile.account_status === 'banned') {
-      redirectTo('/banned/', email);
+      showPersistentMessage(
+        'Your account is banned',
+        'This account is banned and cannot sign in. Review the details below or contact support if you believe this is a mistake.'
+      );
       return;
     }
 
@@ -126,16 +129,22 @@ async function checkProfileByEmail(email) {
         // Suspension expired - trigger auto-restore
         console.log('[auth-status] Suspension expired, triggering auto-restore...');
         showChecking('Suspension expired. Restoring access...');
-        try {
-          await supabase.rpc('auto_restore_expired_suspensions');
-        } catch (e) {
-          console.warn('[auth-status] Auto-restore failed:', e);
+        const { error: restoreError } = await supabase.rpc('auto_restore_expired_suspensions');
+        if (restoreError) {
+          console.warn('[auth-status] Auto-restore failed:', restoreError);
+          showError('Your suspension period has expired, but access could not be restored automatically. Please contact support.');
+          return;
         }
-        // Reload to get fresh status
-        setTimeout(() => window.location.reload(), 1000);
+        showPersistentMessage(
+          'Suspension period ended',
+          'Your suspension period has ended. Please try signing in again. Contact support if you still cannot access your account.'
+        );
         return;
       }
-      redirectTo('/suspended/', email);
+      showPersistentMessage(
+        'Your account is suspended',
+        'This account is temporarily suspended and cannot sign in until the date shown below. Contact support if you believe this is a mistake.'
+      );
       return;
     }
 
@@ -178,20 +187,20 @@ async function checkProfileBySession() {
 
   if (sessionError) {
     console.error('[auth-status] Session error:', sessionError);
-    window.location.href = '/login/';
+    showError('We could not verify your account status. Please return to login or contact support.');
     return;
   }
 
   if (!session) {
     console.log('[auth-status] No active session');
-    window.location.href = '/login/';
+    showError('Sign-in was blocked, but we could not identify the account. Please return to login or contact support.');
     return;
   }
 
   const sessionEmail = session.user.email?.toLowerCase();
   if (!sessionEmail) {
     console.error('[auth-status] No email in session');
-    window.location.href = '/login/';
+    showError('We could not identify the account to verify its status. Please contact support.');
     return;
   }
 
@@ -229,14 +238,9 @@ function showChecking(message) {
   }
 }
 
-function redirectTo(path, email) {
-  const destination = new URL(path, window.location.origin);
-  destination.searchParams.set('email', email);
-  window.location.replace(`${destination.pathname}${destination.search}`);
-}
-
 function showPersistentMessage(title, message) {
   $('#auth-status-title').textContent = title;
+  $('#auth-status-subtitle').style.display = 'none';
   $('#redirect-message').style.display = 'block';
   $('#redirect-message').textContent = message;
   $('#status-actions').style.display = 'flex';
@@ -249,6 +253,7 @@ function showPersistentMessage(title, message) {
 function showError(message) {
   $('#status-details').style.display = 'none';
   $('#auth-status-title').textContent = 'Unable to verify account status';
+  $('#auth-status-subtitle').style.display = 'none';
   $('#redirect-message').style.display = 'block';
   $('#redirect-message').textContent = message;
   $('#status-actions').style.display = 'flex';

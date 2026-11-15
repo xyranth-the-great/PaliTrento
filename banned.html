@@ -48,8 +48,8 @@
         <line x1="9" y1="9" x2="15" y2="15"></line>
       </svg>
     </div>
-    <h1 class="banned-title">Your Account Has Been Permanently Banned</h1>
-    <p class="banned-subtitle">Your account has been permanently banned by an administrator.</p>
+    <h1 class="banned-title" id="banned-title">Your Account Has Been Permanently Banned</h1>
+    <p class="banned-subtitle" id="banned-subtitle">Your account has been permanently banned by an administrator.</p>
 
     <div class="banned-details">
       <div class="detail-row">
@@ -72,7 +72,8 @@
     </div>
 
     <div class="banned-actions">
-      <button type="button" class="btn" id="back-btn">Return to home</button>
+      <a class="btn" href="/login/">Return to login</a>
+      <a class="btn btn-logout" href="mailto:admin@palitrento.online">Contact support</a>
     </div>
   </div>
 </main>
@@ -93,9 +94,12 @@ function getEmailFromUrl() {
 
 async function loadStatus() {
   const email = getEmailFromUrl();
-  if (!email || !supabase) {
-    console.error('No email parameter provided for banned page');
-    window.location.href = '/';
+  if (!supabase) {
+    showLoadError('Account status could not be checked because the service is unavailable.');
+    return;
+  }
+  if (!email) {
+    showLoadError('We could not identify your account to load the ban details.');
     return;
   }
 
@@ -112,13 +116,13 @@ async function loadStatusByEmail(email) {
 
   if (error) {
     console.error('Failed to load profile:', error);
-    window.location.href = '/';
+    showLoadError('We could not load your ban details right now.');
     return;
   }
 
   if (!profile) {
     console.error('Profile not found for email:', email);
-    window.location.href = '/';
+    showLoadError('We could not find account details for this email.');
     return;
   }
 
@@ -145,9 +149,13 @@ function renderStatus(profile) {
   $('#ban-reason').textContent = profile.ban_reason ?? 'No reason provided';
 }
 
-$('#back-btn')?.addEventListener('click', () => {
-  window.location.href = '/';
-});
+function showLoadError(message) {
+  $('#banned-title').textContent = 'Account access is restricted';
+  $('#banned-subtitle').textContent = `${message} If you believe this is an error, contact PaliTrento support.`;
+  $('.banned-details').style.display = 'none';
+  $('.banned-message').style.display = 'none';
+  $('.banned-contact').style.display = 'block';
+}
 
 async function init() {
   // Render chrome without session (public page)

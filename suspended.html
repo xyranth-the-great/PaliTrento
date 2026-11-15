@@ -46,8 +46,8 @@
         <line x1="12" y1="16" x2="12.01" y2="16"></line>
       </svg>
     </div>
-    <h1 class="suspended-title">Your Account Has Been Suspended</h1>
-    <p class="suspended-subtitle">Your account has been temporarily suspended by an administrator.</p>
+    <h1 class="suspended-title" id="suspended-title">Your Account Has Been Suspended</h1>
+    <p class="suspended-subtitle" id="suspended-subtitle">Your account has been temporarily suspended by an administrator.</p>
 
     <div class="suspended-details">
       <div class="detail-row">
@@ -74,7 +74,8 @@
     </p>
 
     <div class="suspended-actions">
-      <button type="button" class="btn" id="back-btn">Return to home</button>
+      <a class="btn" href="/login/">Return to login</a>
+      <a class="btn btn-logout" href="mailto:admin@palitrento.online">Contact support</a>
     </div>
   </div>
 </main>
@@ -109,9 +110,12 @@ function getEmailFromUrl() {
 
 async function loadStatus() {
   const email = getEmailFromUrl();
-  if (!email || !supabase) {
-    console.error('No email parameter provided for suspended page');
-    window.location.href = '/';
+  if (!supabase) {
+    showLoadError('Account status could not be checked because the service is unavailable.');
+    return;
+  }
+  if (!email) {
+    showLoadError('We could not identify your account to load the suspension details.');
     return;
   }
 
@@ -128,13 +132,13 @@ async function loadStatusByEmail(email) {
 
   if (error) {
     console.error('Failed to load profile:', error);
-    window.location.href = '/';
+    showLoadError('We could not load your suspension details right now.');
     return;
   }
 
   if (!profile) {
     console.error('Profile not found for email:', email);
-    window.location.href = '/';
+    showLoadError('We could not find account details for this email.');
     return;
   }
 
@@ -191,10 +195,12 @@ function updateCountdown(expiresAt) {
   $('#time-remaining').textContent = formatDuration(diff);
 }
 
-$('#back-btn')?.addEventListener('click', () => {
-  clearInterval(countdownInterval);
-  window.location.href = '/';
-});
+function showLoadError(message) {
+  $('#suspended-title').textContent = 'Account access is restricted';
+  $('#suspended-subtitle').textContent = `${message} If you believe this is an error, contact PaliTrento support.`;
+  $('.suspended-details').style.display = 'none';
+  $('.suspended-message').style.display = 'none';
+}
 
 async function init() {
   // Render chrome without session (public page)
