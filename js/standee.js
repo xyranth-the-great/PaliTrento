@@ -290,6 +290,7 @@ async function generatePDF(options) {
   const pageWidth = pdfGenerator.pageWidth;
   const pageHeight = pdfGenerator.pageHeight;
   const isA5 = pageWidth <= 160;
+  const pageScale = isA5 ? 0.88 : 1;
   const margin = isA5 ? 8 : 10;
   const contentWidth = pageWidth - 2 * margin;
 
@@ -300,39 +301,39 @@ async function generatePDF(options) {
 
   let currentY = margin;
 
-  // ===== COMPACT HEADER =====
-  pdfGenerator.addRect(0, 0, pageWidth, 36, { color: '#1f4d2e' });
+  const headerH = isA5 ? 30 : 36;
+  pdfGenerator.addRect(0, 0, pageWidth, headerH, { color: '#1f4d2e' });
 
-  pdf.setFontSize(18);
+  pdf.setFontSize(isA5 ? 16 : 18);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor('#fef3e2');
-  pdf.text('PaliTrento', margin, 18);
+  pdf.text('PaliTrento', margin, isA5 ? 16 : 18);
 
-  pdf.setFontSize(9);
+  pdf.setFontSize(isA5 ? 8 : 9);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor('#fef3e2');
-  pdf.text('Tara, Palit Ta sa Trento!', margin, 26);
+  pdf.text('Tara, Palit Ta sa Trento!', margin, isA5 ? 24 : 26);
 
-  pdf.setFontSize(8);
+  pdf.setFontSize(isA5 ? 7 : 8);
   pdf.setTextColor('#fef3e2');
-  pdf.text(`TRN: ${s.trn_code}`, pageWidth - margin, 18, { align: 'right' });
+  pdf.text(`TRN: ${s.trn_code}`, pageWidth - margin, isA5 ? 16 : 18, { align: 'right' });
 
-  currentY = 42;
+  currentY = headerH + 5;
 
   // ===== STORE NAME =====
   currentY = pdfGenerator.addText(s.business_name, margin, currentY, {
-    fontSize: 18,
+    fontSize: isA5 ? 17 : 20,
     fontStyle: 'bold',
     color: '#1f4d2e',
     maxWidth: contentWidth,
     lineHeight: 1.15
   });
 
-  currentY += 1;
+  currentY += isA5 ? 0 : 1;
 
   // Category + Barangay (inline)
   currentY = pdfGenerator.addText(`${CATS[s.trade_category] || s.trade_category}  •  ${s.barangay}${s.purok ? ', Purok ' + s.purok : ''}`, margin, currentY, {
-    fontSize: 9.5,
+    fontSize: isA5 ? 8.5 : 10,
     color: '#5b675f',
     maxWidth: contentWidth
   });
@@ -351,26 +352,26 @@ async function generatePDF(options) {
       let badgeX = margin;
       storeBadges.forEach(badge => {
         pdfGenerator.addBadge(badge.text, badgeX, currentY, {
-          fontSize: 6,
-          paddingX: 4,
-          paddingY: 1.5,
+          fontSize: isA5 ? 5.5 : 6,
+          paddingX: isA5 ? 3 : 4,
+          paddingY: isA5 ? 1.2 : 1.5,
           backgroundColor: badge.bg,
           textColor: badge.textColor
         });
-        badgeX += pdf.getTextWidth(badge.text) + 14;
+        badgeX += pdf.getTextWidth(badge.text) + (isA5 ? 10 : 14);
       });
-      currentY += 10;
+      currentY += isA5 ? 8 : 10;
     }
   }
 
-  currentY += 2;
+  currentY += isA5 ? 1 : 2;
 
   // Thin divider
   pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.5 });
   currentY += 4;
 
   // ===== DETAILS ROW (two-column layout for space efficiency) =====
-  const labelW = isA5 ? 18 : 20;
+  const labelW = isA5 ? 16 : 20;
   const valX = margin + labelW;
   const valW = contentWidth - labelW;
 
@@ -434,7 +435,7 @@ async function generatePDF(options) {
 
   // ===== QR SECTION (fills remaining space, but stops before footer) =====
   // Reserve space for: divider(4) + label(5) + QR(min35) + gap(2) + url(4) + tagline(5) = ~55mm
-  const qrReserve = isA5 ? 48 : 55;
+  const qrReserve = isA5 ? 44 : 58;
   if (currentY > maxContentY - qrReserve) {
     currentY = maxContentY - qrReserve;
   }
