@@ -222,9 +222,10 @@ async function initMapCapture() {
       tap: false,
     });
 
-    // Add OSM tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
+    // Add Stadia Maps tile layer (CORS-enabled OSM tiles)
+    L.tileLayer('https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
+      crossOrigin: 'anonymous',
     }).addTo(map);
 
     // Add marker using a simple approach
