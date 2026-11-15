@@ -14,6 +14,21 @@ async function init() {
     if (email) sessionStorage.setItem('palitrento_last_login_email', email);
   });
 
+  const loginParams = new URLSearchParams(window.location.search);
+  if (loginParams.get('clear_session') === '1' && supabase) {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    if (error) {
+      console.error('[login] Could not clear local session:', error);
+      renderChrome('/login/');
+      showMsg('We could not clear the previous sign-in session. Please try again or contact support.', 'bad');
+      return;
+    }
+
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('clear_session');
+    window.history.replaceState(window.history.state, '', cleanUrl);
+  }
+
   // Check for auth error params from Supabase redirect (OAuth/magic link only)
   const authErrorRedirect = checkAuthErrorParams();
   if (authErrorRedirect) {
