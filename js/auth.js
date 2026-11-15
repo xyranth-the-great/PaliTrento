@@ -21,11 +21,20 @@ export async function getSessionWithStatus() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return { session: null, profile: null, redirectPath: null };
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason, role, full_name, barangay, avatar_url')
-    .eq('id', session.user.id)
-    .maybeSingle();
+  let profile = null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('account_status, suspended_until, suspension_reason, banned_at, ban_reason, role, full_name, barangay, avatar_url')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (error) {
+      console.warn('[getSessionWithStatus] Profile query error:', error.message);
+    }
+    profile = data;
+  } catch (err) {
+    console.warn('[getSessionWithStatus] Profile query failed:', err);
+  }
 
   if (!profile) return { session, profile: null, redirectPath: null };
 
