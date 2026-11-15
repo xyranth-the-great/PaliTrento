@@ -17,6 +17,8 @@
   .auth-status-title { font-size: 1.5rem; color: var(--primary-dark); margin: 0 0 8px; }
   .auth-status-subtitle { color: var(--muted); margin: 0 0 32px; }
   .auth-status-details { background: var(--muted-bg); border-radius: var(--r-lg); padding: 20px; margin-bottom: 24px; text-align: left; }
+  .auth-status-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .auth-status-actions a:not(.btn) { color: var(--primary); }
   .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
   .detail-row:last-child { border-bottom: none; }
   .detail-label { color: var(--muted); font-size: 0.9rem; }
@@ -40,8 +42,8 @@
         <circle cx="12" cy="12" r="10"></circle>
       </svg>
     </div>
-    <h1 class="auth-status-title">Verifying Account Status</h1>
-    <p class="auth-status-subtitle">Please wait while we check your account status...</p>
+    <h1 class="auth-status-title" id="auth-status-title">Verifying Account Status</h1>
+    <p class="auth-status-subtitle" id="auth-status-subtitle">Please wait while we check your account status...</p>
 
     <div class="auth-status-details" id="status-details" style="display:none">
       <div class="detail-row">
@@ -63,6 +65,10 @@
     </div>
 
     <p class="auth-status-subtitle" id="redirect-message" style="display:none"></p>
+    <div class="auth-status-actions" id="status-actions" style="display:none">
+      <a class="btn alt" href="/login/">Return to login</a>
+      <a href="mailto:admin@palitrento.online">Contact support</a>
+    </div>
   </div>
 </main>
 <div id="chrome-foot"></div>
@@ -111,7 +117,7 @@ async function checkProfileByEmail(email) {
     const now = Date.now();
 
     if (profile.account_status === 'banned') {
-      redirectTo('/banned/', 'Your account has been permanently banned. Redirecting...');
+      redirectTo('/banned/', email);
       return;
     }
 
@@ -129,7 +135,7 @@ async function checkProfileByEmail(email) {
         setTimeout(() => window.location.reload(), 1000);
         return;
       }
-      redirectTo('/suspended/', 'Your account is temporarily suspended. Redirecting...');
+      redirectTo('/suspended/', email);
       return;
     }
 
@@ -147,7 +153,12 @@ async function checkProfileByEmail(email) {
       console.warn('[auth-status] Could not fetch moderation actions:', e);
     }
 
-    redirectTo('/', 'Your account is active. Redirecting...');
+    showPersistentMessage(
+      'Sign-in needs attention',
+      profile.account_status === 'active'
+        ? 'Your account is marked active, but sign-in was blocked. Please return to login or contact support for help.'
+        : 'We could not confirm your account status. Please return to login or contact support for help.'
+    );
 
   } catch (err) {
     console.error('[auth-status] Exception:', err);
@@ -210,7 +221,6 @@ function showStatus(profile) {
 }
 
 function showChecking(message) {
-  $('#status-details').style.display = 'none';
   $('#redirect-message').style.display = 'block';
   $('#redirect-message').textContent = message;
   const icon = document.querySelector('.auth-status-icon');
@@ -219,14 +229,29 @@ function showChecking(message) {
   }
 }
 
-function redirectTo(path, message) {
-  showChecking(message);
-  setTimeout(() => window.location.replace(path), 1500);
+function redirectTo(path, email) {
+  const destination = new URL(path, window.location.origin);
+  destination.searchParams.set('email', email);
+  window.location.replace(`${destination.pathname}${destination.search}`);
+}
+
+function showPersistentMessage(title, message) {
+  $('#auth-status-title').textContent = title;
+  $('#redirect-message').style.display = 'block';
+  $('#redirect-message').textContent = message;
+  $('#status-actions').style.display = 'flex';
+  const icon = document.querySelector('.auth-status-icon');
+  if (icon) {
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+  }
 }
 
 function showError(message) {
-  $('#auth-status-title').textContent = 'Verification Failed';
-  $('#auth-status-subtitle').textContent = message;
+  $('#status-details').style.display = 'none';
+  $('#auth-status-title').textContent = 'Unable to verify account status';
+  $('#redirect-message').style.display = 'block';
+  $('#redirect-message').textContent = message;
+  $('#status-actions').style.display = 'flex';
   const icon = document.querySelector('.auth-status-icon');
   if (icon) {
     icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--bad)"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
