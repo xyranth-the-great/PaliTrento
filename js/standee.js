@@ -199,14 +199,15 @@ async function initMapCapture() {
     await loadLeaflet();
 
     const mapContainer = document.getElementById('map-capture');
-    if (!mapContainer) {
+    const containerWrapper = document.getElementById('map-capture-container');
+    if (!mapContainer || !containerWrapper) {
       console.warn('[Standee] Map capture container not found');
       return;
     }
 
-    // Ensure container has dimensions before creating map
-    mapContainer.style.width = '400px';
-    mapContainer.style.height = '300px';
+    // Temporarily make container visible for layout
+    const originalStyle = containerWrapper.style.cssText;
+    containerWrapper.style.cssText = 'position:absolute;left:-9999px;top:0;width:400px;height:300px;overflow:hidden;visibility:visible;';
 
     // Create map
     const map = L.map(mapContainer, {
@@ -236,24 +237,23 @@ async function initMapCapture() {
     });
     L.marker([s.lat, s.lng], { icon: markerIcon }).addTo(map);
 
-    // Force map to invalidate size (in case container was hidden)
-    setTimeout(() => map.invalidateSize(), 100);
-
-    // Wait for tiles to load
+    // Wait for map to initialize and tiles to load
     await new Promise(resolve => {
-      let tilesLoaded = 0;
-      map.on('tileload', () => {
-        tilesLoaded++;
-        if (tilesLoaded >= 3) resolve();
+      map.whenReady(() => {
+        map.invalidateSize();
+        let tilesLoaded = 0;
+        map.on('tileload', () => {
+          tilesLoaded++;
+          if (tilesLoaded >= 4) resolve();
+        });
+        setTimeout(resolve, 5000); // fallback
       });
-      // Fallback timeout
-      setTimeout(resolve, 5000);
     });
 
-    // Give extra time for rendering
+    // Extra render time
     await new Promise(r => setTimeout(r, 500));
 
-    // Capture map as image using Leaflet's built-in method if available, or manual canvas
+    // Capture map as image
     const canvas = document.createElement('canvas');
     const mapSize = map.getSize();
     canvas.width = mapSize.x;
@@ -261,7 +261,6 @@ async function initMapCapture() {
     const ctx = canvas.getContext('2d');
 
     console.log('[Standee] Map size:', mapSize.x, 'x', mapSize.y);
-    console.log('[Standee] Container rect:', mapContainer.getBoundingClientRect());
 
     // Draw tile layer
     const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
@@ -283,7 +282,7 @@ async function initMapCapture() {
       }
     }
 
-    // Draw marker - simpler approach: draw at known position
+    // Draw marker at calculated position (center of map at marker lat/lng)
     const markerEl = mapContainer.querySelector('.custom-marker');
     if (markerEl) {
       const rect = markerEl.getBoundingClientRect();
@@ -291,7 +290,6 @@ async function initMapCapture() {
       console.log('[Standee] Marker rect:', rect);
       console.log('[Standee] Map rect:', mapRect);
 
-      // Draw marker icon manually at the correct position
       const cx = rect.left - mapRect.left + rect.width / 2;
       const cy = rect.top - mapRect.top + rect.height;
 
@@ -308,10 +306,27 @@ async function initMapCapture() {
       ctx.beginPath();
       ctx.arc(cx, cy - 12, 6, 0, Math.PI * 2);
       ctx.fill();
+    } else {
+      // Fallback: draw marker at map center (where the coordinate is)
+      const centerX = mapSize.x / 2;
+      const centerY = mapSize.y / 2 + 12; // offset for pin bottom
+      ctx.fillStyle = '#b91c1c';
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY - 12, 12, Math.PI * 0.2, Math.PI * 1.8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(centerX, centerY - 12, 6, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     mapDataUrl = canvas.toDataURL('image/png');
     console.log('[Standee] Map captured, data URL length:', mapDataUrl.length, 'starts with data:image:', mapDataUrl.startsWith('data:image/'));
+
+    // Restore container style
+    containerWrapper.style.cssText = originalStyle;
 
     map.remove();
   } catch (e) {
