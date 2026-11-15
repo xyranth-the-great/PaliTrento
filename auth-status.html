@@ -90,7 +90,7 @@ function getStatusDetailsFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const status = params.get('status');
   return {
-    status: ['suspended', 'banned', 'restricted'].includes(status) ? status : null,
+    status: ['suspended', 'banned', 'restricted'].includes(status) ? 'restricted' : null,
     until: params.get('until'),
     reason: params.get('reason'),
     since: params.get('since')
@@ -137,24 +137,9 @@ async function checkProfileByEmail(email) {
     const now = Date.now();
 
     if (profile.account_status === 'active' && statusDetails.status) {
-      const expiryValue = statusDetails.until || profile.suspended_until;
-      const expiry = statusDetails.status === 'suspended' && expiryValue
-        ? formatDate(new Date(expiryValue))
-        : null;
-      const mismatchMessage = statusDetails.status === 'suspended'
-        ? expiry
-          ? `The sign-in check reports a suspension ending ${expiry}, but the profile status says Active. Please contact support if this date is incorrect.`
-          : 'The sign-in check reports a suspension, but no expiry date was found in the profile. Please contact support to confirm your restoration time.'
-        : statusDetails.status === 'banned'
-          ? 'Sign-in reports a permanent ban, but the profile status says Active. Please contact support to confirm your account status.'
-          : 'Sign-in was blocked, but the profile status says Active. The sign-in error does not distinguish a suspension from a permanent ban, so please contact support to confirm your account status.';
       showPersistentMessage(
-        statusDetails.status === 'suspended'
-          ? 'Your account is suspended'
-          : statusDetails.status === 'banned'
-            ? 'Your account is banned'
-            : 'Your account access is restricted',
-        mismatchMessage
+        'Your account access is restricted',
+        'Your profile is marked active, but sign-in was blocked. The sign-in error does not confirm whether your account is suspended or permanently banned. Please contact support to verify your account status.'
       );
       return;
     }
@@ -221,11 +206,7 @@ async function checkProfileByEmail(email) {
 function showRestrictedStatus(status, profile, statusDetails, message) {
   showStatus(profile || {}, status, statusDetails);
   showPersistentMessage(
-    status === 'suspended'
-      ? 'Your account is suspended'
-      : status === 'banned'
-        ? 'Your account is banned'
-        : 'Your account access is restricted',
+    'Your account access is restricted',
     message
   );
 }
@@ -264,9 +245,7 @@ async function checkProfileBySession() {
 }
 
 function showStatus(profile, statusHint = null, statusDetails = {}) {
-  const status = profile.account_status === 'active' && statusHint
-    ? statusHint
-    : profile.account_status || statusHint;
+  const status = profile.account_status || statusHint;
   $('#status-details').style.display = 'block';
   $('#status-value').textContent = status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
 

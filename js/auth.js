@@ -45,9 +45,15 @@ export function getAuthRestrictionStatus(errorCode, errorDescription) {
   const code = String(errorCode || '').toLowerCase();
   const description = String(errorDescription || '').toLowerCase();
 
-  if (code === 'user_suspended' || description.includes('suspended')) return 'suspended';
-  if (description.includes('permanently banned') || description.includes('permanent ban')) return 'banned';
-  if (code === 'user_banned' || description.includes('banned')) return 'restricted';
+  if (
+    code === 'user_suspended'
+    || code === 'user_banned'
+    || description.includes('suspended')
+    || description.includes('banned')
+    || description.includes('restricted')
+  ) {
+    return 'restricted';
+  }
   return null;
 }
 
@@ -305,11 +311,8 @@ export function isNewGoogleAccount(user) {
 export function getAuthErrorMessage(error) {
   if (!error) return 'Something went wrong';
   const msg = error.message?.toLowerCase() ?? '';
-  if (msg.includes('banned')) {
-    return 'This account has been permanently banned. Contact PaliTrento administrators for help.';
-  }
-  if (msg.includes('suspended')) {
-    return 'This account is temporarily suspended. Contact PaliTrento administrators for help.';
+  if (msg.includes('banned') || msg.includes('suspended') || msg.includes('restricted')) {
+    return 'Sign-in to this account is restricted. Check your account status or contact PaliTrento support for help.';
   }
   if (msg.includes('invalid login credentials') || msg.includes('wrong password') || msg.includes('invalid email or password')) {
     return 'Wrong email or password';
