@@ -31,8 +31,9 @@
 
     <div>
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" required autocomplete="new-password" minlength="8" pattern="(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}" title="Use at least 8 characters, including a number and a special character." placeholder="8+ characters, a number & a symbol">
-      <p class="muted" style="margin-top:4px">Use at least 8 characters, including a number and a special character (such as ! or #).</p>
+      <input id="password" name="password" type="password" required autocomplete="new-password" minlength="8" placeholder="8+ characters, uppercase, lowercase, number & symbol">
+      <div id="password-strength-container"></div>
+      <p class="muted" style="margin-top:4px;font-size:.8rem">Must include: uppercase, lowercase, number & special character</p>
     </div>
 
     <div>

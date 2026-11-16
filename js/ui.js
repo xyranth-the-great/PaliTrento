@@ -83,6 +83,164 @@ export function getCertificateUploadButton(status, storeId) {
   return `<button class="btn" data-upload-certificate="true" data-store-id="${esc(storeId)}">${esc(label)}</button>`;
 }
 
+// ===== Password Strength Validation =====
+
+/**
+ * Password requirements configuration
+ */
+export const PASSWORD_REQUIREMENTS = {
+  minLength: 8,
+  requireUppercase: true,
+  requireLowercase: true,
+  requireNumber: true,
+  requireSpecial: true
+};
+
+/**
+ * Check password against requirements
+ * @param {string} password - Password to check
+ * @returns {Object} { valid: boolean, errors: string[], score: number (0-4) }
+ */
+export function checkPasswordStrength(password) {
+  const errors = [];
+  let score = 0;
+
+  if (!password) {
+    return { valid: false, errors: ['Password is required'], score: 0 };
+  }
+
+  if (password.length < PASSWORD_REQUIREMENTS.minLength) {
+    errors.push(`At least ${PASSWORD_REQUIREMENTS.minLength} characters`);
+  } else {
+    score += 1;
+  }
+
+  if (PASSWORD_REQUIREMENTS.requireUppercase && !/[A-Z]/.test(password)) {
+    errors.push('One uppercase letter (A-Z)');
+  } else if (PASSWORD_REQUIREMENTS.requireUppercase) {
+    score += 1;
+  }
+
+  if (PASSWORD_REQUIREMENTS.requireLowercase && !/[a-z]/.test(password)) {
+    errors.push('One lowercase letter (a-z)');
+  } else if (PASSWORD_REQUIREMENTS.requireLowercase) {
+    score += 1;
+  }
+
+  if (PASSWORD_REQUIREMENTS.requireNumber && !/[0-9]/.test(password)) {
+    errors.push('One number (0-9)');
+  } else if (PASSWORD_REQUIREMENTS.requireNumber) {
+    score += 1;
+  }
+
+  if (PASSWORD_REQUIREMENTS.requireSpecial && !/[^A-Za-z0-9]/.test(password)) {
+    errors.push('One special character (!@#$%^&* etc.)');
+  } else if (PASSWORD_REQUIREMENTS.requireSpecial) {
+    score += 1;
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    score: Math.min(score, 4) // 0-4 scale
+  };
+}
+
+/**
+ * Get human-readable password requirements list
+ * @returns {string[]} Array of requirement strings
+ */
+export function getPasswordRequirementsList() {
+  return [
+    `At least ${PASSWORD_REQUIREMENTS.minLength} characters`,
+    'One uppercase letter (A-Z)',
+    'One lowercase letter (a-z)',
+    'One number (0-9)',
+    'One special character (!@#$%^&* etc.)'
+  ];
+}
+
+/**
+ * Create password strength indicator HTML
+ * @param {string} inputId - ID of the password input to watch
+ * @returns {string} HTML for strength indicator
+ */
+export function createPasswordStrengthIndicator(inputId) {
+  return `
+    <div class="password-strength" data-for="${inputId}" style="margin-top:8px">
+      <div class="password-strength-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="4" style="height:4px;background:var(--line);border-radius:2px;overflow:hidden">
+        <div class="password-strength-fill" style="width:0%;height:100%;transition:width .3s,background .3s;background:var(--bad)"></div>
+      </div>
+      <div class="password-strength-text muted" style="font-size:.7rem;margin-top:4px;min-height:1.2em"></div>
+      <ul class="password-requirements muted" style="font-size:.7rem;margin:6px 0 0;padding-left:16px;display:none"></ul>
+    </div>
+  `;
+}
+
+/**
+ * Initialize password strength indicator for an input
+ * @param {string} inputId - ID of password input element
+ * @param {Object} options - { showRequirements: boolean, onValid: callback }
+ */
+export function initPasswordStrength(inputId, options = {}) {
+  const input = document.getElementById(inputId);
+  const container = document.querySelector(`.password-strength[data-for="${inputId}"]`);
+  if (!input || !container) return;
+
+  const fill = container.querySelector('.password-strength-fill');
+  const text = container.querySelector('.password-strength-text');
+  const reqList = container.querySelector('.password-requirements');
+  const { showRequirements = true, onValid } = options;
+
+  // Populate requirements list
+  if (showRequirements && reqList) {
+    reqList.innerHTML = getPasswordRequirementsList()
+      .map(req => `<li>${req}</li>`)
+      .join('');
+  }
+
+  function updateStrength(password) {
+    const result = checkPasswordStrength(password);
+    const pct = (result.score / 4) * 100;
+    const colors = ['var(--bad)', 'var(--bad)', 'var(--warn)', 'var(--info)', 'var(--ok)'];
+    const labels = ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'];
+
+    if (fill) {
+      fill.style.width = `${pct}%`;
+      fill.style.background = colors[result.score];
+    }
+    if (text) {
+      text.textContent = password ? `Strength: ${labels[result.score]}` : '';
+      text.style.color = colors[result.score];
+    }
+    if (reqList) {
+      // Highlight met/unmet requirements
+      const items = reqList.querySelectorAll('li');
+      const checks = {
+        length: password.length >= PASSWORD_REQUIREMENTS.minLength,
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        number: /[0-9]/.test(password),
+        special: /[^A-Za-z0-9]/.test(password)
+      };
+      if (items[0]) items[0].style.color = checks.length ? 'var(--ok)' : 'var(--muted)';
+      if (items[1]) items[1].style.color = checks.upper ? 'var(--ok)' : 'var(--muted)';
+      if (items[2]) items[2].style.color = checks.lower ? 'var(--ok)' : 'var(--muted)';
+      if (items[3]) items[3].style.color = checks.number ? 'var(--ok)' : 'var(--muted)';
+      if (items[4]) items[4].style.color = checks.special ? 'var(--ok)' : 'var(--muted)';
+    }
+
+    if (onValid && result.valid) onValid();
+  }
+
+  input.addEventListener('input', (e) => updateStrength(e.target.value));
+  input.addEventListener('focus', () => { if (reqList) reqList.style.display = 'block'; });
+  input.addEventListener('blur', () => { if (reqList) reqList.style.display = 'none'; });
+
+  // Initial check
+  updateStrength(input.value);
+}
+
 // Price vs Admin cap. Returns null when no cap is set.
 export function srp(p) {
   if (p.lgu_srp_ceiling == null) return null;

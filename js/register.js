@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, BARANGAYS } from './ui.js';
+import { renderChrome, $, esc, BARANGAYS, checkPasswordStrength, createPasswordStrengthIndicator, initPasswordStrength } from './ui.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getOAuthRedirectUrl, checkAuthErrorParams } from './auth.js';
 import { sendEmailOTP } from './email-otp.js';
@@ -99,6 +99,13 @@ async function init() {
   brgySelect.innerHTML = '<option value="">Choose your barangay</option>' +
     BARANGAYS.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
 
+  // Inject password strength indicator
+  const pwContainer = $('#password-strength-container');
+  if (pwContainer) {
+    pwContainer.innerHTML = createPasswordStrengthIndicator('password');
+    initPasswordStrength('password', { showRequirements: true });
+  }
+
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Login is not available right now')}</p>`;
   }
@@ -127,14 +134,14 @@ form.addEventListener('submit', async (e) => {
     showMsg('Please fill in all required fields', 'bad');
     return;
   }
-  if (password.length < 8) {
-    showMsg('Password must be at least 8 characters', 'bad');
+
+  // Use shared password validation
+  const pwdResult = checkPasswordStrength(password);
+  if (!pwdResult.valid) {
+    showMsg('Password must include: ' + pwdResult.errors.join(', '), 'bad');
     return;
   }
-  if (!/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
-    showMsg('Password must include at least one number and one special character', 'bad');
-    return;
-  }
+
   if (password !== confirmPassword) {
     showMsg('Passwords do not match', 'bad');
     return;

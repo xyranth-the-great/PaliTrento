@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, BARANGAYS, peso, startAdvisoryToastListener } from './ui.js';
+import { renderChrome, $, esc, BARANGAYS, peso, startAdvisoryToastListener, checkPasswordStrength, createPasswordStrengthIndicator, initPasswordStrength } from './ui.js';
 import { supabase } from './supabase.js';
 import {
   getSessionWithStatus, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
@@ -47,6 +47,15 @@ function switchTab(tab, moveFocus = false) {
   });
   if (moveFocus) Array.from(tabBtns).find(b => b.dataset.tab === tab)?.focus();
   window.scrollTo(0, 0);
+
+  // Initialize password strength indicator when security tab is shown
+  if (tab === 'security') {
+    const pwContainer = $('#password-strength-container');
+    if (pwContainer && !pwContainer.querySelector('.password-strength')) {
+      pwContainer.innerHTML = createPasswordStrengthIndicator('set-new-password');
+      initPasswordStrength('set-new-password', { showRequirements: true });
+    }
+  }
 }
 
 // ===== Load Settings =====
@@ -465,8 +474,11 @@ $('#save-password-btn').addEventListener('click', async () => {
     securityMsg.style.display = 'block';
     return;
   }
-  if (newPass.length < 8) {
-    securityMsg.textContent = 'Password must be at least 8 characters';
+
+  // Use shared password validation
+  const pwdResult = checkPasswordStrength(newPass);
+  if (!pwdResult.valid) {
+    securityMsg.textContent = 'Password must include: ' + pwdResult.errors.join(', ');
     securityMsg.className = 'pill bad';
     securityMsg.style.display = 'block';
     return;

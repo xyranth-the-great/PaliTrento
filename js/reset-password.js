@@ -1,4 +1,4 @@
-import { $, esc } from './ui.js';
+import { $, esc, checkPasswordStrength, createPasswordStrengthIndicator, initPasswordStrength } from './ui.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured, getAuthErrorMessage, getSession, checkAuthErrorParams } from './auth.js';
 
@@ -44,6 +44,13 @@ async function init() {
 
   recoverySessionReady = true;
   window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+
+  // Inject password strength indicator
+  const pwContainer = $('#password-strength-container');
+  if (pwContainer) {
+    pwContainer.innerHTML = createPasswordStrengthIndicator('password');
+    initPasswordStrength('password', { showRequirements: true });
+  }
 }
 
 init();
@@ -73,10 +80,14 @@ form.addEventListener('submit', async (e) => {
     showMsg('Please fill in both fields', 'bad');
     return;
   }
-  if (password.length < 8) {
-    showMsg('Password must be at least 8 characters', 'bad');
+
+  // Use shared password validation
+  const pwdResult = checkPasswordStrength(password);
+  if (!pwdResult.valid) {
+    showMsg('Password must include: ' + pwdResult.errors.join(', '), 'bad');
     return;
   }
+
   if (password !== confirmPassword) {
     showMsg('Passwords do not match', 'bad');
     return;
