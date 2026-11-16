@@ -114,7 +114,7 @@ function renderProduct() {
   if (srpInfo) {
     srpBadge.innerHTML = `<span class="pill ${srpInfo.cls}">${srpInfo.text}</span><span class="muted" style="margin-left:8px">Cap ${peso(p.lgu_srp_ceiling)}</span>`;
   } else {
-    srpBadge.innerHTML = '<span class="pill" style="background:var(--muted-bg);color:var(--muted)">No jud Admin cap</span>';
+    srpBadge.innerHTML = '<span class="pill" style="background:var(--muted-bg);color:var(--muted)">No Admin cap</span>';
   }
 
   // Stock

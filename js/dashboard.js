@@ -124,13 +124,19 @@ function updateStoreStatusDisplay(status) {
   }
 
   // Update product management access
-  const canManageProducts = status.status === 'VERIFIED';
+  // Allow product management when store is APPROVED (even without certificate)
+  // VERIFIED = fully compliant, APPROVED = can operate but has 15-day deadline for certificates
+  const canManageProducts = status.status === 'VERIFIED' || status.status === 'APPROVED_NO_CERTIFICATE' || status.status === 'CERTIFICATE_UNDER_REVIEW' || status.status === 'CERTIFICATE_REJECTED';
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
-  addProductButton.title = canManageProducts ? '' : 'Available after certificate approval';
+  addProductButton.title = canManageProducts ? '' : 'Available after store approval';
   const approvalNotice = $('#product-approval-notice');
   if (!messageHtml) {
     approvalNotice.style.display = canManageProducts ? 'none' : 'block';
+    if (!canManageProducts) {
+      approvalNotice.textContent = 'Your store is awaiting LGU approval. Product management available after approval.';
+      approvalNotice.className = 'pill warn';
+    }
   }
 }
 
@@ -180,10 +186,11 @@ function renderStoreCard(store) {
 
   // Get display status from database function (single source of truth)
   // We'll call this after loading store, but for now show basic status
-  const canManageProducts = store.certificate_status === 'APPROVED' || store.verification_status === 'VERIFIED';
+  // Allow product management for APPROVED stores (not just VERIFIED)
+  const canManageProducts = store.approval_status === 'APPROVED' || store.verification_status === 'VERIFIED';
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
-  addProductButton.title = canManageProducts ? '' : 'Available after certificate approval';
+  addProductButton.title = canManageProducts ? '' : 'Available after store approval';
   const approvalNotice = $('#product-approval-notice');
   approvalNotice.style.display = canManageProducts ? 'none' : 'block';
 
@@ -795,7 +802,7 @@ async function handleDocumentUpload(docType, storeId) {
 
       if (dbError) throw dbError;
 
-      alert('Document uploaded successfully! It will be reviewed by jud Admin.');
+      alert('Document uploaded successfully! It will be reviewed by Admin.');
 
       // Refresh verification
       await loadVerification(storeId);
@@ -877,7 +884,7 @@ function switchTab(tab) {
 
 function openProductModal(productId = null) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    alert('Products can be added or managed after your store is approved by jud Admin.');
+    alert('Products can be added or managed after your store is approved by Admin.');
     return;
   }
 
@@ -934,7 +941,7 @@ async function saveProduct(e) {
 
   if (!currentStore) return;
   if (currentStore.verification_status !== 'VERIFIED') {
-    alert('Products can be added or managed after your store is approved by jud Admin.');
+    alert('Products can be added or managed after your store is approved by Admin.');
     return;
   }
 
@@ -1024,7 +1031,7 @@ async function saveProduct(e) {
 
 async function createNewProduct(productData, imageFile) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    throw new Error('Products can be added after your store is approved by jud Admin.');
+    throw new Error('Products can be added after your store is approved by Admin.');
   }
 
   const { data: newProduct, error: insertError } = await supabase
@@ -1062,7 +1069,7 @@ async function createNewProduct(productData, imageFile) {
 
 function advertiseProduct(productId) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    alert('Products can be advertised after your store is approved by jud Admin.');
+    alert('Products can be advertised after your store is approved by Admin.');
     return;
   }
 
@@ -1222,7 +1229,7 @@ function createDemoQrSvg() {
 
 async function deleteProduct(productId) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    alert('Products can be managed after your store is approved by jud Admin.');
+    alert('Products can be managed after your store is approved by Admin.');
     return;
   }
 

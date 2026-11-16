@@ -1,4 +1,4 @@
--- Advisories table (jud Admin price broadcasts)
+-- Advisories table (Admin price broadcasts)
 create table if not exists advisories (
   id uuid primary key default gen_random_uuid(),
   title text not null,

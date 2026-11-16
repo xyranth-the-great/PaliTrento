@@ -68,7 +68,7 @@ begin
       'status', 'PENDING_APPROVAL',
       'badge_class', 'warn',
       'label', 'Pending Approval',
-      'message', 'Awaiting jud Admin review of your business submission.'
+      'message', 'Awaiting Admin review of your business submission.'
     );
   end if;
 
@@ -183,7 +183,7 @@ begin
       'status', 'REJECTED',
       'badge_class', 'bad',
       'label', 'Rejected',
-      'message', 'Your business submission was rejected. Please contact jud Admin administration.'
+      'message', 'Your business submission was rejected. Please contact Admin administration.'
     );
   end if;
 
@@ -515,7 +515,7 @@ begin
       insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
       values (
         'Business Suspended - Certificate Rejected',
-        'Your certificate for "' || v_store.business_name || '" was rejected and the compliance deadline has expired. Your account has been suspended. Please contact jud Admin administration to resolve.',
+        'Your certificate for "' || v_store.business_name || '" was rejected and the compliance deadline has expired. Your account has been suspended. Please contact Admin administration to resolve.',
         'EMERGENCY',
         'high',
         now(),
@@ -595,7 +595,7 @@ begin
     insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
     values (
       'Business Account Suspended - Document Compliance',
-      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact jud Admin administration to resolve.',
+      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact Admin administration to resolve.',
       'EMERGENCY',
       'high',
       now(),
