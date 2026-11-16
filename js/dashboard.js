@@ -457,6 +457,7 @@ function bindEvents() {
 
   // Add product
   $('#add-product-btn')?.addEventListener('click', () => openProductModal());
+  $('#p-category')?.addEventListener('change', updateOtherCategoryField);
 
   // Edit store
   $('#edit-store-btn')?.addEventListener('click', () => {
@@ -891,6 +892,7 @@ function openProductModal(productId = null) {
   editingProductId = productId;
   productForm.reset();
   $('#product-id').value = '';
+  updateOtherCategoryField();
 
   // Reset image preview
   $('#p-image-preview').style.display = 'none';
@@ -905,7 +907,11 @@ function openProductModal(productId = null) {
       $('#modal-save').textContent = 'Save changes';
       $('#product-id').value = product.id;
       $('#p-name').value = product.name;
-      $('#p-category').value = product.category;
+      const categorySelect = $('#p-category');
+      const hasPresetCategory = Array.from(categorySelect.options).some(option => option.value === product.category);
+      categorySelect.value = hasPresetCategory ? product.category : 'Other';
+      $('#p-category-other').value = hasPresetCategory ? '' : product.category;
+      updateOtherCategoryField();
       $('#p-unit').value = product.unit;
       $('#p-price').value = product.current_price;
       $('#p-srp').value = product.lgu_srp_ceiling || '';
@@ -929,6 +935,15 @@ function openProductModal(productId = null) {
 
   modal.style.display = 'flex';
   $('#p-name').focus();
+}
+
+function updateOtherCategoryField() {
+  const isOther = $('#p-category')?.value === 'Other';
+  const wrapper = $('#p-category-other-wrap');
+  const input = $('#p-category-other');
+  if (!wrapper || !input) return;
+  wrapper.style.display = isOther ? 'block' : 'none';
+  input.required = isOther;
 }
 
 function closeModal() {
@@ -956,7 +971,9 @@ async function saveProduct(e) {
   const productData = {
     store_id: currentStore.id,
     name: $('#p-name').value.trim(),
-    category: $('#p-category').value,
+    category: $('#p-category').value === 'Other'
+      ? $('#p-category-other').value.trim()
+      : $('#p-category').value,
     unit: $('#p-unit').value,
     current_price: parseFloat($('#p-price').value),
     lgu_srp_ceiling: $('#p-srp').value ? parseFloat($('#p-srp').value) : null,
@@ -966,6 +983,12 @@ async function saveProduct(e) {
 
   if (!productData.name || !productData.category || !productData.unit || isNaN(productData.current_price)) {
     alert('Please fill all required fields');
+    return;
+  }
+
+  if ($('#p-category').value === 'Other' && !$('#p-category-other').value.trim()) {
+    alert('Please specify the product category.');
+    $('#p-category-other').focus();
     return;
   }
 
