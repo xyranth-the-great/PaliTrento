@@ -65,7 +65,7 @@ export function getCertificateUploadButton(status, storeId) {
   return `<button class="btn" data-upload-certificate="true" data-store-id="${esc(storeId)}">${esc(label)}</button>`;
 }
 
-// Price vs LGU cap. Returns null when no cap is set.
+// Price vs jud Admin cap. Returns null when no cap is set.
 export function srp(p) {
   if (p.lgu_srp_ceiling == null) return null;
   return p.current_price <= p.lgu_srp_ceiling
@@ -612,7 +612,7 @@ export function renderChrome(active, session = null, profile = null, userId = nu
     <nav aria-label="Main">${links.map(([h, t]) => `<a href="${h}"${h === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}${authLinks}</nav></div></header>`;
   const f = $('#chrome-foot');
   if (f) f.outerHTML = `<footer id="chrome-foot"><div class="wrap"><p><strong>PaliTrento</strong>. Tara, Palit Ta sa Trento!</p>
-    <p>A local directory for the Municipality of Trento, Agusan del Sur. Price caps shown follow LGU advisories and may change weekly.</p></div></footer>`;
+    <p>A local directory for the Municipality of Trento, Agusan del Sur. Price caps shown follow jud Admin advisories and may change weekly.</p></div></footer>`;
 
   // Initialize avatar dropdown after DOM update
   if (session) {

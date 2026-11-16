@@ -718,7 +718,7 @@ begin
     insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
     values (
       'Business Account Suspended - Document Compliance',
-      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact LGU administration to resolve.',
+      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact jud Admin administration to resolve.',
       'EMERGENCY',
       'high',
       now(),
