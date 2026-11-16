@@ -150,9 +150,9 @@ begin
       having count(*) = 1
     )
     update public.advisories advisory
-    set recipient_id = warning.target_user_id
-    from uniquely_matched_warnings warning
-    where advisory.id = warning.id;
+    set recipient_id = matched.target_user_id
+    from uniquely_matched_warnings matched
+    where advisory.id = matched.id;
   end if;
 
   delete from public.advisories
