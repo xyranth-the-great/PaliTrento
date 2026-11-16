@@ -134,7 +134,7 @@ function updateStoreStatusDisplay(status) {
   if (!messageHtml) {
     approvalNotice.style.display = canManageProducts ? 'none' : 'block';
     if (!canManageProducts) {
-      approvalNotice.textContent = 'Your store is awaiting LGU approval. Product management available after approval.';
+      approvalNotice.textContent = 'Your store is awaiting Admin approval. Product management available after approval.';
       approvalNotice.className = 'pill warn';
     }
   }

@@ -21,11 +21,28 @@ export const hours = s => `${clock(s.open_time)} to ${clock(s.close_time)}`;
 
 export const openPill = s => isOpen(s) ? '<span class="pill ok">Open now</span>' : '<span class="pill off">Closed</span>';
 export const badges = s => [
-  s.verification_status === 'VERIFIED' ? '<span class="pill ok">Verified</span>' : '<span class="pill warn">Verification pending</span>',
   s.dti_registered ? '<span class="pill info">DTI registered</span>' : '',
   s.bmbe_registered ? '<span class="pill info">BMBE</span>' : '',
   s.srp_compliant ? '<span class="pill ok">Follows price caps</span>' : ''
 ].join('');
+
+/**
+ * Get public store status badge for store cards (explore, home)
+ * Only shows "Verified" for fully verified stores (certificate approved).
+ * Approved stores (no cert yet) show nothing special.
+ */
+export function getPublicStoreStatusBadge(store) {
+  if (!store) return '';
+
+  // Fully verified = certificate approved
+  if (store.certificate_status === 'APPROVED' || store.verification_status === 'VERIFIED') {
+    return '<span class="pill ok">Verified</span>';
+  }
+
+  // Approved but certificate pending - show nothing (just "Open now" from openPill)
+  // Could show "Approved" if desired, but per requirements: show nothing special
+  return '';
+}
 
 /**
  * Get store status badge from display status object (returned by get_store_display_status RPC)
@@ -81,35 +98,10 @@ export const storeCard = s => `
     <div class="store-card-content">
       <div class="row store-card-heading"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
       <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
-      <div class="store-card-badges">${badges(s)}</div>
+      <div class="store-card-badges">${badges(s)}${getPublicStoreStatusBadge(s)}</div>
     </div>
   </a>`;
 
-/**
- * Get store display status badge for public listings
- * Uses verification_status for backward compatibility, but can be enhanced
- * @param {Object} store - Store object from database
- * @returns {string} HTML string for the status badge
- */
-export function getPublicStoreStatusBadge(store) {
-  if (!store) return '<span class="pill warn">Unknown</span>';
-
-  // For public listings, only show verified stores with certificate approved
-  // Stores that are approved but cert pending are not shown to public (per RLS)
-  if (store.verification_status === 'VERIFIED' || store.certificate_status === 'APPROVED') {
-    return '<span class="pill ok">Verified</span>';
-  }
-  if (store.verification_status === 'PENDING') {
-    return '<span class="pill warn">Pending Approval</span>';
-  }
-  if (store.verification_status === 'REJECTED' || store.approval_status === 'REJECTED') {
-    return '<span class="pill bad">Rejected</span>';
-  }
-  if (store.verification_status === 'CLARIFICATION_REQUIRED') {
-    return '<span class="pill info">Clarification Needed</span>';
-  }
-  return '<span class="pill warn">Unknown</span>';
-}
 export const getActiveFeaturedProducts = products => products
   .filter(product => Date.parse(product.featured_until) > Date.now())
   .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));

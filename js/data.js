@@ -9,7 +9,9 @@ async function load(table, seed, order) {
   return data?.length ? data : seed;
 }
 export const getStores = async () =>
-  (await load('stores', SEED_STORES, 'business_name')).filter(s => s.verification_status === 'VERIFIED');
+  (await load('stores', SEED_STORES, 'business_name')).filter(s =>
+    s.verification_status === 'VERIFIED' || s.approval_status === 'APPROVED'
+  );
 export const getProducts = () => load('products', SEED_PRODUCTS, 'name');
 export async function getStore(trn) {
   return (await getStores()).find(s => s.trn_code === trn) || null;
