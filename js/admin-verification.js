@@ -175,7 +175,8 @@ function renderStores(stores) {
         <button class="btn alt" style="flex:1;font-size:.85rem;padding:8px 12px" data-view="${store.id}">View</button>
       </div>
     </div>
-  `).join('');
+  `;
+}).join('');
 
   storesList.querySelectorAll('[data-review]').forEach(btn => {
     btn.addEventListener('click', () => openModal(btn.dataset.review, true));
