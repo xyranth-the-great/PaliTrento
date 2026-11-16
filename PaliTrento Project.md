@@ -47,7 +47,7 @@ supabase-project: xcbkpknsieawtzyfwrff
 
 ### Merchant Features
 - [x] **Business owner registration** → Email OTP → Store setup wizard
-- [x] **3-step store setup** — Details + GPS pin (Leaflet) + Photos (storefront/permits)
+- [x] **3-step store setup** — Details + GPS pin (Leaflet) + storefront photo and three required, dedicated permit uploads
 - [x] **Business owner dashboard** — Products CRUD, Orders workflow (Confirm→Ready→Complete), Analytics
 - [x] **QR Standee PDF Generator** — A5/A4 PDF with QR code, store branding, customizable content
 
@@ -110,7 +110,7 @@ palitrento2/
 
 | Table | Key Columns |
 |-------|-------------|
-| `stores` | `id`, `trn_code`, `business_name`, `trade_category`, `proprietor_name`, `contact_number`, `barangay`, `purok`, `landmark_reference`, `lat`, `lng`, `bmbe_registered`, `dti_registered`, `srp_compliant`, `verification_status`, `open_time`, `close_time`, `accepted_payments`, `storefront_image_url`, `permits_image_url`, `admin_notes`, `verified_at`, `verified_by`, `user_id`, `created_at` |
+| `stores` | `id`, `trn_code`, `business_name`, `trade_category`, `proprietor_name`, `contact_number`, `barangay`, `purok`, `landmark_reference`, `lat`, `lng`, `bmbe_registered`, `dti_registered`, `srp_compliant`, `verification_status`, `open_time`, `close_time`, `accepted_payments`, `storefront_image_url`, `barangay_clearance_image_url`, `cedula_image_url`, `business_permit_image_url`, `admin_notes`, `verified_at`, `verified_by`, `user_id`, `created_at` |
 | `products` | `id`, `store_id`, `name`, `category`, `unit`, `current_price`, `lgu_srp_ceiling`, `in_stock`, `quantity`, `created_at` |
 | `profiles` | `id` (FK auth.users), `full_name`, `role` (customer\|business_owner\|admin), `barangay`, `avatar_url`, `created_at` |
 | `orders` | `id`, `buyer_id`, `store_id`, `product_id`, `quantity`, `total_price`, `status`, `payment_method`, `notes`, `confirmed_at`, `ready_at`, `completed_at`, `created_at` |

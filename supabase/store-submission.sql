@@ -3,7 +3,9 @@ alter table public.stores
   add column if not exists user_id uuid references auth.users(id) on delete set null,
   add column if not exists description text,
   add column if not exists storefront_image_url text,
-  add column if not exists permits_image_url text;
+  add column if not exists barangay_clearance_image_url text,
+  add column if not exists cedula_image_url text,
+  add column if not exists business_permit_image_url text;
 
 alter table public.stores drop constraint if exists stores_trade_category_check;
 alter table public.stores

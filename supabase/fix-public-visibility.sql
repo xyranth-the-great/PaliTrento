@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- Current RLS only shows VERIFIED stores to public.
--- We need to also show APPROVED stores (they can operate, just have 15-day cert deadline).
+-- Approved stores have already submitted all required permits for review.
 
 -- 1. Update stores public read policy
 drop policy if exists "public read stores" on public.stores;
@@ -75,7 +75,7 @@ create policy "approved owner delete products" on public.products
 
 -- ============================================================
 -- After running this:
--- - Approved stores (with certificate deadline) will appear in explore/products
+-- - Approved stores appear in explore/products only after all permit requirements are met
 -- - Approved store owners can add/edit/delete products
 -- - Only VERIFIED stores show "Verified" badge; APPROVED shows "Approved - Certificate Pending"
 -- ============================================================

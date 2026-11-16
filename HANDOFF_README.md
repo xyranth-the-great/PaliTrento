@@ -66,7 +66,9 @@ vite.config.js  (multi-page, target es2022)  .env  .env.example  CLAUDE.md  READ
 
 **Tables:** `stores`, `products`, `profiles`, `orders`, `messages`, `advisories`, `email_otp_codes`.
 
-**stores columns:** id, trn_code (unique, TRN-YYYY-NNN), business_name, trade_category (SARI_SARI|CARINDERIA|FRESH_PRODUCE|PHARMACY|SERVICES|AGRI), proprietor_name, contact_number (+63...), barangay, purok, landmark_reference, lat, lng, bmbe_registered, dti_registered, srp_compliant, verification_status (PENDING|VERIFIED|REJECTED|CLARIFICATION_REQUIRED), open_time, close_time, accepted_payments text[] (CASH|GCASH|TRIKE_COD), storefront_image_url, permits_image_url, admin_notes, verified_at, verified_by, user_id (FK to auth.users), created_at.
+**stores columns:** id, trn_code (unique, TRN-YYYY-NNN), business_name, trade_category (SARI_SARI|CARINDERIA|FRESH_PRODUCE|PHARMACY|SERVICES|AGRI), proprietor_name, contact_number (+63...), barangay, purok, landmark_reference, lat, lng, bmbe_registered, dti_registered, srp_compliant, verification_status (PENDING|VERIFIED|REJECTED|CLARIFICATION_REQUIRED), open_time, close_time, accepted_payments text[] (CASH|GCASH|TRIKE_COD), storefront_image_url, barangay_clearance_image_url, cedula_image_url, business_permit_image_url, admin_notes, verified_at, verified_by, user_id (FK to auth.users), created_at.
+
+All three permit image URLs (Barangay Business Clearance, Cedula, and Business Permit) are required before store submission. Admin approval reviews the submitted permits together; there is no post-approval upload period or countdown. Apply `store-submission.sql`, `business-verification.sql`, and `verification-workflow-fix.sql` in that order.
 
 **products columns:** id, store_id, name, category, unit (KG|PC|POUCH|BOTTLE|SACK_25KG|TIE), current_price, lgu_srp_ceiling (null = no cap), in_stock, quantity, created_at.
 

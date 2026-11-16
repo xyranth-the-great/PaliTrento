@@ -646,6 +646,10 @@ begin
     update public.business_compliance
     set is_compliant = true,
         all_documents_approved = true,
+        approval_notice_acknowledged = case
+          when not all_documents_approved then false
+          else approval_notice_acknowledged
+        end,
         updated_at = now()
     where store_id = p_store_id;
 
@@ -678,62 +682,29 @@ begin
 end;
 $$;
 
-revoke all on function public.update_business_compliance(uuid) from public, anon;
-grant execute on function public.update_business_compliance(uuid) to authenticated, service_role;
+create or replace function public.update_business_compliance(p_store_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return;
+end;
+$$;
 
--- enforce_business_compliance_deadlines - notify business owner when suspended
+revoke all on function public.update_business_compliance(uuid) from public, anon, authenticated;
+grant execute on function public.update_business_compliance(uuid) to service_role;
+
+-- Keep existing cron jobs harmless; permit deadline enforcement is disabled.
 create or replace function public.enforce_business_compliance_deadlines()
 returns integer
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  suspended_count integer := 0;
-  rec record;
 begin
-  -- Find non-compliant businesses past their deadline
-  for rec in
-    select bc.store_id, bc.user_id, s.business_name
-    from public.business_compliance bc
-    join public.stores s on s.id = bc.store_id
-    where bc.compliance_deadline <= now()
-      and bc.all_documents_approved = false
-      and bc.suspended_for_noncompliance = false
-  loop
-    -- Suspend the business account
-    update public.business_compliance
-    set suspended_for_noncompliance = true,
-        suspension_reason = 'Failed to submit required business documents within 15-day compliance period',
-        suspended_at = now(),
-        updated_at = now()
-    where store_id = rec.store_id;
-
-    -- Update store verification status
-    update public.stores
-    set verification_status = 'REJECTED'
-    where id = rec.store_id and verification_status != 'REJECTED';
-
-    -- Notify business owner ONLY (recipient_id = business owner)
-    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
-    values (
-      'Business Account Suspended - Document Compliance',
-      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact Admin administration to resolve.',
-      'EMERGENCY',
-      'high',
-      now(),
-      rec.user_id,
-      rec.user_id
-    );
-
-    -- Also create moderation action record for the user
-    insert into public.account_moderation_actions (target_user_id, actor_user_id, action, reason)
-    values (rec.user_id, rec.user_id, 'suspend_temporary', 'Automatic suspension: Failed to comply with business document requirements within 15 days');
-
-    suspended_count := suspended_count + 1;
-  end loop;
-
-  return suspended_count;
+  return 0;
 end;
 $$;
 
@@ -747,7 +718,7 @@ grant execute on function public.create_support_ticket(text, text, text, text, t
 grant execute on function public.add_support_message(uuid, text, text, text, bigint, text) to authenticated;
 grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to authenticated, service_role;
 grant execute on function public.admin_update_ticket_status(uuid, uuid, text, uuid) to service_role;
-grant execute on function public.update_business_compliance(uuid) to authenticated, service_role;
+grant execute on function public.update_business_compliance(uuid) to service_role;
 grant execute on function public.enforce_business_compliance_deadlines() to service_role;
 
 -- ============================================================

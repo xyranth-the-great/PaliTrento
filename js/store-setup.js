@@ -13,7 +13,12 @@ let map = null;
 let marker = null;
 let mapError = null;
 let storefrontUrl = null;
-let permitsUrl = null;
+const permitFields = [
+  { type: 'barangay-clearance', label: 'Barangay Business Clearance', column: 'barangay_clearance_image_url' },
+  { type: 'cedula', label: 'Community Tax Certificate (Cedula)', column: 'cedula_image_url' },
+  { type: 'business-permit', label: 'Business Permit', column: 'business_permit_image_url' },
+];
+let permitUrls = Object.fromEntries(permitFields.map(({ type }) => [type, null]));
 let currentStore = null;
 
 // Step elements
@@ -95,7 +100,10 @@ function prefillForm(store) {
   $('#landmark_reference').value = store.landmark_reference ?? '';
   $('#open_time').value = store.open_time ?? '07:00';
   $('#close_time').value = store.close_time ?? '20:00';
-  permitsUrl = store.permits_image_url ?? null;
+  permitUrls = Object.fromEntries(permitFields.map(({ type, column }) => [type, store[column] ?? null]));
+  permitFields.forEach(({ type }) => {
+    if (permitUrls[type]) showPermitPreview(type, permitUrls[type]);
+  });
 
   if (store.storefront_image_url) {
     storefrontUrl = store.storefront_image_url;
@@ -214,7 +222,7 @@ function bindEvents() {
 
   // Photo uploads
   setupPhotoUpload('storefront');
-  setupPhotoUpload('permits');
+  permitFields.forEach(({ type }) => setupPhotoUpload(type));
 
   // Form submit
   form.addEventListener('submit', handleSubmit);
@@ -223,13 +231,18 @@ function bindEvents() {
 function setupPhotoUpload(type) {
   const uploadEl = $(`#${type}-upload`);
   const fileInput = $(`#${type}-file`);
-  const previewEl = $(`#${type}-preview`);
+  const replaceButton = $(`#${type}-replace`);
+  const openFilePicker = () => {
+    if (!fileInput) return;
+    fileInput.value = '';
+    fileInput.click();
+  };
 
-  uploadEl?.addEventListener('click', () => fileInput?.click());
+  uploadEl?.addEventListener('click', openFilePicker);
   uploadEl?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      fileInput?.click();
+      openFilePicker();
     }
   });
   uploadEl?.addEventListener('dragover', (e) => { e.preventDefault(); uploadEl.style.borderColor = 'var(--primary)'; });
@@ -243,11 +256,18 @@ function setupPhotoUpload(type) {
   fileInput?.addEventListener('change', (e) => {
     if (e.target.files[0]) handleFileSelect(type, e.target.files[0]);
   });
+
+  replaceButton?.addEventListener('click', openFilePicker);
+}
+
+function showPermitPreview(type, url) {
+  $(`#${type}-preview`).src = url;
+  $(`#${type}-preview-container`).style.display = 'block';
+  $(`#${type}-upload`).style.display = 'none';
 }
 
 async function handleFileSelect(type, file) {
   const uploadEl = $(`#${type}-upload`);
-  const previewEl = $(`#${type}-preview`);
   const session = await getSession();
   if (!session) return;
 
@@ -264,11 +284,15 @@ async function handleFileSelect(type, file) {
   }
 
   if (type === 'storefront') storefrontUrl = url;
-  if (type === 'permits') permitsUrl = url;
+  if (type !== 'storefront') permitUrls[type] = url;
 
-  previewEl.src = url;
-  previewEl.style.display = 'block';
-  uploadEl.style.display = 'none';
+  if (type === 'storefront') {
+    $('#storefront-preview').src = url;
+    $('#storefront-preview').style.display = 'block';
+    uploadEl.style.display = 'none';
+  } else {
+    showPermitPreview(type, url);
+  }
 }
 
 function useMyLocation() {
@@ -335,19 +359,35 @@ function requireStorefrontPhoto() {
   return false;
 }
 
+function requirePermits() {
+  const missing = permitFields.find(({ type }) => !permitUrls[type]);
+  if (!missing) return true;
+  showMsg(`Please upload your ${missing.label}.`, 'bad');
+  return false;
+}
+
 function goToStep(step) {
   if (step === 2 && !validateStep1()) return;
+  msgEl.textContent = '';
+  msgEl.className = 'muted';
   if (step === 3 && !requireStorefrontPhoto()) step = 2;
+  let focusMissingPermit = false;
+  if (step === 3 && !requirePermits()) {
+    step = 2;
+    focusMissingPermit = true;
+  }
   if (step === 3) buildReview();
 
   currentStep = step;
-  msgEl.textContent = '';
-  msgEl.className = 'muted';
   Object.entries(steps).forEach(([num, el]) => {
     el.style.display = num == step ? 'block' : 'none';
   });
   $('.setup-progress').setAttribute('aria-valuenow', String(step));
   if (step === 2 && !storefrontUrl) $('#storefront-upload').focus();
+  else if (focusMissingPermit) {
+    const missing = permitFields.find(({ type }) => !permitUrls[type]);
+    $(`#${missing.type}-upload`).focus();
+  }
 
   // Update progress indicator
   [1, 2, 3].forEach(n => {
@@ -392,7 +432,7 @@ function buildReview() {
       <div><strong>Hours:</strong> ${form.open_time.value} – ${form.close_time.value}</div>
       <div><strong>Payments:</strong> ${payments.map(p => esc(PAY[p] || p)).join(', ')}</div>
       <div><strong>Storefront photo:</strong> ${storefrontUrl ? '<span class="ok">Uploaded</span>' : '<span class="warn">None</span>'}</div>
-      <div><strong>Permits:</strong> ${permitsUrl ? '<span class="ok">Uploaded</span>' : '<span class="warn">None (optional)</span>'}</div>
+      ${permitFields.map(({ type, label }) => `<div><strong>${esc(label)}:</strong> ${permitUrls[type] ? '<span class="ok">Uploaded</span>' : '<span class="warn">Missing</span>'}</div>`).join('')}
     </div>
   `;
 }
@@ -410,6 +450,14 @@ async function handleSubmit(e) {
     goToStep(2);
     requireStorefrontPhoto();
     $('#storefront-upload').focus();
+    return;
+  }
+
+  if (!permitFields.every(({ type }) => permitUrls[type])) {
+    goToStep(2);
+    requirePermits();
+    const missing = permitFields.find(({ type }) => !permitUrls[type]);
+    $(`#${missing.type}-upload`).focus();
     return;
   }
 
@@ -455,7 +503,7 @@ async function handleSubmit(e) {
       close_time: form.close_time.value,
       accepted_payments: payments,
       storefront_image_url: storefrontUrl || existing?.storefront_image_url || null,
-      permits_image_url: permitsUrl || existing?.permits_image_url || null,
+      ...Object.fromEntries(permitFields.map(({ type, column }) => [column, permitUrls[type] || existing?.[column] || null])),
       verification_status: isApprovedUpdate ? 'VERIFIED' : 'PENDING',
       srp_compliant: isApprovedUpdate ? existing.srp_compliant : false,
       dti_registered: isApprovedUpdate ? existing.dti_registered : false,
@@ -517,7 +565,7 @@ function getSubmitErrorMessage(error) {
     return 'Your Supabase database does not allow this store category yet. Run supabase/store-submission.sql in the Supabase SQL Editor, then try again.';
   }
   if (error?.code === 'PGRST204' || error?.code === '42703') {
-    return 'The stores table is missing fields required for submission. Run supabase/store-submission.sql in your Supabase SQL Editor, then try again.';
+    return 'Your Supabase stores table is missing the Barangay Clearance, Cedula, or Business Permit image columns. Run the latest supabase/store-submission.sql in your Supabase SQL Editor, then refresh and try again.';
   }
   if (error?.code === '42501') {
     return 'Supabase blocked this submission. Run supabase/store-submission.sql to configure store-owner permissions, then try again.';

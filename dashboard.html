@@ -50,7 +50,7 @@
 
   <!-- Products tab -->
   <div id="tab-products" role="tabpanel">
-    <p id="product-approval-notice" class="pill warn" role="status" style="display:none;margin-bottom:16px;white-space:normal"></p>
+    <div id="product-approval-notice" class="pill warn" role="status" style="display:none;margin-bottom:16px;white-space:normal"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
       <h3 style="margin:0">Your Products</h3>
       <button class="btn" id="add-product-btn">Add product</button>
@@ -69,7 +69,7 @@
   <!-- Business Verification tab -->
   <div id="tab-verification" role="tabpanel" style="display:none">
     <h3 style="margin-bottom:8px">Business Verification</h3>
-    <p class="muted" style="margin-bottom:24px">Admin requires all businesses to submit three documents within 15 days of registration.</p>
+    <p class="muted" style="margin-bottom:24px">Submit all three required permits with your store application. Admin will review the permits before approving your store.</p>
 
     <div class="card" id="verification-card" style="padding:20px;margin-bottom:24px;display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
@@ -80,22 +80,16 @@
         <span id="verification-status-badge" class="pill"></span>
       </div>
 
-      <div id="compliance-deadline" style="display:none;margin-bottom:16px;padding:16px;background:var(--amber-light);border:1px solid var(--amber);border-radius:var(--r-lg)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
-          <strong>Compliance Deadline</strong>
-          <span id="deadline-countdown" class="pill warn" style="font-size:.9rem;font-weight:700"></span>
-        </div>
-        <p class="muted" style="margin:0;font-size:.85rem">You must submit all three required documents by this date to avoid automatic suspension.</p>
-        <p id="deadline-date" class="muted" style="margin:8px 0 0;font-size:.8rem"></p>
-      </div>
-
       <div id="documents-approved" style="display:none;padding:16px;background:var(--ok-bg);border:1px solid var(--ok);border-radius:var(--r-lg)">
-        <p style="margin:0;color:var(--ok)"><strong>All documents approved!</strong> Your business is verified and the compliance deadline has been removed.</p>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <p style="margin:0;color:var(--ok)"><strong>All permits approved!</strong> Your business is verified.</p>
+          <button type="button" class="btn alt" data-acknowledge-approval style="padding:10px 14px;font-size:.9rem;min-height:40px">Acknowledge</button>
+        </div>
       </div>
     </div>
 
     <div class="card" id="documents-card" style="padding:20px;display:none">
-      <h4 style="margin:0 0 16px">Required Documents</h4>
+      <h4 style="margin:0 0 16px">Submitted Permits</h4>
       <div id="documents-list"></div>
     </div>
 

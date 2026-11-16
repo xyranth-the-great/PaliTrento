@@ -111,9 +111,10 @@ create table if not exists public.business_compliance (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null unique references public.stores(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  compliance_deadline timestamptz not null, -- 15 days from store creation
+  compliance_deadline timestamptz, -- Legacy field; permit deadlines are no longer used
   is_compliant boolean not null default false,
   all_documents_approved boolean not null default false,
+  approval_notice_acknowledged boolean not null default false,
   suspended_for_noncompliance boolean not null default false,
   suspension_reason text,
   suspended_at timestamptz,
@@ -180,6 +181,10 @@ begin
     update public.business_compliance
     set is_compliant = true,
         all_documents_approved = true,
+        approval_notice_acknowledged = case
+          when not all_documents_approved then false
+          else approval_notice_acknowledged
+        end,
         updated_at = now()
     where store_id = p_store_id;
 
@@ -212,62 +217,60 @@ begin
 end;
 $$;
 
-revoke all on function public.update_business_compliance(uuid) from public, anon;
-grant execute on function public.update_business_compliance(uuid) to authenticated, service_role;
+create or replace function public.update_business_compliance(p_store_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return;
+end;
+$$;
 
--- 6. Function to check and enforce compliance deadlines (run via pg_cron)
+revoke all on function public.update_business_compliance(uuid) from public, anon, authenticated;
+grant execute on function public.update_business_compliance(uuid) to service_role;
+
+create or replace function public.acknowledge_business_approval(p_store_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+
+  update public.business_compliance bc
+  set approval_notice_acknowledged = true,
+      updated_at = now()
+  where bc.store_id = p_store_id
+    and exists (
+      select 1
+      from public.stores s
+      where s.id = bc.store_id
+        and s.user_id = auth.uid()
+    );
+
+  if not found then
+    raise exception 'Business compliance record not found for current user';
+  end if;
+end;
+$$;
+
+revoke all on function public.acknowledge_business_approval(uuid) from public, anon;
+grant execute on function public.acknowledge_business_approval(uuid) to authenticated;
+
+-- 6. Legacy deadline enforcement is retained as a no-op for existing cron jobs.
 create or replace function public.enforce_business_compliance_deadlines()
 returns integer
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  suspended_count integer := 0;
-  rec record;
 begin
-  -- Find non-compliant businesses past their deadline
-  for rec in
-    select bc.store_id, bc.user_id, s.business_name
-    from public.business_compliance bc
-    join public.stores s on s.id = bc.store_id
-    where bc.compliance_deadline <= now()
-      and bc.all_documents_approved = false
-      and bc.suspended_for_noncompliance = false
-  loop
-    -- Suspend the business account
-    update public.business_compliance
-    set suspended_for_noncompliance = true,
-        suspension_reason = 'Failed to submit required business documents within 15-day compliance period',
-        suspended_at = now(),
-        updated_at = now()
-    where store_id = rec.store_id;
-
-    -- Update store verification status
-    update public.stores
-    set verification_status = 'REJECTED'
-    where id = rec.store_id and verification_status != 'REJECTED';
-
-    -- Notify business owner
-    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
-    values (
-      'Business Account Suspended - Document Compliance',
-      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact Admin administration to resolve.',
-      'EMERGENCY',
-      'high',
-      now(),
-      rec.user_id,
-      rec.user_id
-    );
-
-    -- Also create moderation action record for the user
-    insert into public.account_moderation_actions (target_user_id, actor_user_id, action, reason)
-    values (rec.user_id, rec.user_id, 'suspend_temporary', 'Automatic suspension: Failed to comply with business document requirements within 15 days');
-
-    suspended_count := suspended_count + 1;
-  end loop;
-
-  return suspended_count;
+  return 0;
 end;
 $$;
 
@@ -285,7 +288,7 @@ begin
   -- Only create for new stores (not updates)
   if (TG_OP = 'INSERT') then
     insert into public.business_compliance (store_id, user_id, compliance_deadline)
-    values (NEW.id, NEW.user_id, now() + interval '15 days')
+    values (NEW.id, NEW.user_id, null)
     on conflict (store_id) do nothing;
   end if;
   return NEW;
@@ -317,7 +320,7 @@ create trigger update_compliance_on_document_trigger
   after insert or update on public.business_documents
   for each row execute function public.update_compliance_on_document_change();
 
--- 9. Admin function to review business document
+-- 9. Post-approval document review is disabled; permits are reviewed with the store application.
 create or replace function public.admin_review_business_document(
   p_actor_id uuid,
   p_document_id uuid,
@@ -329,72 +332,20 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_actor_role text;
-  v_doc public.business_documents%rowtype;
-  v_store public.stores%rowtype;
 begin
-  -- Verify actor is admin
-  select role into v_actor_role from public.profiles where id = p_actor_id;
-  if v_actor_role <> 'admin' then
-    raise exception 'Only administrators can review business documents';
-  end if;
-
-  -- Get document
-  select * into v_doc from public.business_documents where id = p_document_id;
-  if not found then
-    raise exception 'Document not found';
-  end if;
-
-  -- Get store
-  select * into v_store from public.stores where id = v_doc.store_id;
-
-  -- Update document
-  if p_action = 'APPROVE' then
-    update public.business_documents
-    set status = 'APPROVED',
-        reviewed_by = p_actor_id,
-        reviewed_at = now(),
-        updated_at = now()
-    where id = p_document_id;
-  elsif p_action = 'REJECT' then
-    if p_rejection_reason is null or length(trim(p_rejection_reason)) = 0 then
-      raise exception 'Rejection reason is required';
-    end if;
-    update public.business_documents
-    set status = 'REJECTED',
-        rejection_reason = trim(p_rejection_reason),
-        reviewed_by = p_actor_id,
-        reviewed_at = now(),
-        updated_at = now()
-    where id = p_document_id;
-  else
-    raise exception 'Invalid action. Use APPROVE or REJECT';
-  end if;
-
-  -- Trigger will update compliance automatically
-
-  return jsonb_build_object('success', true, 'document_id', p_document_id, 'action', p_action);
+  raise exception 'Review permits from the store submission; post-approval document review is disabled';
 end;
 $$;
 
 revoke all on function public.admin_review_business_document(uuid, uuid, text, text) from public, anon, authenticated;
-grant execute on function public.admin_review_business_document(uuid, uuid, text, text) to service_role;
+grant execute on function public.admin_review_business_document(uuid, uuid, text, text) to authenticated, service_role;
 
 -- 10. Grant for authenticated users
 grant select on public.business_documents to authenticated;
 grant select on public.business_compliance to authenticated;
-grant insert, update on public.business_documents to authenticated;
 
 -- ============================================================
 -- DEPLOYMENT CHECKLIST:
--- 1. Run this migration in Supabase SQL Editor
--- 2. Set up pg_cron to run enforce_business_compliance_deadlines() every hour:
---    SELECT cron.schedule('enforce-business-compliance', '0 * * * *', 'SELECT public.enforce_business_compliance_deadlines();');
--- 3. For existing businesses, run a one-time script to create compliance records:
---    INSERT INTO business_compliance (store_id, user_id, compliance_deadline)
---    SELECT id, user_id, created_at + interval '15 days'
---    FROM stores
---    WHERE user_id IS NOT NULL
---    ON CONFLICT (store_id) DO NOTHING;
+-- 1. Run this setup, then store-submission.sql and verification-workflow-fix.sql.
+-- 2. Do not schedule permit-deadline enforcement.
 -- ============================================================

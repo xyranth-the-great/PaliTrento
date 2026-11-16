@@ -28,20 +28,23 @@ export const badges = s => [
 
 /**
  * Get public store status badge for store cards (explore, home)
- * Only shows "Verified" for fully verified stores (certificate approved).
- * Approved stores (no cert yet) show nothing special.
+ * Only shows "Verified" when the store and all three permits are approved.
  */
 export function getPublicStoreStatusBadge(store) {
   if (!store) return '';
 
-  // Fully verified = certificate approved ONLY
-  // Do NOT check old verification_status column - it may be stale
-  if (store.certificate_status === 'APPROVED') {
+  const hasAllPermits = [
+    store.barangay_clearance_image_url,
+    store.cedula_image_url,
+    store.business_permit_image_url
+  ].every(url => typeof url === 'string' && url.trim());
+
+  if (store.approval_status === 'APPROVED'
+      && store.certificate_status === 'APPROVED'
+      && hasAllPermits) {
     return '<span class="pill ok">Verified</span>';
   }
 
-  // Approved but certificate pending - show nothing (just "Open now" from openPill)
-  // Could show "Approved" if desired, but per requirements: show nothing special
   return '';
 }
 
@@ -61,7 +64,7 @@ export function getStoreStatusBadge(status) {
 }
 
 /**
- * Get store status message HTML (for displaying countdown messages, etc.)
+ * Get store status message HTML.
  * @param {Object} status - Object from get_store_display_status RPC
  * @returns {string} HTML string for the status message
  */
@@ -69,18 +72,6 @@ export function getStoreStatusMessage(status) {
   if (!status || !status.message) return '';
   const cls = status.badge_class === 'bad' ? 'bad' : status.badge_class === 'ok' ? 'ok' : 'warn';
   return `<p class="pill ${cls}" style="margin-top:8px;font-size:.8rem">${esc(status.message)}</p>`;
-}
-
-/**
- * Get upload certificate button HTML (shown when certificate can be uploaded)
- * @param {Object} status - Object from get_store_display_status RPC
- * @param {string} storeId - Store ID for data attribute
- * @returns {string} HTML string for the button
- */
-export function getCertificateUploadButton(status, storeId) {
-  if (!status || !status.can_upload_certificate && !status.can_reupload) return '';
-  const label = status.can_reupload ? 'Re-upload Certificate' : 'Upload Certificate';
-  return `<button class="btn" data-upload-certificate="true" data-store-id="${esc(storeId)}">${esc(label)}</button>`;
 }
 
 // ===== Password Strength Validation =====

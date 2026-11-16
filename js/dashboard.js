@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, getStoreStatusBadge, getStoreStatusMessage, getCertificateUploadButton, startAdvisoryToastListener } from './ui.js';
+import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, getStoreStatusBadge, getStoreStatusMessage, startAdvisoryToastListener } from './ui.js';
 import { getSessionWithStatus, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage, uploadProductImage, deleteProductImage } from './storage.js';
@@ -89,44 +89,27 @@ async function loadStore(userId) {
 }
 
 function updateStoreStatusDisplay(status) {
+  const displayStatus = normalizePermitReviewStatus(status);
   const badgeContainer = $('#dash-badges');
-  const statusBadge = getStoreStatusBadge(status);
+  const statusBadge = getStoreStatusBadge(displayStatus);
   // Append status badge to existing DTI/BMBE/SRP badges
   badgeContainer.insertAdjacentHTML('beforeend', statusBadge);
 
-  // Show status message (countdown, paused, etc.)
-  const messageHtml = getStoreStatusMessage(status);
+  // Show the current review status and one-time approval notice.
+  const approvalNoticeUnacknowledged = displayStatus.status === 'VERIFIED' && displayStatus.approval_notice_acknowledged !== true;
+  const messageHtml = displayStatus.status === 'VERIFIED' && !approvalNoticeUnacknowledged
+    ? ''
+    : getStoreStatusMessage(displayStatus);
   const noticeEl = $('#product-approval-notice');
   if (messageHtml) {
-    noticeEl.innerHTML = messageHtml;
+    noticeEl.innerHTML = `${messageHtml}${approvalNoticeUnacknowledged
+      ? '<button type="button" class="btn alt" data-acknowledge-approval style="margin:8px 0 0;padding:10px 14px;font-size:.9rem;min-height:40px">Acknowledge</button>'
+      : ''}`;
     noticeEl.style.display = 'block';
   }
 
-  // Show upload certificate button if applicable
-  if (status.can_upload_certificate || status.can_reupload) {
-    const uploadBtnHtml = getCertificateUploadButton(status, currentStore.id);
-    const uploadContainer = $('#certificate-upload-container');
-    if (uploadContainer) {
-      uploadContainer.innerHTML = uploadBtnHtml;
-      uploadContainer.style.display = 'block';
-      // Bind click event
-      const btn = uploadContainer.querySelector('[data-upload-certificate]');
-      if (btn) {
-        btn.addEventListener('click', () => {
-          // Open document upload for first missing/rejected document
-          openCertificateUpload();
-        });
-      }
-    }
-  } else {
-    const uploadContainer = $('#certificate-upload-container');
-    if (uploadContainer) uploadContainer.style.display = 'none';
-  }
-
   // Update product management access
-  // Allow product management when store is APPROVED (even without certificate)
-  // VERIFIED = fully compliant, APPROVED = can operate but has 15-day deadline for certificates
-  const canManageProducts = status.status === 'VERIFIED' || status.status === 'APPROVED_NO_CERTIFICATE' || status.status === 'CERTIFICATE_UNDER_REVIEW' || status.status === 'CERTIFICATE_REJECTED';
+  const canManageProducts = displayStatus.status === 'VERIFIED';
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
   addProductButton.title = canManageProducts ? '' : 'Available after store approval';
@@ -140,22 +123,23 @@ function updateStoreStatusDisplay(status) {
   }
 }
 
-async function openCertificateUpload() {
-  if (!currentStore) return;
+function normalizePermitReviewStatus(status) {
+  if (!status || ![
+    'APPROVED_NO_CERTIFICATE',
+    'COMPLIANCE_EXPIRED',
+    'CERTIFICATE_UNDER_REVIEW',
+    'CERTIFICATE_REJECTED',
+    'CERTIFICATE_REJECTED_EXPIRED'
+  ].includes(status.status)) {
+    return status;
+  }
 
-  // Find first document that needs upload/re-upload
-  const { data: documents, error } = await supabase
-    .from('business_documents')
-    .select('*')
-    .eq('store_id', currentStore.id)
-    .in('status', ['PENDING_REVIEW', 'REJECTED', 'NOT_SUBMITTED']);
-
-  // Switch to verification tab and trigger upload for first missing doc
-  switchTab('verification');
-  setTimeout(() => {
-    const firstUploadBtn = document.querySelector('#documents-list [data-upload]');
-    if (firstUploadBtn) firstUploadBtn.click();
-  }, 100);
+  return {
+    status: 'PENDING_APPROVAL',
+    badge_class: 'warn',
+    label: 'Pending Approval',
+    message: 'Your store and required permits are awaiting Admin review.'
+  };
 }
 
 function renderStoreCard(store) {
@@ -480,11 +464,35 @@ function bindEvents() {
   $('#demo-payment-error-cancel')?.addEventListener('click', () => closeDemoPayment(true));
   $('#demo-payment-retry')?.addEventListener('click', () => showDemoPaymentStep('demo-payment-qr'));
   $('#demo-payment-simulate')?.addEventListener('click', completeDemoPayment);
-
-  // Verification tab - document upload
-  $$('#documents-list [data-upload]').forEach(btn => {
-    btn.addEventListener('click', (e) => handleDocumentUpload(e.target.dataset.upload, e.target.dataset.storeId));
+  $('#documents-approved [data-acknowledge-approval]')?.addEventListener('click', (e) => {
+    acknowledgeApprovalNotice(e.currentTarget);
   });
+  $('#product-approval-notice')?.addEventListener('click', (e) => {
+    const button = e.target.closest('[data-acknowledge-approval]');
+    if (button) acknowledgeApprovalNotice(button);
+  });
+
+}
+
+async function acknowledgeApprovalNotice(button) {
+  button.disabled = true;
+  const originalText = button.textContent;
+  button.textContent = 'Saving...';
+
+  try {
+    const { error } = await supabase.rpc('acknowledge_business_approval', {
+      p_store_id: currentStore.id,
+    });
+    if (error) throw error;
+    $('#documents-approved').style.display = 'none';
+    $('#product-approval-notice').style.display = 'none';
+  } catch (error) {
+    console.error('Acknowledge approval notice error:', error);
+    alert(`Could not save your acknowledgement: ${error.message}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
 }
 
 async function loadVerification(storeId) {
@@ -492,7 +500,7 @@ async function loadVerification(storeId) {
 
   try {
     // Get display status from database function
-    const { data: status, error: statusError } = await supabase
+    const { data: rpcStatus, error: statusError } = await supabase
       .rpc('get_store_display_status', { p_store_id: storeId });
 
     // Load compliance record
@@ -502,85 +510,31 @@ async function loadVerification(storeId) {
       .eq('store_id', storeId)
       .maybeSingle();
 
-    // Load documents
-    const { data: documents, error: docError } = await supabase
-      .from('business_documents')
-      .select('*')
-      .eq('store_id', storeId)
-      .order('submitted_at', { ascending: false });
-
     if (compError && compError.code !== 'PGRST116') throw compError;
-    if (docError) throw docError;
 
-    renderVerification(compliance, documents || [], status);
+    renderVerification(compliance, normalizePermitReviewStatus(rpcStatus));
   } catch (err) {
     console.error('Load verification error:', err);
     $('#verification-not-available').style.display = 'block';
   }
 }
 
-function renderVerification(compliance, documents, status) {
+function renderVerification(compliance, status) {
   const verificationCard = $('#verification-card');
   const documentsCard = $('#documents-card');
   const notAvailable = $('#verification-not-available');
 
-  // Use status from RPC if available, otherwise fall back to compliance-based logic
   if (status) {
-    // Update status badge using unified function
     const statusBadge = getStoreStatusBadge(status);
     const statusMessage = getStoreStatusMessage(status);
 
     $('#verification-status-badge').innerHTML = statusBadge;
     $('#verification-status-text').innerHTML = statusMessage || status.label;
-
-    // Show/hide countdown based on status
-    const deadlineEl = $('#compliance-deadline');
     const documentsApprovedEl = $('#documents-approved');
-    const countdownContainer = $('#countdown-container');
-
-    if (status.status === 'VERIFIED' || status.status === 'CERTIFICATE_UNDER_REVIEW') {
-      deadlineEl.style.display = 'none';
-      documentsApprovedEl.style.display = status.status === 'VERIFIED' ? 'block' : 'none';
-      if (countdownContainer) countdownContainer.style.display = 'none';
-      // Clear any existing countdown timer
-      if (window.verificationCountdown) {
-        clearInterval(window.verificationCountdown);
-        window.verificationCountdown = null;
-      }
-    } else if (status.countdown_active && status.remaining_seconds) {
-      deadlineEl.style.display = 'block';
-      documentsApprovedEl.style.display = 'none';
-      if (countdownContainer) countdownContainer.style.display = 'block';
-
-      // Start countdown timer
-      if (window.verificationCountdown) clearInterval(window.verificationCountdown);
-      const deadline = new Date(Date.now() + status.remaining_seconds * 1000);
-      window.verificationCountdown = setInterval(() => {
-        const remaining = deadline - Date.now();
-        if (remaining <= 0) {
-          clearInterval(window.verificationCountdown);
-          $('#deadline-countdown').textContent = 'Expired';
-          loadVerification(currentStore.id);
-        } else {
-          $('#deadline-countdown').textContent = formatDuration(remaining);
-        }
-      }, 60000);
-      $('#deadline-date').textContent = `Deadline: ${deadline.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`;
-    } else if (status.countdown_paused) {
-      deadlineEl.style.display = 'block';
-      documentsApprovedEl.style.display = 'none';
-      if (countdownContainer) countdownContainer.style.display = 'block';
-      $('#deadline-countdown').textContent = 'Paused';
-      $('#deadline-date').textContent = `Remaining: ${formatDuration(status.remaining_seconds * 1000)}`;
-      if (window.verificationCountdown) {
-        clearInterval(window.verificationCountdown);
-        window.verificationCountdown = null;
-      }
-    } else {
-      deadlineEl.style.display = 'none';
-      documentsApprovedEl.style.display = 'none';
-      if (countdownContainer) countdownContainer.style.display = 'none';
-    }
+    verificationCard.style.display = 'block';
+    documentsApprovedEl.style.display = status.status === 'VERIFIED'
+      && status.approval_notice_acknowledged !== true
+      && compliance?.approval_notice_acknowledged !== true ? 'block' : 'none';
   } else if (!compliance) {
     verificationCard.style.display = 'none';
     documentsCard.style.display = 'none';
@@ -592,36 +546,14 @@ function renderVerification(compliance, documents, status) {
     verificationCard.style.display = 'block';
     documentsCard.style.display = 'block';
 
-    const now = Date.now();
-    const deadline = compliance.compliance_deadline ? new Date(compliance.compliance_deadline).getTime() : null;
-
     let statusText = '';
     let badgeClass = 'warn';
 
     if (compliance.all_documents_approved) {
       statusText = 'Verified';
       badgeClass = 'ok';
-    } else if (compliance.suspended_for_noncompliance) {
-      statusText = 'Suspended - Non-compliance';
-      badgeClass = 'bad';
-    } else if (deadline && deadline <= now) {
-      statusText = 'Deadline Passed - Pending Review';
-      badgeClass = 'bad';
-    } else if (documents.length > 0) {
-      const hasPending = documents.some(d => d.status === 'PENDING_REVIEW');
-      const hasRejected = documents.some(d => d.status === 'REJECTED');
-      if (hasRejected) {
-        statusText = 'Documents Rejected - Resubmit Required';
-        badgeClass = 'bad';
-      } else if (hasPending) {
-        statusText = 'Under Review';
-        badgeClass = 'info';
-      } else {
-        statusText = 'Submitted';
-        badgeClass = 'warn';
-      }
     } else {
-      statusText = 'Documents Not Submitted';
+      statusText = 'Permits submitted - awaiting Admin review';
       badgeClass = 'warn';
     }
 
@@ -629,214 +561,49 @@ function renderVerification(compliance, documents, status) {
     $('#verification-status-badge').textContent = statusText;
     $('#verification-status-badge').className = `pill ${badgeClass}`;
 
-    const deadlineEl = $('#compliance-deadline');
     const documentsApprovedEl = $('#documents-approved');
 
-    if (compliance.all_documents_approved) {
-      deadlineEl.style.display = 'none';
+    if (compliance.all_documents_approved && compliance.approval_notice_acknowledged !== true) {
       documentsApprovedEl.style.display = 'block';
-    } else if (compliance.suspended_for_noncompliance) {
-      deadlineEl.style.display = 'none';
+    } else {
       documentsApprovedEl.style.display = 'none';
-    } else if (deadline) {
-      deadlineEl.style.display = 'block';
-      documentsApprovedEl.style.display = 'none';
-
-      const diff = deadline - now;
-      if (diff > 0) {
-        $('#deadline-countdown').textContent = formatDuration(diff);
-        if (window.verificationCountdown) clearInterval(window.verificationCountdown);
-        window.verificationCountdown = setInterval(() => {
-          const remaining = deadline - Date.now();
-          if (remaining <= 0) {
-            clearInterval(window.verificationCountdown);
-            $('#deadline-countdown').textContent = 'Expired';
-            loadVerification(currentStore.id);
-          } else {
-            $('#deadline-countdown').textContent = formatDuration(remaining);
-          }
-        }, 60000);
-      } else {
-        $('#deadline-countdown').textContent = 'Expired';
-      }
-      $('#deadline-date').textContent = `Deadline: ${new Date(deadline).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`;
     }
   }
 
-  // Render documents
+  // Show the required permits submitted with the store application.
   const requiredDocs = [
-    { type: 'BARANGAY_CLEARANCE', label: 'Barangay Business Clearance', desc: 'Proof of business registration with your barangay' },
-    { type: 'CEDULA', label: 'Community Tax Certificate (Cedula)', desc: 'Current year community tax certificate' },
-    { type: 'BUSINESS_PERMIT', label: 'Business Permit', desc: 'Official business permit from the municipality' }
+    { column: 'barangay_clearance_image_url', label: 'Barangay Business Clearance' },
+    { column: 'cedula_image_url', label: 'Community Tax Certificate (Cedula)' },
+    { column: 'business_permit_image_url', label: 'Business Permit' }
   ];
 
   const docsHtml = requiredDocs.map(req => {
-    const doc = documents.find(d => d.document_type === req.type);
-    let statusHtml = '';
-    let actionHtml = '';
-
-    if (!doc) {
-      statusHtml = '<span class="pill bad">Not Submitted</span>';
-      actionHtml = `<button class="btn" data-upload="${req.type}" data-store-id="${currentStore.id}">Upload</button>`;
-    } else if (doc.status === 'APPROVED') {
-      statusHtml = '<span class="pill ok">Approved</span>';
-      actionHtml = `<a href="#" class="btn alt" onclick="viewDocument('${doc.file_path}');return false;">View</a>`;
-    } else if (doc.status === 'PENDING_REVIEW') {
-      statusHtml = '<span class="pill info">Pending Review</span>';
-      actionHtml = `<span class="muted">Submitted ${new Date(doc.submitted_at).toLocaleDateString('en-PH')}</span>`;
-    } else if (doc.status === 'REJECTED') {
-      statusHtml = '<span class="pill bad">Rejected</span>';
-      actionHtml = `
-        <button class="btn" data-upload="${req.type}" data-store-id="${currentStore.id}" style="margin-right:8px">Resubmit</button>
-        <span class="muted" style="font-size:.75rem">${doc.rejection_reason || 'No reason provided'}</span>
-      `;
-    }
+    const url = currentStore[req.column];
+    const isApproved = currentStore.approval_status === 'APPROVED';
+    const statusHtml = url
+      ? `<span class="pill ${isApproved ? 'ok' : 'info'}">${isApproved ? 'Verified' : 'Submitted'}</span>`
+      : '<span class="pill bad">Required</span>';
+    const actionHtml = url
+      ? `<a class="btn alt" href="${esc(url)}" target="_blank" rel="noopener">View permit</a>`
+      : '<a class="btn alt" href="/store-setup/">Upload in Store Setup</a>';
 
     return `
       <div class="card" style="padding:16px;margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:12px;margin-bottom:8px">
           <div style="flex:1;min-width:200px">
             <strong>${req.label}</strong>
-            <p class="muted" style="margin:4px 0 0;font-size:.8rem">${req.desc}</p>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            ${statusHtml}
-            ${actionHtml}
+            ${statusHtml}${actionHtml}
           </div>
         </div>
-        ${doc && doc.status !== 'APPROVED' ? `
-          <div style="padding-top:8px;border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)">
-            ${doc.submitted_at ? `Submitted: ${new Date(doc.submitted_at).toLocaleString('en-PH')}` : ''}
-            ${doc.reviewed_at ? ` · Reviewed: ${new Date(doc.reviewed_at).toLocaleString('en-PH')}` : ''}
-            ${doc.file_name ? ` · File: ${doc.file_name}` : ''}
-          </div>
-        ` : ''}
       </div>
     `;
   }).join('');
 
   $('#documents-list').innerHTML = docsHtml;
 
-  // Re-bind upload buttons
-  $$('#documents-list [data-upload]').forEach(btn => {
-    btn.addEventListener('click', (e) => handleDocumentUpload(e.target.dataset.upload, e.target.dataset.storeId));
-  });
 }
-
-function formatDuration(ms) {
-  if (ms <= 0) return 'Expired';
-  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  const parts = [];
-  if (days > 0) parts.push(days + 'd');
-  if (hours > 0) parts.push(hours + 'h');
-  if (minutes > 0) parts.push(minutes + 'm');
-  return parts.join(' ') || '< 1m';
-}
-
-async function handleDocumentUpload(docType, storeId) {
-  if (!supabase || !currentSession) return;
-
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = 'application/pdf,image/jpeg,image/png,image/webp';
-  fileInput.style.display = 'none';
-  document.body.appendChild(fileInput);
-
-  fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) {
-      document.body.removeChild(fileInput);
-      return;
-    }
-
-    // Validate file type
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please choose a PDF, JPG, PNG or WebP file');
-      document.body.removeChild(fileInput);
-      return;
-    }
-
-    // Validate file size (10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File must be under 10 MB');
-      document.body.removeChild(fileInput);
-      return;
-    }
-
-    const btn = document.querySelector(`[data-upload="${docType}"]`);
-    const originalText = btn?.textContent;
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Uploading...';
-    }
-
-    try {
-      // Upload to storage
-      const path = `${currentSession.user.id}/${storeId}/${docType}-${Date.now()}${file.name.match(/\.[^.]+$/)?.[0] || ''}`;
-      const { error: uploadError } = await supabase.storage
-        .from('business-documents')
-        .upload(path, file, { contentType: file.type });
-
-      if (uploadError) throw uploadError;
-
-      // Get signed URL (for reference, but store path)
-      const { data: urlData } = supabase.storage
-        .from('business-documents')
-        .createSignedUrl(path, 60 * 60 * 24 * 365); // 1 year
-
-      // Upsert document record
-      const { error: dbError } = await supabase
-        .from('business_documents')
-        .upsert({
-          store_id: storeId,
-          user_id: currentSession.user.id,
-          document_type: docType,
-          file_path: path,
-          file_name: file.name,
-          file_size: file.size,
-          mime_type: file.type,
-          status: 'PENDING_REVIEW'
-        }, { onConflict: 'store_id,document_type' });
-
-      if (dbError) throw dbError;
-
-      alert('Document uploaded successfully! It will be reviewed by Admin.');
-
-      // Refresh verification
-      await loadVerification(storeId);
-
-    } catch (err) {
-      console.error('Document upload error:', err);
-      alert('Failed to upload document. Please try again.');
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = originalText;
-      }
-      document.body.removeChild(fileInput);
-    }
-  });
-
-  fileInput.click();
-}
-
-// Make viewDocument globally accessible for inline onclick
-window.viewDocument = async function(filePath) {
-  if (!supabase || !currentSession) return;
-  try {
-    const { data, error } = await supabase.storage
-      .from('business-documents')
-      .createSignedUrl(filePath, 60 * 60); // 1 hour
-    if (error) throw error;
-    window.open(data.signedUrl, '_blank');
-  } catch (err) {
-    console.error('View document error:', err);
-    alert('Could not open document');
-  }
-};
 
 async function handleImageSelect(e) {
   const file = e.target.files[0];
