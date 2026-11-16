@@ -68,7 +68,7 @@ begin
       'status', 'PENDING_APPROVAL',
       'badge_class', 'warn',
       'label', 'Pending Approval',
-      'message', 'Awaiting LGU review of your business submission.'
+      'message', 'Awaiting jud Admin review of your business submission.'
     );
   end if;
 
@@ -183,7 +183,7 @@ begin
       'status', 'REJECTED',
       'badge_class', 'bad',
       'label', 'Rejected',
-      'message', 'Your business submission was rejected. Please contact LGU administration.'
+      'message', 'Your business submission was rejected. Please contact jud Admin administration.'
     );
   end if;
 
@@ -271,8 +271,8 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_approve_store_submission(uuid, uuid, text) from public, anon, authenticated;
-grant execute on function public.admin_approve_store_submission(uuid, uuid, text) to service_role;
+revoke all on function public.admin_approve_store_submission(uuid, uuid, text) from public, anon;
+grant execute on function public.admin_approve_store_submission(uuid, uuid, text) to authenticated, service_role;
 
 -- 5. Function to handle certificate upload (pauses countdown)
 create or replace function public.submit_store_certificate(
@@ -515,7 +515,7 @@ begin
       insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
       values (
         'Business Suspended - Certificate Rejected',
-        'Your certificate for "' || v_store.business_name || '" was rejected and the compliance deadline has expired. Your account has been suspended. Please contact LGU administration to resolve.',
+        'Your certificate for "' || v_store.business_name || '" was rejected and the compliance deadline has expired. Your account has been suspended. Please contact jud Admin administration to resolve.',
         'EMERGENCY',
         'high',
         now(),
@@ -550,8 +550,8 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_review_business_document(uuid, uuid, text, text) from public, anon, authenticated;
-grant execute on function public.admin_review_business_document(uuid, uuid, text, text) to service_role;
+revoke all on function public.admin_review_business_document(uuid, uuid, text, text) from public, anon;
+grant execute on function public.admin_review_business_document(uuid, uuid, text, text) to authenticated, service_role;
 
 -- 7. Enhanced enforce_business_compliance_deadlines (for pg_cron)
 create or replace function public.enforce_business_compliance_deadlines()
@@ -595,7 +595,7 @@ begin
     insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
     values (
       'Business Account Suspended - Document Compliance',
-      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact LGU administration to resolve.',
+      'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact jud Admin administration to resolve.',
       'EMERGENCY',
       'high',
       now(),
@@ -773,9 +773,9 @@ $$;
 
 -- 9. Grant permissions
 grant execute on function public.get_store_display_status(uuid) to authenticated, service_role;
-grant execute on function public.admin_approve_store_submission(uuid, uuid, text) to service_role;
+grant execute on function public.admin_approve_store_submission(uuid, uuid, text) to authenticated, service_role;
 grant execute on function public.submit_store_certificate(uuid, text, text, text, bigint, text) to authenticated;
-grant execute on function public.admin_review_business_document(uuid, uuid, text, text) to service_role;
+grant execute on function public.admin_review_business_document(uuid, uuid, text, text) to authenticated, service_role;
 grant execute on function public.enforce_business_compliance_deadlines() to service_role;
 
 -- ============================================================

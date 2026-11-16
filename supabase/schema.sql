@@ -60,7 +60,7 @@ create table if not exists products (
   category text,
   unit text not null default 'PC' check (unit in ('KG','PC','POUCH','BOTTLE','SACK_25KG','TIE')),
   current_price numeric(10,2) not null,
-  lgu_srp_ceiling numeric(10,2),                -- null = no LGU cap for this item
+  lgu_srp_ceiling numeric(10,2),                -- null = no jud Admin cap for this item
   in_stock boolean not null default true,
   quantity integer,
   image_url text,

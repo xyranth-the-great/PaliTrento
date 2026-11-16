@@ -126,7 +126,7 @@ function configureReviewMode(store) {
   if (store?.verification_status !== 'VERIFIED') return;
 
   $('#review-heading').textContent = 'Step 3: Review & Save Changes';
-  $('#review-description').textContent = 'Review your updates before saving. Your LGU approval will remain active.';
+  $('#review-description').textContent = 'Review your updates before saving. Your jud Admin approval will remain active.';
   $('#review-notice').style.display = 'none';
   submitBtn.textContent = 'Save changes';
 }
@@ -482,8 +482,8 @@ async function handleSubmit(e) {
 
     showMsg(
       isApprovedUpdate
-        ? 'Store changes saved. Your LGU approval remains active.'
-        : 'Store submitted for verification! LGU will review within 3-5 business days.',
+        ? 'Store changes saved. Your jud Admin approval remains active.'
+        : 'Store submitted for verification! jud Admin will review within 3-5 business days.',
       'ok'
     );
     submitBtn.disabled = true;

@@ -795,7 +795,7 @@ async function handleDocumentUpload(docType, storeId) {
 
       if (dbError) throw dbError;
 
-      alert('Document uploaded successfully! It will be reviewed by the LGU.');
+      alert('Document uploaded successfully! It will be reviewed by jud Admin.');
 
       // Refresh verification
       await loadVerification(storeId);
@@ -877,7 +877,7 @@ function switchTab(tab) {
 
 function openProductModal(productId = null) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    alert('Products can be added or managed after your store is approved by the LGU.');
+    alert('Products can be added or managed after your store is approved by jud Admin.');
     return;
   }
 
@@ -934,7 +934,7 @@ async function saveProduct(e) {
 
   if (!currentStore) return;
   if (currentStore.verification_status !== 'VERIFIED') {
-    alert('Products can be added or managed after your store is approved by the LGU.');
+    alert('Products can be added or managed after your store is approved by jud Admin.');
     return;
   }
 
@@ -1024,7 +1024,7 @@ async function saveProduct(e) {
 
 async function createNewProduct(productData, imageFile) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    throw new Error('Products can be added after your store is approved by the LGU.');
+    throw new Error('Products can be added after your store is approved by jud Admin.');
   }
 
   const { data: newProduct, error: insertError } = await supabase
@@ -1062,7 +1062,7 @@ async function createNewProduct(productData, imageFile) {
 
 function advertiseProduct(productId) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    alert('Products can be advertised after your store is approved by the LGU.');
+    alert('Products can be advertised after your store is approved by jud Admin.');
     return;
   }
 
@@ -1222,7 +1222,7 @@ function createDemoQrSvg() {
 
 async function deleteProduct(productId) {
   if (currentStore?.verification_status !== 'VERIFIED') {
-    alert('Products can be managed after your store is approved by the LGU.');
+    alert('Products can be managed after your store is approved by jud Admin.');
     return;
   }
 
