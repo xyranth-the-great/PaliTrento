@@ -19,10 +19,11 @@ async function sendWarningNotification(
   service: ReturnType<typeof createClient>,
   targetUserId: string,
   reason: string,
-  actorName: string
+  actorName: string,
+  actorId: string
 ) {
   try {
-    // Create advisory for the user (warning category)
+    // Create advisory for the TARGET USER ONLY (recipient_id = targetUserId)
     const { error } = await service
       .from('advisories')
       .insert({
@@ -31,7 +32,8 @@ async function sendWarningNotification(
         category: 'GENERAL', // Using GENERAL as warning category
         priority: 'normal',
         published_at: new Date().toISOString(),
-        created_by: targetUserId, // System user or admin
+        created_by: actorId, // The admin who issued the warning
+        recipient_id: targetUserId, // Target ONLY the warned user
       })
     if (error) {
       console.error('Failed to create warning advisory:', error)
@@ -189,7 +191,7 @@ serve(async (req) => {
 
       // Send warning notification for warn action
       if (moderationAction === 'warn') {
-        await sendWarningNotification(service, targetUserId, reason, actor?.full_name ?? 'Admin')
+        await sendWarningNotification(service, targetUserId, reason, actor?.full_name ?? 'Admin', userData.user.id)
       }
 
       return respond({ result })
