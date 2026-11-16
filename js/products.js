@@ -31,13 +31,38 @@ $('#products-featured-products').innerHTML = promotedProducts
   .join('');
 const cats = [...new Set(approvedProducts.map(x => x.category))].sort();
 $('#cat').insertAdjacentHTML('beforeend', cats.map(c => `<option>${c}</option>`).join(''));
+
+// Check if any filter is active (Products page filters: search, category, capped, stock)
+function hasActiveFilters() {
+  const q = $('#q').value.trim();
+  const cat = $('#cat').value;
+  const cappedChecked = $('#capped').checked;
+  const stockChecked = $('#stock').checked;
+  return q !== '' || cat !== '' || cappedChecked || stockChecked;
+}
+
+// Show/hide featured products section with smooth transition using CSS class
+function updateFeaturedProductsVisibility() {
+  const featuredSection = $('#products-featured-products-section');
+  const shouldHide = hasActiveFilters();
+
+  if (shouldHide) {
+    featuredSection.classList.add('hidden-by-filter');
+  } else {
+    featuredSection.classList.remove('hidden-by-filter');
+  }
+}
+
 function render() {
   const q = $('#q').value.trim().toLowerCase(), c = $('#cat').value;
   const filtered = approvedProducts.filter(x => (!q || x.name.toLowerCase().includes(q)) && (!c || x.category === c) &&
     (!$('#capped').checked || x.lgu_srp_ceiling != null) && (!$('#stock').checked || x.in_stock));
   const showFeatured = !q && !c && !$('#capped').checked && !$('#stock').checked && promotedProducts.length > 0;
   const out = showFeatured ? filtered.filter(product => !promotedProductIds.has(product.id)) : filtered;
-  $('#products-featured-products-section').style.display = showFeatured ? 'block' : 'none';
+
+  // Update featured products visibility with smooth transition
+  updateFeaturedProductsVisibility();
+
   $('#count').textContent = `${filtered.length} ${filtered.length === 1 ? 'product' : 'products'}${showFeatured ? ' total' : ''}`;
   $('#results').innerHTML = out.map(x => productCard(x, byId[x.store_id])).join('') ||
     (showFeatured
