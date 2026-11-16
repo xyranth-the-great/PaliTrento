@@ -13,7 +13,8 @@ alter table public.stores
   add column if not exists certificate_url text,
   add column if not exists verified_at timestamptz,
   add column if not exists is_suspended boolean not null default false,
-  add column if not exists suspension_reason text;
+  add column if not exists suspension_reason text,
+  add column if not exists updated_at timestamptz not null default now();
 
 -- Add indexes for common queries
 create index if not exists stores_approval_status_idx on public.stores(approval_status);
