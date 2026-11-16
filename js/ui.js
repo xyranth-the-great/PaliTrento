@@ -34,8 +34,9 @@ export const badges = s => [
 export function getPublicStoreStatusBadge(store) {
   if (!store) return '';
 
-  // Fully verified = certificate approved
-  if (store.certificate_status === 'APPROVED' || store.verification_status === 'VERIFIED') {
+  // Fully verified = certificate approved ONLY
+  // Do NOT check old verification_status column - it may be stale
+  if (store.certificate_status === 'APPROVED') {
     return '<span class="pill ok">Verified</span>';
   }
 
