@@ -15,7 +15,7 @@ async function emailIsRegistered(supabase: ReturnType<typeof createClient>, emai
     if (error) throw error
 
     const users = data.users ?? []
-    if (users.some((user) => user.email?.trim().toLowerCase() === email)) return true
+    if (users.some((user) => !user.deleted_at && user.email?.trim().toLowerCase() === email)) return true
     if (users.length < perPage) return false
   }
 }

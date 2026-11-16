@@ -196,7 +196,7 @@ serve(async (req) => {
       if (otpError) console.warn('Skipping email verification cleanup because the optional schema is missing')
     }
 
-    const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id)
+    const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id, false)
     if (deleteUserError) throw new Error(`Failed to delete Auth user: ${deleteUserError.message}`)
 
     return jsonResponse({ success: true })
