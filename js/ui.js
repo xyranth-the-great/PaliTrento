@@ -679,8 +679,7 @@ export function renderChrome(active, session = null, profile = null, userId = nu
     ['/map/', 'Map'],
     ['/products/', 'Products'],
     ...(isBusinessOwner ? [['/dashboard/#tab-products', 'My Products']] : []),
-    ...(showOrdersLink ? [['/orders/', 'My Orders']] : []),
-    ...(session ? [['/support/', 'Help & Support']] : [])
+    ...(showOrdersLink ? [['/orders/', 'My Orders']] : [])
   ];
   let authLinks;
   if (session) {
@@ -737,7 +736,7 @@ export function renderChrome(active, session = null, profile = null, userId = nu
           ${ordersLink}
           <a href="/account/" class="avatar-dropdown-item" role="menuitem">My Account</a>
           <a href="/settings/" class="avatar-dropdown-item" role="menuitem">Settings</a>
-          <a href="/support/" class="avatar-dropdown-item" role="menuitem">Help & Support</a>
+          ${!isAdmin ? `<a href="/support/" class="avatar-dropdown-item" role="menuitem">Help & Support</a>` : ''}
           <button type="button" class="avatar-dropdown-item avatar-dropdown-logout" role="menuitem" id="avatar-logout-btn">Log out</button>
         </div>
       </div>`;
