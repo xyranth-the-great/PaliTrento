@@ -4,27 +4,92 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY')!;
-    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')!;
-    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')!;
+    const authorization = req.headers.get('Authorization');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
+    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
     const vapidSubject = Deno.env.get('VAPID_SUBJECT') || 'mailto:no-reply@palitrento.online';
+    if (!authorization || !supabaseUrl || !anonKey || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
+      return new Response(JSON.stringify({ error: 'Push notifications are not configured' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: userData, error: userError } = await userClient.auth.getUser();
+    if (userError || !userData.user) {
+      return new Response(JSON.stringify({ error: 'Please sign in again' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const { advisoryId, title, body, category, priority, barangay, url } = await req.json();
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-    if (!advisoryId || !title || !body) {
+    const { advisoryId } = await req.json();
+    if (typeof advisoryId !== 'string' || !advisoryId) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: actor, error: actorError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userData.user.id)
+      .single();
+    if (actorError || actor?.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Only administrators can send push broadcasts' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const { data: advisory, error: advisoryError } = await supabase
+      .from('advisories')
+      .select('id, title, body, category, priority, barangay, recipient_id, admin_only, published_at, expires_at')
+      .eq('id', advisoryId)
+      .maybeSingle();
+    if (advisoryError) throw advisoryError;
+    if (!advisory) {
+      return new Response(JSON.stringify({ error: 'Advisory not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    if (advisory.recipient_id !== null || advisory.admin_only) {
+      return new Response(JSON.stringify({ error: 'Push broadcasts are only available for global advisories' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const now = Date.now();
+    if (Date.parse(advisory.published_at) > now || (advisory.expires_at && Date.parse(advisory.expires_at) <= now)) {
+      return new Response(JSON.stringify({ error: 'Advisory is not currently active' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -36,12 +101,13 @@ serve(async (req) => {
       .select('user_id, endpoint, p256dh, auth');
 
     // If barangay specified, filter users by barangay
-    if (barangay) {
-      const { data: usersInBarangay } = await supabase
+    if (advisory.barangay) {
+      const { data: usersInBarangay, error: usersError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('barangay', barangay);
-      const userIds = usersInBarangay?.map(u => u.id) || [];
+        .eq('barangay', advisory.barangay);
+      if (usersError) throw usersError;
+      const userIds = (usersInBarangay ?? []).map(u => u.id);
       if (userIds.length === 0) {
         return new Response(JSON.stringify({ sent: 0, message: 'No users in barangay' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -63,7 +129,14 @@ serve(async (req) => {
     // We'll use a simple implementation without external library
     const sent = await sendWebPushNotifications(
       subscriptions,
-      { title, body, category, priority, advisoryId, url: url || '/' },
+      {
+        title: advisory.title,
+        body: advisory.body,
+        category: advisory.category,
+        priority: advisory.priority,
+        advisoryId: advisory.id,
+        url: '/',
+      },
       vapidPublicKey,
       vapidPrivateKey,
       vapidSubject

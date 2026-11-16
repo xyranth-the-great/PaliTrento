@@ -650,6 +650,7 @@ export async function startAdvisoryToastListener() {
       },
       (payload) => {
         const advisory = payload.new;
+        if (advisory.recipient_id && advisory.recipient_id !== session.user.id) return;
         // Only show toast for active advisories
         if (!advisory.expires_at || new Date(advisory.expires_at) > new Date()) {
           // Check if user wants price cap notifications (for PRICE_CAP category)
@@ -747,6 +748,7 @@ function createNotificationModal() {
         </div>
       </div>
       <div class="notification-modal-footer">
+        <a class="btn notification-modal-action" hidden></a>
         <button class="btn alt notification-modal-dismiss">Dismiss</button>
       </div>
     </div>
@@ -779,6 +781,16 @@ async function openNotificationModal(advisory) {
   modal.querySelector('#notification-modal-title').textContent = advisory.title;
   modal.querySelector('#notification-modal-body').textContent = advisory.body;
   modal.querySelector('#notification-modal-time').textContent = new Date(advisory.published_at).toLocaleString('en-PH');
+
+  const actionLink = modal.querySelector('.notification-modal-action');
+  if (advisory.action_url) {
+    const actionUrl = new URL(advisory.action_url, window.location.origin);
+    if (actionUrl.origin === window.location.origin) {
+      actionLink.href = `${actionUrl.pathname}${actionUrl.search}${actionUrl.hash}`;
+      actionLink.textContent = advisory.action_label || 'View details';
+      actionLink.hidden = false;
+    }
+  }
 
   const barangayEl = modal.querySelector('#notification-modal-barangay');
   if (advisory.barangay) {
@@ -955,14 +967,15 @@ async function loadNotifications(listEl) {
     return;
   }
   const userId = session.user.id;
+  const now = new Date().toISOString();
 
   listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Loading...</div>';
   try {
     const { data: advisories, error } = await supabase
       .from('advisories')
-      .select('id, title, body, category, priority, published_at, barangay')
-      .lte('published_at', new Date().toISOString())
-      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+      .select('id, title, body, category, priority, published_at, barangay, recipient_id, action_url, action_label')
+      .lte('published_at', now)
+      .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${userId},expires_at.is.null),and(recipient_id.eq.${userId},expires_at.gt.${now})`)
       .order('published_at', { ascending: false })
       .limit(10);
 
@@ -1024,14 +1037,15 @@ async function updateUnreadCount(bell) {
   const session = await getSession();
   if (!supabase || !session) return;
   const userId = session.user.id;
+  const now = new Date().toISOString();
 
   try {
     // Get active advisory IDs
     const { data: advisories } = await supabase
       .from('advisories')
       .select('id')
-      .lte('published_at', new Date().toISOString())
-      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+      .lte('published_at', now)
+      .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${userId},expires_at.is.null),and(recipient_id.eq.${userId},expires_at.gt.${now})`);
     if (!advisories?.length) return;
     const advisoryIds = advisories.map(a => a.id);
 
@@ -1081,12 +1095,13 @@ async function markAllRead() {
   const { getSession } = await import('./auth.js');
   const session = await getSession();
   if (!supabase || !session) return;
+  const now = new Date().toISOString();
 
   const { data: advisories } = await supabase
     .from('advisories')
     .select('id')
-    .lte('published_at', new Date().toISOString())
-    .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+    .lte('published_at', now)
+    .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${session.user.id},expires_at.is.null),and(recipient_id.eq.${session.user.id},expires_at.gt.${now})`);
   if (!advisories?.length) return;
   const rows = advisories.map(a => ({ user_id: session.user.id, advisory_id: a.id }));
   await supabase.from('notification_reads').upsert(rows);

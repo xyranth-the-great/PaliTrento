@@ -8,42 +8,80 @@
 -- NULL = global broadcast (price caps, announcements to all)
 -- Specific UUID = targeted to that user only
 alter table public.advisories
-  add column if not exists recipient_id uuid references auth.users(id) on delete cascade;
+  add column if not exists recipient_id uuid references auth.users(id) on delete cascade,
+  add column if not exists admin_only boolean not null default false,
+  add column if not exists action_url text,
+  add column if not exists action_label text;
 
 create index if not exists advisories_recipient_idx on public.advisories(recipient_id);
 
 -- 2. Update RLS policies on advisories table
--- Drop existing policies
-drop policy if exists "public read active advisories" on public.advisories;
-drop policy if exists "admin all advisories" on public.advisories;
+alter table public.advisories enable row level security;
 
--- New policy: Users can read active advisories that are either:
--- - Global broadcasts (recipient_id IS NULL)
--- - Targeted to them (recipient_id = auth.uid())
-create policy "users read own advisories" on public.advisories
+-- Remove every existing policy so no permissive policy can widen these scopes.
+do $$
+declare
+  v_policy record;
+begin
+  for v_policy in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'advisories'
+  loop
+    execute format('drop policy %I on public.advisories', v_policy.policyname);
+  end loop;
+end;
+$$;
+
+create policy "public read active advisories" on public.advisories
+  for select to anon, authenticated
+  using (
+    recipient_id is null
+    and admin_only = false
+    and published_at <= now()
+    and (expires_at is null or expires_at > now())
+  );
+create policy "users read own targeted advisories" on public.advisories
   for select to authenticated
   using (
-    (published_at <= now() and (expires_at is null or expires_at > now()))
+    recipient_id = auth.uid()
     and (
-      recipient_id is null
-      or recipient_id = auth.uid()
-      or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+      admin_only = false
+      or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
     )
+    and published_at <= now()
+    and (expires_at is null or expires_at > now())
   );
-
--- Admin full access remains
-create policy "admin all advisories" on public.advisories
+create policy "admins manage global advisories" on public.advisories
   for all to authenticated
   using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+    recipient_id is null
+    and admin_only = false
+    and exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   )
   with check (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+    recipient_id is null
+    and admin_only = false
+    and exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );
 
 -- 3. Update notification_reads RLS to only allow users to manage their own reads
--- (This should already be correct, but let's verify/fix)
-drop policy if exists "users manage own notification reads" on public.notification_reads;
+alter table public.notification_reads enable row level security;
+do $$
+declare
+  v_policy record;
+begin
+  for v_policy in
+    select policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'notification_reads'
+  loop
+    execute format('drop policy %I on public.notification_reads', v_policy.policyname);
+  end loop;
+end;
+$$;
 create policy "users manage own notification reads" on public.notification_reads
   for all to authenticated
   using (auth.uid() = user_id)
@@ -60,8 +98,101 @@ as $$
   select array_agg(id) from public.profiles where role = 'admin';
 $$;
 
-revoke all on function public.get_admin_user_ids() from public, anon;
-grant execute on function public.get_admin_user_ids() to authenticated, service_role;
+revoke all on function public.get_admin_user_ids() from public, anon, authenticated;
+grant execute on function public.get_admin_user_ids() to service_role;
+
+-- Repair or remove legacy records that were previously stored as broadcasts.
+do $$
+begin
+  insert into public.advisories
+    (title, body, category, priority, published_at, expires_at, created_by, recipient_id, admin_only, action_url, action_label)
+  select
+    legacy.title,
+    legacy.body,
+    legacy.category,
+    legacy.priority,
+    legacy.published_at,
+    legacy.expires_at,
+    legacy.created_by,
+    admin_profile.id,
+    true,
+    case legacy.title
+      when 'New Business Report' then '/admin-reports-management/?tab=business'
+      else '/admin-reports-management/?tab=product'
+    end,
+    case legacy.title
+      when 'New Business Report' then 'Review business report'
+      else 'Review product report'
+    end
+  from public.advisories legacy
+  cross join public.profiles admin_profile
+  where legacy.recipient_id is null
+    and legacy.title in ('New Business Report', 'New Product Report')
+    and admin_profile.role = 'admin';
+
+  delete from public.advisories
+  where recipient_id is null
+    and title in ('New Business Report', 'New Product Report');
+
+  if to_regclass('public.account_moderation_actions') is not null then
+    with uniquely_matched_warnings as (
+      select advisory.id, (array_agg(moderation.target_user_id))[1] as target_user_id
+      from public.advisories advisory
+      join public.account_moderation_actions moderation
+        on moderation.actor_user_id = advisory.created_by
+       and moderation.action = 'warn'
+       and advisory.created_at >= moderation.created_at
+       and advisory.created_at < moderation.created_at + interval '1 hour'
+       and right(advisory.body, length(moderation.reason)) = moderation.reason
+      where advisory.recipient_id is null
+        and advisory.title = 'Account Warning'
+      group by advisory.id
+      having count(*) = 1
+    )
+    update public.advisories advisory
+    set recipient_id = warning.target_user_id
+    from uniquely_matched_warnings warning
+    where advisory.id = warning.id;
+  end if;
+
+  delete from public.advisories
+  where recipient_id is null
+    and title in (
+      'Account Warning',
+      'Report Resolution Update',
+      'New Support Ticket',
+      'Support Ticket Reply',
+      'Support Ticket Update',
+      'Business Verified',
+      'Business Account Suspended - Document Compliance',
+      'Support Ticket OPEN',
+      'Support Ticket IN_PROGRESS',
+      'Support Ticket WAITING_FOR_USER',
+      'Support Ticket RESOLVED',
+      'Support Ticket CLOSED'
+    );
+
+  delete from public.advisories
+  where title = 'Report Resolution Update';
+
+  update public.advisories
+  set action_url = case title
+        when 'New Business Report' then '/admin-reports-management/?tab=business'
+        when 'New Product Report' then '/admin-reports-management/?tab=product'
+      end,
+      action_label = case title
+        when 'New Business Report' then 'Review business report'
+        when 'New Product Report' then 'Review product report'
+      end
+  where recipient_id is not null
+    and title in ('New Business Report', 'New Product Report');
+
+  update public.advisories
+  set admin_only = true
+  where recipient_id is not null
+    and title in ('New Business Report', 'New Product Report', 'New Support Ticket', 'Support Ticket Reply');
+end;
+$$;
 
 -- 5. Update create_business_report to target admins only
 create or replace function public.create_business_report(
@@ -116,7 +247,7 @@ begin
   -- Notify ADMINS ONLY (not all users)
   v_admin_ids := public.get_admin_user_ids();
   if array_length(v_admin_ids, 1) > 0 then
-    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only, action_url, action_label)
     select
       'New Business Report',
       'A report has been submitted for "' || v_store.business_name || '" (TRN: ' || v_store.trn_code || '). Reason: ' || p_reason || '.',
@@ -124,8 +255,11 @@ begin
       'normal',
       now(),
       v_reporter_id,
-      admin_id
-    from unnest(v_admin_ids) as admin_id;
+      admins.admin_id,
+      true,
+      '/admin-reports-management/?tab=business',
+      'Review business report'
+    from unnest(v_admin_ids) as admins(admin_id);
   end if;
 
   return jsonb_build_object('success', true, 'report_id', v_report_id);
@@ -191,7 +325,7 @@ begin
   -- Notify ADMINS ONLY
   v_admin_ids := public.get_admin_user_ids();
   if array_length(v_admin_ids, 1) > 0 then
-    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only, action_url, action_label)
     select
       'New Product Report',
       'A report has been submitted for product "' || v_product.name || '" from store "' || v_store.business_name || '". Reason: ' || p_reason || '.',
@@ -199,8 +333,11 @@ begin
       'normal',
       now(),
       v_reporter_id,
-      admin_id
-    from unnest(v_admin_ids) as admin_id;
+      admins.admin_id,
+      true,
+      '/admin-reports-management/?tab=product',
+      'Review product report'
+    from unnest(v_admin_ids) as admins(admin_id);
   end if;
 
   return jsonb_build_object('success', true, 'report_id', v_report_id);
@@ -210,7 +347,7 @@ $$;
 revoke all on function public.create_product_report(uuid, text, text) from public, anon;
 grant execute on function public.create_product_report(uuid, text, text) to authenticated;
 
--- 7. Update admin_update_report_status to target the business owner when resolved
+-- 7. Update report status without exposing internal report notes to the reported owner
 create or replace function public.admin_update_report_status(
   p_actor_id uuid,
   p_report_type text, -- 'BUSINESS' or 'PRODUCT'
@@ -226,25 +363,21 @@ as $$
 declare
   v_actor_role text;
   v_table text;
-  v_target_id uuid;
-  v_target_user_id uuid;
+  v_updated_count integer;
 begin
-  -- Verify actor is admin
+  if auth.uid() is null or auth.uid() <> p_actor_id then
+    raise exception 'Actor does not match authenticated user';
+  end if;
+
   select role into v_actor_role from public.profiles where id = p_actor_id;
-  if v_actor_role <> 'admin' then
+  if v_actor_role is distinct from 'admin' then
     raise exception 'Only administrators can update report status';
   end if;
 
   if p_report_type = 'BUSINESS' then
     v_table := 'business_reports';
-    select store_id into v_target_id from public.business_reports where id = p_report_id;
-    select user_id into v_target_user_id from public.stores where id = v_target_id;
   elsif p_report_type = 'PRODUCT' then
     v_table := 'product_reports';
-    select product_id into v_target_id from public.product_reports where id = p_report_id;
-    select user_id into v_target_user_id from public.products p
-    join public.stores s on s.id = p.store_id
-    where p.id = v_target_id;
   else
     raise exception 'Invalid report type. Use BUSINESS or PRODUCT';
   end if;
@@ -263,19 +396,9 @@ begin
         updated_at = %L
     where id = %L
   ', v_table, p_status, p_admin_notes, p_actor_id, now(), now(), p_report_id);
-
-  -- If resolved with moderation action, notify the TARGET USER (business owner) ONLY
-  if p_status = 'RESOLVED' and p_admin_notes is not null and v_target_user_id is not null then
-    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
-    values (
-      'Report Resolution Update',
-      'A report regarding your business/product has been reviewed and resolved. Administrator notes: ' || p_admin_notes,
-      'ANNOUNCEMENT',
-      'normal',
-      now(),
-      p_actor_id,
-      v_target_user_id
-    );
+  get diagnostics v_updated_count = row_count;
+  if v_updated_count = 0 then
+    raise exception 'Report not found';
   end if;
 
   return jsonb_build_object('success', true, 'report_id', p_report_id, 'status', p_status);
@@ -283,7 +406,7 @@ end;
 $$;
 
 revoke all on function public.admin_update_report_status(uuid, text, uuid, text, text) from public, anon, authenticated;
-grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to service_role;
+grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to authenticated, service_role;
 
 -- 8. Update create_support_ticket to target admins only
 create or replace function public.create_support_ticket(
@@ -303,7 +426,6 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_ticket_id uuid;
-  v_profile public.profiles%rowtype;
   v_admin_ids uuid[];
 begin
   if v_user_id is null then
@@ -318,9 +440,6 @@ begin
     raise exception 'Description is required';
   end if;
 
-  -- Get user profile for role
-  select role into v_profile from public.profiles where id = v_user_id;
-
   -- Create ticket
   insert into public.support_tickets (user_id, subject, category, description, attachment_path, attachment_name, attachment_size, attachment_mime)
   values (v_user_id, trim(p_subject), p_category, trim(p_description), p_attachment_path, p_attachment_name, p_attachment_size, p_attachment_mime)
@@ -329,7 +448,7 @@ begin
   -- Notify ADMINS ONLY
   v_admin_ids := public.get_admin_user_ids();
   if array_length(v_admin_ids, 1) > 0 then
-    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only)
     select
       'New Support Ticket',
       'Support ticket "' || p_subject || '" created by user ' || v_user_id || '. Category: ' || p_category || '.',
@@ -337,8 +456,9 @@ begin
       'normal',
       now(),
       v_user_id,
-      admin_id
-    from unnest(v_admin_ids) as admin_id;
+      admins.admin_id,
+      true
+    from unnest(v_admin_ids) as admins(admin_id);
   end if;
 
   return jsonb_build_object('success', true, 'ticket_id', v_ticket_id);
@@ -425,7 +545,7 @@ begin
     -- Notify ADMINS ONLY
     v_admin_ids := public.get_admin_user_ids();
     if array_length(v_admin_ids, 1) > 0 then
-      insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
+      insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only)
       select
         'Support Ticket Reply',
         'User has replied to ticket: "' || v_ticket.subject || '".',
@@ -433,8 +553,9 @@ begin
         'normal',
         now(),
         v_sender_id,
-        admin_id
-      from unnest(v_admin_ids) as admin_id;
+        admins.admin_id,
+        true
+      from unnest(v_admin_ids) as admins(admin_id);
     end if;
   end if;
 
@@ -624,7 +745,7 @@ grant execute on function public.create_business_report(uuid, text, text) to aut
 grant execute on function public.create_product_report(uuid, text, text) to authenticated;
 grant execute on function public.create_support_ticket(text, text, text, text, text, bigint, text) to authenticated;
 grant execute on function public.add_support_message(uuid, text, text, text, bigint, text) to authenticated;
-grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to service_role;
+grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to authenticated, service_role;
 grant execute on function public.admin_update_ticket_status(uuid, uuid, text, uuid) to service_role;
 grant execute on function public.update_business_compliance(uuid) to authenticated, service_role;
 grant execute on function public.enforce_business_compliance_deadlines() to service_role;
@@ -632,7 +753,7 @@ grant execute on function public.enforce_business_compliance_deadlines() to serv
 -- ============================================================
 -- DEPLOYMENT CHECKLIST:
 -- 1. Run this migration in Supabase SQL Editor
--- 2. Update frontend queries to filter by recipient (handled by RLS automatically)
--- 3. Deploy updated admin-account-moderation Edge Function
--- 4. Test all scenarios
+-- 2. Deploy updated admin-account-moderation and send-push-notification Edge Functions
+-- 3. Verify report RPCs create one admin-targeted advisory per active admin
+-- 4. Test recipient isolation using separate authenticated accounts
 -- ============================================================

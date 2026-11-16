@@ -176,7 +176,6 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_ticket_id uuid;
-  v_profile public.profiles%rowtype;
 begin
   if v_user_id is null then
     raise exception 'Must be authenticated to create support ticket';
@@ -190,24 +189,24 @@ begin
     raise exception 'Description is required';
   end if;
 
-  -- Get user profile for role
-  select role into v_profile from public.profiles where id = v_user_id;
-
   -- Create ticket
   insert into public.support_tickets (user_id, subject, category, description, attachment_path, attachment_name, attachment_size, attachment_mime)
   values (v_user_id, trim(p_subject), p_category, trim(p_description), p_attachment_path, p_attachment_name, p_attachment_size, p_attachment_mime)
   returning id into v_ticket_id;
 
-  -- Notify admins
-  insert into public.advisories (title, body, category, priority, published_at, created_by)
-  values (
+  -- Notify each administrator privately.
+  insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only)
+  select
     'New Support Ticket',
     'Support ticket "' || p_subject || '" created by user ' || v_user_id || '. Category: ' || p_category || '.',
     'ANNOUNCEMENT',
     'normal',
     now(),
-    v_user_id
-  );
+    v_user_id,
+    admin_profile.id,
+    true
+  from public.profiles admin_profile
+  where admin_profile.role = 'admin';
 
   return jsonb_build_object('success', true, 'ticket_id', v_ticket_id);
 end;
@@ -279,26 +278,30 @@ begin
   -- Notify the other party
   if v_is_admin then
     -- Notify user
-    insert into public.advisories (title, body, category, priority, published_at, created_by)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only)
     values (
       'Support Ticket Update',
       'An administrator has replied to your ticket: "' || v_ticket.subject || '".',
       'ANNOUNCEMENT',
       'normal',
       now(),
+      v_sender_id,
       v_ticket.user_id
     );
   else
-    -- Notify admin(s)
-    insert into public.advisories (title, body, category, priority, published_at, created_by)
-    values (
+    -- Notify each administrator privately.
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
+    select
       'Support Ticket Reply',
       'User has replied to ticket: "' || v_ticket.subject || '".',
       'ANNOUNCEMENT',
       'normal',
       now(),
-      v_sender_id
-    );
+      v_sender_id,
+      admin_profile.id,
+      true
+    from public.profiles admin_profile
+    where admin_profile.role = 'admin';
   end if;
 
   return jsonb_build_object('success', true, 'message_id', v_message_id);
@@ -350,13 +353,14 @@ begin
 
   -- Notify user if resolved/closed
   if p_status in ('RESOLVED', 'CLOSED') then
-    insert into public.advisories (title, body, category, priority, published_at, created_by)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
     values (
       'Support Ticket ' || p_status,
       'Your support ticket "' || v_ticket.subject || '" has been marked as ' || lower(p_status) || '.',
       'ANNOUNCEMENT',
       'normal',
       now(),
+      p_actor_id,
       v_ticket.user_id
     );
   end if;

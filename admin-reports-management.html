@@ -251,6 +251,10 @@ async function init() {
       });
     });
   });
+  const reportTab = new URLSearchParams(window.location.search).get('tab');
+  if (reportTab === 'business' || reportTab === 'product') {
+    document.querySelector(`.reports-tabs [data-tab="${reportTab}"]`)?.click();
+  }
 
   // Bind filters
   ['b-filter-search', 'b-filter-reason', 'b-filter-status'].forEach(id => {

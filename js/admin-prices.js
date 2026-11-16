@@ -121,6 +121,8 @@ async function loadBroadcasts() {
   const { data, error } = await supabase
     .from('advisories')
     .select('*')
+    .is('recipient_id', null)
+    .eq('admin_only', false)
     .order('published_at', { ascending: false })
     .limit(50);
 

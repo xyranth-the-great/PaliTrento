@@ -22,25 +22,22 @@ async function sendWarningNotification(
   actorName: string,
   actorId: string
 ) {
-  try {
-    // Create advisory for the TARGET USER ONLY (recipient_id = targetUserId)
-    const { error } = await service
-      .from('advisories')
-      .insert({
-        title: 'Account Warning',
-        body: `Warning from ${actorName}: ${reason}`,
-        category: 'GENERAL', // Using GENERAL as warning category
-        priority: 'normal',
-        published_at: new Date().toISOString(),
-        created_by: actorId, // The admin who issued the warning
-        recipient_id: targetUserId, // Target ONLY the warned user
-      })
-    if (error) {
-      console.error('Failed to create warning advisory:', error)
-    }
-  } catch (e) {
-    console.error('Error sending warning notification:', e)
+  const { error } = await service
+    .from('advisories')
+    .insert({
+      title: 'Account Warning',
+      body: `Warning from ${actorName}: ${reason}`,
+      category: 'GENERAL',
+      priority: 'normal',
+      published_at: new Date().toISOString(),
+      created_by: actorId,
+      recipient_id: targetUserId,
+    })
+  if (error) {
+    console.error('Failed to create warning advisory:', error)
+    return `The warning was recorded, but its notification could not be created: ${error.message}`
   }
+  return null
 }
 
 serve(async (req) => {
@@ -191,7 +188,14 @@ serve(async (req) => {
 
       // Send warning notification for warn action
       if (moderationAction === 'warn') {
-        await sendWarningNotification(service, targetUserId, reason, actor?.full_name ?? 'Admin', userData.user.id)
+        const warning = await sendWarningNotification(
+          service,
+          targetUserId,
+          reason,
+          actor?.full_name ?? 'Admin',
+          userData.user.id,
+        )
+        return respond({ result, warning })
       }
 
       return respond({ result })

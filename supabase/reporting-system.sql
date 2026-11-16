@@ -154,16 +154,21 @@ begin
   values (v_reporter_id, p_store_id, p_reason, p_description)
   returning id into v_report_id;
 
-  -- Notify admins (create advisory)
-  insert into public.advisories (title, body, category, priority, published_at, created_by)
-  values (
+  -- Create one private notification per administrator.
+  insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only, action_url, action_label)
+  select
     'New Business Report',
     'A report has been submitted for "' || v_store.business_name || '" (TRN: ' || v_store.trn_code || '). Reason: ' || p_reason || '.',
     'ANNOUNCEMENT',
     'normal',
     now(),
-    v_reporter_id
-  );
+    v_reporter_id,
+    admin_profile.id,
+    true,
+    '/admin-reports-management/?tab=business',
+    'Review business report'
+  from public.profiles admin_profile
+  where admin_profile.role = 'admin';
 
   return jsonb_build_object('success', true, 'report_id', v_report_id);
 end;
@@ -224,16 +229,21 @@ begin
   values (v_reporter_id, p_product_id, v_product.store_id, p_reason, p_description)
   returning id into v_report_id;
 
-  -- Notify admins
-  insert into public.advisories (title, body, category, priority, published_at, created_by)
-  values (
+  -- Create one private notification per administrator.
+  insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id, admin_only, action_url, action_label)
+  select
     'New Product Report',
     'A report has been submitted for product "' || v_product.name || '" from store "' || v_store.business_name || '". Reason: ' || p_reason || '.',
     'ANNOUNCEMENT',
     'normal',
     now(),
-    v_reporter_id
-  );
+    v_reporter_id,
+    admin_profile.id,
+    true,
+    '/admin-reports-management/?tab=product',
+    'Review product report'
+  from public.profiles admin_profile
+  where admin_profile.role = 'admin';
 
   return jsonb_build_object('success', true, 'report_id', v_report_id);
 end;
@@ -258,25 +268,21 @@ as $$
 declare
   v_actor_role text;
   v_table text;
-  v_target_id uuid;
-  v_target_user_id uuid;
+  v_updated_count integer;
 begin
-  -- Verify actor is admin
+  if auth.uid() is null or auth.uid() <> p_actor_id then
+    raise exception 'Actor does not match authenticated user';
+  end if;
+
   select role into v_actor_role from public.profiles where id = p_actor_id;
-  if v_actor_role <> 'admin' then
+  if v_actor_role is distinct from 'admin' then
     raise exception 'Only administrators can update report status';
   end if;
 
   if p_report_type = 'BUSINESS' then
     v_table := 'business_reports';
-    select store_id into v_target_id from public.business_reports where id = p_report_id;
-    select user_id into v_target_user_id from public.stores where id = v_target_id;
   elsif p_report_type = 'PRODUCT' then
     v_table := 'product_reports';
-    select product_id into v_target_id from public.product_reports where id = p_report_id;
-    select user_id into v_target_user_id from public.products p
-    join public.stores s on s.id = p.store_id
-    where p.id = v_target_id;
   else
     raise exception 'Invalid report type. Use BUSINESS or PRODUCT';
   end if;
@@ -295,18 +301,9 @@ begin
         updated_at = %L
     where id = %L
   ', v_table, p_status, p_admin_notes, p_actor_id, now(), now(), p_report_id);
-
-  -- If resolved with moderation action, notify target
-  if p_status = 'RESOLVED' and p_admin_notes is not null then
-    insert into public.advisories (title, body, category, priority, published_at, created_by)
-    values (
-      'Report Resolution Update',
-      'A report regarding your business/product has been reviewed and resolved. Administrator notes: ' || p_admin_notes,
-      'ANNOUNCEMENT',
-      'normal',
-      now(),
-      v_target_user_id
-    );
+  get diagnostics v_updated_count = row_count;
+  if v_updated_count = 0 then
+    raise exception 'Report not found';
   end if;
 
   return jsonb_build_object('success', true, 'report_id', p_report_id, 'status', p_status);
@@ -314,7 +311,7 @@ end;
 $$;
 
 revoke all on function public.admin_update_report_status(uuid, text, uuid, text, text) from public, anon, authenticated;
-grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to service_role;
+grant execute on function public.admin_update_report_status(uuid, text, uuid, text, text) to authenticated, service_role;
 
 -- 6. Grant for authenticated users
 grant select on public.business_reports to authenticated;

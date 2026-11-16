@@ -49,6 +49,7 @@ async function initAdvisoriesPage() {
 async function loadAllAdvisories() {
   if (!supabase || !session) return;
   const userId = session.user.id;
+  const now = new Date().toISOString();
 
   $('#list').innerHTML = '<div class="muted" style="padding:16px;text-align:center;grid-column:1/-1">Loading...</div>';
 
@@ -56,9 +57,9 @@ async function loadAllAdvisories() {
     // Get all active advisories (no limit)
     const { data: advisories, error } = await supabase
       .from('advisories')
-      .select('id, title, body, category, priority, published_at, barangay')
-      .lte('published_at', new Date().toISOString())
-      .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString())
+      .select('id, title, body, category, priority, published_at, barangay, recipient_id, action_url, action_label')
+      .lte('published_at', now)
+      .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${userId},expires_at.is.null),and(recipient_id.eq.${userId},expires_at.gt.${now})`)
       .order('published_at', { ascending: false });
 
     if (error) throw error;

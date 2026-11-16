@@ -190,13 +190,14 @@ begin
     where id = p_store_id and verification_status != 'VERIFIED';
 
     -- Notify business owner (create advisory)
-    insert into public.advisories (title, body, category, priority, published_at, created_by)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
     select
       'Business Verified',
       'Congratulations! All required documents for ' || s.business_name || ' have been approved. Your business is now verified.',
       'ANNOUNCEMENT',
       'normal',
       now(),
+      s.user_id,
       s.user_id
     from public.stores s
     where s.id = p_store_id
@@ -248,13 +249,14 @@ begin
     where id = rec.store_id and verification_status != 'REJECTED';
 
     -- Notify business owner
-    insert into public.advisories (title, body, category, priority, published_at, created_by)
+    insert into public.advisories (title, body, category, priority, published_at, created_by, recipient_id)
     values (
       'Business Account Suspended - Document Compliance',
       'Your business "' || rec.business_name || '" has been suspended for failing to submit all required documents (Barangay Clearance, Cedula, Business Permit) within the 15-day compliance period. Please contact LGU administration to resolve.',
       'EMERGENCY',
       'high',
       now(),
+      rec.user_id,
       rec.user_id
     );
 
