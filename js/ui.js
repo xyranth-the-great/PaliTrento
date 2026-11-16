@@ -758,7 +758,7 @@ export function renderChrome(active, session = null, profile = null, userId = nu
   // Initialize avatar dropdown after DOM update
   if (session) {
     initAvatarDropdown();
-    initNotificationBell();
+    initNotificationBell(session.user.id);
   }
 }
 
@@ -1116,12 +1116,18 @@ export function stopAdvisoryToastListener() {
 // ===== Notification Bell =====
 let notificationClickHandlerAdded = false;
 const advisoryDataMap = new Map(); // Store advisory data by ID for modal
+let notificationOrderCacheUserId = null;
+let notificationOrderCache = [];
+let messageNotificationChannel = null;
+let messageNotificationUserId = null;
 
-async function initNotificationBell() {
+async function initNotificationBell(userId) {
   const bell = $('#notification-menu .notification-bell');
   const dropdown = $('#notification-menu .notification-dropdown');
   const list = dropdown?.querySelector('.notification-dropdown-list');
   if (!bell || !dropdown || !list) return;
+
+  startMessageNotificationListener(userId);
 
   // Toggle dropdown
   bell.addEventListener('click', async (e) => {
@@ -1154,13 +1160,91 @@ async function initNotificationBell() {
   dropdown.querySelector('.mark-all-read')?.addEventListener('click', async (e) => {
     e.stopPropagation();
     await markAllRead();
-    bell.dataset.unread = '0';
-    bell.querySelector('.notification-badge')?.remove();
+    await updateUnreadCount(bell);
     await loadNotifications(list);
   });
 
   // Initial load
   await updateUnreadCount(bell);
+}
+
+export async function getMessageNotificationOrders(supabase, userId) {
+  if (notificationOrderCacheUserId === userId) return notificationOrderCache;
+
+  const { data: stores, error: storesError } = await supabase
+    .from('stores')
+    .select('id')
+    .eq('user_id', userId);
+  if (storesError) {
+    console.error('Load message notification stores error:', storesError);
+    return null;
+  }
+
+  const storeIds = (stores || []).map(store => store.id);
+  let query = supabase
+    .from('orders')
+    .select('id, buyer_id, store_id, stores(business_name, user_id)');
+  if (storeIds.length) {
+    query = query.or(`buyer_id.eq.${userId},store_id.in.(${storeIds.join(',')})`);
+  } else {
+    query = query.eq('buyer_id', userId);
+  }
+
+  const { data: orders, error } = await query;
+  if (error) {
+    console.error('Load message notification orders error:', error);
+    return null;
+  }
+
+  notificationOrderCacheUserId = userId;
+  notificationOrderCache = orders || [];
+  return notificationOrderCache;
+}
+
+export async function messageNotificationsEnabled(userId) {
+  const { getNotificationPreferences } = await import('./auth.js');
+  const preferences = await getNotificationPreferences(userId);
+  return preferences.messages !== false;
+}
+
+async function startMessageNotificationListener(userId) {
+  const { supabase } = await import('./supabase.js');
+  if (!supabase || messageNotificationUserId === userId) return;
+
+  if (messageNotificationChannel) {
+    await messageNotificationChannel.unsubscribe();
+    messageNotificationChannel = null;
+  }
+  const orders = await getMessageNotificationOrders(supabase, userId);
+  if (orders === null) return;
+  messageNotificationUserId = userId;
+  if (!orders.length) return;
+
+  const orderIds = orders.map(order => order.id);
+  messageNotificationChannel = supabase
+    .channel(`message-notifications-${userId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `order_id=in.(${orderIds.join(',')})`
+    }, async payload => {
+      const message = payload.new;
+      if (!message || message.sender_id === userId) return;
+      if (!await messageNotificationsEnabled(userId)) return;
+
+      const bell = $('#notification-menu .notification-bell');
+      if (bell) await updateUnreadCount(bell);
+
+      const list = $('#notification-menu .notification-dropdown-list');
+      const dropdown = $('#notification-menu .notification-dropdown');
+      if (list && dropdown && !dropdown.hidden) await loadNotifications(list);
+    })
+    .subscribe((status, error) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('Message notification subscription error:', error || status);
+      }
+    });
 }
 
 async function loadNotifications(listEl) {
@@ -1184,50 +1268,120 @@ async function loadNotifications(listEl) {
       .order('published_at', { ascending: false })
       .limit(10);
 
-    if (error || !advisories?.length) {
-      listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">No notifications</div>';
-      return;
-    }
+    if (error) console.error('Load advisory notifications error:', error);
 
     // Get read status
-    const { data: reads } = await supabase
-      .from('notification_reads')
-      .select('advisory_id')
-      .eq('user_id', userId)
-      .in('advisory_id', advisories.map(a => a.id));
+    const advisoryIds = (advisories || []).map(advisory => advisory.id);
+    let reads = [];
+    if (advisoryIds.length) {
+      const result = await supabase
+        .from('notification_reads')
+        .select('advisory_id')
+        .eq('user_id', userId)
+        .in('advisory_id', advisoryIds);
+      if (result.error) console.error('Load notification read status error:', result.error);
+      reads = result.data || [];
+    }
     const readIds = new Set((reads || []).map(r => r.advisory_id));
 
-    listEl.innerHTML = advisories.map(a => {
+    const advisoryItems = (advisories || []).map(a => {
       const isRead = readIds.has(a.id);
       const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn' }[a.category] || 'warn';
       // Store advisory data in map for modal
       advisoryDataMap.set(a.id, a);
-      return `
-        <button class="notification-item ${isRead ? 'read' : 'unread'}" data-id="${a.id}" role="option" tabindex="0">
-          <span class="notification-cat pill ${catColor}">${a.category.replace('_', ' ')}</span>
-          <div class="notification-content">
-            <strong>${esc(a.title)}</strong>
-            <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(a.body)}</p>
-            <span class="muted" style="font-size:.7rem">${new Date(a.published_at).toLocaleString('en-PH')}${a.barangay ? ` • ${esc(a.barangay)}` : ''}</span>
-          </div>
-          ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
-        </button>
-      `;
-    }).join('');
+      return {
+        createdAt: a.published_at,
+        html: `
+          <button class="notification-item advisory-notification ${isRead ? 'read' : 'unread'}" data-advisory-id="${esc(a.id)}" role="option" tabindex="0">
+            <span class="notification-cat pill ${catColor}">${a.category.replace('_', ' ')}</span>
+            <div class="notification-content">
+              <strong>${esc(a.title)}</strong>
+              <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(a.body)}</p>
+              <span class="muted" style="font-size:.7rem">${new Date(a.published_at).toLocaleString('en-PH')}${a.barangay ? ` • ${esc(a.barangay)}` : ''}</span>
+            </div>
+            ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
+          </button>
+        `
+      };
+    });
 
-    // Click to open detail modal (handles markRead + badge update)
-    listEl.querySelectorAll('.notification-item').forEach(item => {
+    let messageItems = [];
+    if (await messageNotificationsEnabled(userId)) {
+      const orders = await getMessageNotificationOrders(supabase, userId);
+      if (orders === null) {
+        console.error('Message notifications could not be loaded because the user orders query failed.');
+      } else if (orders.length) {
+        const orderMap = new Map(orders.map(order => [order.id, order]));
+        const { data: messages, error: messagesError } = await supabase
+          .from('messages')
+          .select('id, order_id, sender_id, content, created_at, read_at')
+          .in('order_id', orders.map(order => order.id))
+          .neq('sender_id', userId)
+          .order('created_at', { ascending: false });
+        if (messagesError) {
+          console.error('Load unread message notifications error:', messagesError);
+        } else {
+          const senderNames = new Map();
+          for (const orderId of new Set((messages || []).map(message => message.order_id))) {
+            const order = orderMap.get(orderId);
+            if (order?.buyer_id !== userId) {
+              const { data, error: nameError } = await supabase.rpc('get_order_customer_name', { p_order_id: orderId });
+              if (nameError) console.error('Load message sender name error:', nameError);
+              senderNames.set(orderId, data || 'Customer');
+            }
+          }
+
+          messageItems = (messages || []).map(message => {
+            const order = orderMap.get(message.order_id);
+            const isRead = !!message.read_at;
+            const senderName = order?.buyer_id === userId
+              ? order?.stores?.business_name || 'Business owner'
+              : senderNames.get(message.order_id) || 'Customer';
+            const orderLabel = message.order_id.slice(0, 8);
+            return {
+              createdAt: message.created_at,
+              html: `
+                <button class="notification-item chat-notification ${isRead ? 'read' : 'unread'}" data-chat-order-id="${esc(message.order_id)}" data-chat-message-id="${esc(message.id)}" role="option" tabindex="0">
+                  <span class="notification-cat pill info">Message</span>
+                  <div class="notification-content">
+                    <strong>New message from ${esc(senderName)}</strong>
+                    <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(message.content)}</p>
+                    <span class="muted" style="font-size:.7rem">${new Date(message.created_at).toLocaleString('en-PH')} • Order ${esc(orderLabel)}</span>
+                  </div>
+                  ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
+                </button>
+              `
+            };
+          });
+        }
+      }
+    }
+
+    const items = [...advisoryItems, ...messageItems]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    listEl.innerHTML = items.length
+      ? items.map(item => item.html).join('')
+      : '<div class="muted" style="padding:16px;text-align:center">No notifications</div>';
+
+    listEl.querySelectorAll('.advisory-notification').forEach(item => {
       item.addEventListener('click', async () => {
-        const id = item.dataset.id;
+        const id = item.dataset.advisoryId;
         const advisory = advisoryDataMap.get(id);
         if (advisory) await openNotificationModal(advisory);
 
-        // Update UI immediately for better UX
         if (!readIds.has(advisory?.id)) {
           item.classList.remove('unread');
           item.classList.add('read');
           item.querySelector('.notification-dot')?.remove();
         }
+      });
+    });
+
+    listEl.querySelectorAll('.chat-notification').forEach(item => {
+      item.addEventListener('click', () => {
+        const orderId = item.dataset.chatOrderId;
+        const messageId = item.dataset.chatMessageId;
+        window.location.href = `/chat/?orderId=${encodeURIComponent(orderId)}&messageId=${encodeURIComponent(messageId)}`;
       });
     });
   } catch (err) {
@@ -1246,23 +1400,43 @@ async function updateUnreadCount(bell) {
 
   try {
     // Get active advisory IDs
-    const { data: advisories } = await supabase
+    const { data: advisories, error: advisoriesError } = await supabase
       .from('advisories')
       .select('id')
       .lte('published_at', now)
       .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${userId},expires_at.is.null),and(recipient_id.eq.${userId},expires_at.gt.${now})`);
-    if (!advisories?.length) return;
-    const advisoryIds = advisories.map(a => a.id);
+    if (advisoriesError) console.error('Load unread advisories error:', advisoriesError);
+    const advisoryIds = (advisories || []).map(a => a.id);
+    let advisoryUnread = 0;
+    if (advisoryIds.length) {
+      const { data: reads, error: readsError } = await supabase
+        .from('notification_reads')
+        .select('advisory_id')
+        .eq('user_id', userId)
+        .in('advisory_id', advisoryIds);
+      if (readsError) console.error('Load unread advisory read status error:', readsError);
+      const readIds = new Set((reads || []).map(r => r.advisory_id));
+      advisoryUnread = advisoryIds.filter(id => !readIds.has(id)).length;
+    }
 
-    // Get read IDs
-    const { data: reads } = await supabase
-      .from('notification_reads')
-      .select('advisory_id')
-      .eq('user_id', userId)
-      .in('advisory_id', advisoryIds);
-    const readIds = new Set((reads || []).map(r => r.advisory_id));
+    let messageUnread = 0;
+    if (await messageNotificationsEnabled(userId)) {
+      const orders = await getMessageNotificationOrders(supabase, userId);
+      if (orders === null) {
+        console.error('Unread message count could not be loaded because the user orders query failed.');
+      } else if (orders.length) {
+        const { count, error: messageCountError } = await supabase
+          .from('messages')
+          .select('id', { count: 'exact', head: true })
+          .in('order_id', orders.map(order => order.id))
+          .neq('sender_id', userId)
+          .is('read_at', null);
+        if (messageCountError) console.error('Load unread message count error:', messageCountError);
+        else messageUnread = count || 0;
+      }
+    }
 
-    const unread = advisoryIds.filter(id => !readIds.has(id)).length;
+    const unread = advisoryUnread + messageUnread;
     bell.dataset.unread = unread;
     if (unread > 0) {
       let badge = bell.querySelector('.notification-badge');
@@ -1276,6 +1450,11 @@ async function updateUnreadCount(bell) {
       bell.querySelector('.notification-badge')?.remove();
     }
   } catch (err) { console.error('Unread count error:', err); }
+}
+
+export async function refreshNotificationBell() {
+  const bell = $('#notification-menu .notification-bell');
+  if (bell) await updateUnreadCount(bell);
 }
 
 async function markRead(advisoryId) {
@@ -1302,14 +1481,29 @@ async function markAllRead() {
   if (!supabase || !session) return;
   const now = new Date().toISOString();
 
-  const { data: advisories } = await supabase
+  const { data: advisories, error: advisoryError } = await supabase
     .from('advisories')
     .select('id')
     .lte('published_at', now)
     .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${session.user.id},expires_at.is.null),and(recipient_id.eq.${session.user.id},expires_at.gt.${now})`);
-  if (!advisories?.length) return;
-  const rows = advisories.map(a => ({ user_id: session.user.id, advisory_id: a.id }));
-  await supabase.from('notification_reads').upsert(rows);
+  if (advisoryError) console.error('Load notifications to mark read error:', advisoryError);
+  if (advisories?.length) {
+    const rows = advisories.map(a => ({ user_id: session.user.id, advisory_id: a.id }));
+    const { error } = await supabase.from('notification_reads').upsert(rows);
+    if (error) console.error('Mark all advisories read error:', error);
+  }
+
+  const orders = await getMessageNotificationOrders(supabase, session.user.id);
+  if (orders === null) return;
+  if (orders.length) {
+    const { error } = await supabase
+      .from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .in('order_id', orders.map(order => order.id))
+      .neq('sender_id', session.user.id)
+      .is('read_at', null);
+    if (error) console.error('Mark all messages read error:', error);
+  }
 }
 
 function positionDropdown(bell, dropdown) {

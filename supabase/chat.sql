@@ -17,6 +17,7 @@ alter table messages enable row level security;
 -- Drop existing policies first
 drop policy if exists "participant read messages" on messages;
 drop policy if exists "participant send messages" on messages;
+drop policy if exists "participant mark received messages read" on messages;
 
 -- Participants can read messages for their orders
 create policy "participant read messages" on messages
@@ -41,5 +42,38 @@ create policy "participant send messages" on messages
     )
   );
 
+revoke update on table messages from authenticated;
+grant update (read_at) on table messages to authenticated;
+
+create policy "participant mark received messages read" on messages
+  for update to authenticated
+  using (
+    sender_id <> auth.uid()
+    and order_id in (
+      select id from orders
+      where buyer_id = auth.uid()
+      or store_id in (select id from stores where user_id = auth.uid())
+    )
+  )
+  with check (
+    sender_id <> auth.uid()
+    and order_id in (
+      select id from orders
+      where buyer_id = auth.uid()
+      or store_id in (select id from stores where user_id = auth.uid())
+    )
+  );
+
 -- Enable Realtime for messages
-alter publication supabase_realtime add table messages;
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;

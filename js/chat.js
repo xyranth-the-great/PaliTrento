@@ -1,10 +1,11 @@
-import { renderChrome, $, esc, peso, startAdvisoryToastListener } from './ui.js';
-import { getSessionWithStatus, incrementUnreadCount, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
+import { renderChrome, $, esc, peso, startAdvisoryToastListener, refreshNotificationBell } from './ui.js';
+import { getSessionWithStatus, clearUnreadCount, getCachedUnreadCounts, setCachedUnreadCounts, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
 const urlParams = new URLSearchParams(window.location.search);
 const orderId = urlParams.get('orderId');
+const messageId = urlParams.get('messageId');
 const container = $('#chat-container');
 const loadingMsg = $('#loading-msg');
 const errorMsg = $('#error-msg');
@@ -136,6 +137,12 @@ function renderOrderInfo(order, isBuyer) {
 
 async function loadMessages() {
   console.log('Loading messages for order:', orderId);
+  if (messageId) {
+    await markAsRead(messageId);
+  } else {
+    await markUnreadAsRead();
+  }
+
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -149,7 +156,8 @@ async function loadMessages() {
 
   console.log('Messages loaded:', data?.length);
   renderMessages(data || []);
-  scrollToBottom();
+  if (messageId) scrollToMessage(messageId);
+  else scrollToBottom();
 
   // Clear unread count for this order since user opened chat
   const counts = clearUnreadCount(orderId);
@@ -169,7 +177,7 @@ function renderMessage(msg) {
   const readBadge = msg.read_at ? `<span class="pill ok" style="font-size:.6rem;margin-left:4px">Read</span>` : '';
 
   return `
-    <div class="message ${isOwn ? 'own' : ''}" style="display:flex;flex-direction:column;${isOwn ? 'align-items:flex-end' : 'align-items:flex-start'};max-width:80%">
+    <div class="message ${isOwn ? 'own' : ''}" data-message-id="${esc(msg.id)}" style="display:flex;flex-direction:column;${isOwn ? 'align-items:flex-end' : 'align-items:flex-start'};max-width:80%">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
         ${!isOwn ? `<span class="muted" style="font-size:.7rem;font-weight:600">${esc(senderName)}</span>` : ''}
         <span class="muted" style="font-size:.7rem">${new Date(msg.created_at).toLocaleString('en-PH', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
@@ -182,6 +190,13 @@ function renderMessage(msg) {
 
 function scrollToBottom() {
   messagesList.scrollTop = messagesList.scrollHeight;
+}
+
+function scrollToMessage(targetMessageId) {
+  const message = [...messagesList.querySelectorAll('[data-message-id]')]
+    .find(item => item.dataset.messageId === targetMessageId);
+  if (message) message.scrollIntoView({ block: 'center' });
+  else scrollToBottom();
 }
 
 function setupRealtime() {
@@ -197,17 +212,14 @@ function setupRealtime() {
         table: 'messages',
         filter: `order_id=eq.${orderId}`
       },
-      (payload) => {
+      async (payload) => {
         console.log('Realtime event received:', { eventType: payload.eventType, new: payload.new, old: payload.old });
         const msg = payload.new;
         if (msg && msg.sender_id !== currentUserId) {
           console.log('Appending message from other user:', msg);
           appendMessage(msg);
           scrollToBottom();
-          markAsRead(msg.id);
-          // Increment unread count and update badge
-          const counts = incrementUnreadCount(orderId);
-          updateUnreadBadge(counts);
+          await markAsRead(msg.id);
         } else if (msg && msg.sender_id === currentUserId) {
           console.log('Ignoring own message (will appear via optimistic UI or re-fetch)');
         }
@@ -225,10 +237,18 @@ function appendMessage(msg) {
 }
 
 async function markAsRead(messageId) {
-  await supabase
+  const { error } = await supabase
     .from('messages')
     .update({ read_at: new Date().toISOString() })
-    .eq('id', messageId);
+    .eq('id', messageId)
+    .eq('order_id', orderId)
+    .neq('sender_id', currentUserId)
+    .is('read_at', null);
+  if (error) {
+    console.error('Mark message read error:', error);
+    return;
+  }
+  await refreshNotificationBell();
 }
 
 function bindEvents() {
@@ -270,17 +290,23 @@ function bindEvents() {
 
   // Mark messages as read when window focused
   window.addEventListener('focus', () => {
-    markUnreadAsRead();
+    if (messageId) markAsRead(messageId);
+    else markUnreadAsRead();
   });
 }
 
 async function markUnreadAsRead() {
-  await supabase
+  const { error } = await supabase
     .from('messages')
     .update({ read_at: new Date().toISOString() })
     .eq('order_id', orderId)
     .is('read_at', null)
     .neq('sender_id', currentUserId);
+  if (error) {
+    console.error('Mark conversation messages read error:', error);
+    return;
+  }
+  await refreshNotificationBell();
 }
 
 function showError(text) {

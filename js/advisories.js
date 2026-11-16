@@ -1,4 +1,12 @@
-import { renderChrome, $, esc, startAdvisoryToastListener, openNotificationModal } from './ui.js';
+import {
+  renderChrome,
+  $,
+  esc,
+  startAdvisoryToastListener,
+  openNotificationModal,
+  getMessageNotificationOrders,
+  messageNotificationsEnabled
+} from './ui.js';
 import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 
@@ -37,16 +45,16 @@ if (!session) {
 const PAGE_SIZE = 20;
 let currentPage = 1;
 let totalPages = 1;
-let allAdvisories = [];
-let filteredAdvisories = [];
+let allNotifications = [];
+let filteredNotifications = [];
 
 async function initAdvisoriesPage() {
-  await loadAllAdvisories();
+  await loadAllNotifications();
   setupFilters();
   renderPage();
 }
 
-async function loadAllAdvisories() {
+async function loadAllNotifications() {
   if (!supabase || !session) return;
   const userId = session.user.id;
   const now = new Date().toISOString();
@@ -54,7 +62,7 @@ async function loadAllAdvisories() {
   $('#list').innerHTML = '<div class="muted" style="padding:16px;text-align:center;grid-column:1/-1">Loading...</div>';
 
   try {
-    // Get all active advisories (no limit)
+    // Load active advisories
     const { data: advisories, error } = await supabase
       .from('advisories')
       .select('id, title, body, category, priority, published_at, barangay, recipient_id, action_url, action_label')
@@ -64,30 +72,84 @@ async function loadAllAdvisories() {
 
     if (error) throw error;
 
-    if (!advisories?.length) {
-      allAdvisories = [];
-      filteredAdvisories = [];
-      return;
-    }
-
     // Get read status for all advisories
-    const { data: reads } = await supabase
-      .from('notification_reads')
-      .select('advisory_id')
-      .eq('user_id', userId)
-      .in('advisory_id', advisories.map(a => a.id));
+    const advisoryIds = (advisories || []).map(advisory => advisory.id);
+    let reads = [];
+    if (advisoryIds.length) {
+      const { data, error: readsError } = await supabase
+        .from('notification_reads')
+        .select('advisory_id')
+        .eq('user_id', userId)
+        .in('advisory_id', advisoryIds);
+      if (readsError) throw readsError;
+      reads = data || [];
+    }
 
     const readIds = new Set((reads || []).map(r => r.advisory_id));
 
-    // Add read status to each advisory
-    allAdvisories = advisories.map(a => ({
+    const advisoryNotifications = (advisories || []).map(a => ({
       ...a,
+      type: 'advisory',
+      isMessage: false,
       isRead: readIds.has(a.id)
     }));
 
-    filteredAdvisories = [...allAdvisories];
+    let messageNotifications = [];
+    if (await messageNotificationsEnabled(userId)) {
+      const orders = await getMessageNotificationOrders(supabase, userId);
+      if (orders === null) {
+        console.error('Load all message notifications error: unable to load user orders.');
+      } else if (orders.length) {
+        const orderMap = new Map(orders.map(order => [order.id, order]));
+        const { data: messages, error: messagesError } = await supabase
+          .from('messages')
+          .select('id, order_id, sender_id, content, created_at, read_at')
+          .in('order_id', orders.map(order => order.id))
+          .neq('sender_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (messagesError) {
+          console.error('Load all message notifications error:', messagesError);
+        } else {
+          const senderNames = new Map();
+          for (const orderId of new Set((messages || []).map(message => message.order_id))) {
+            const order = orderMap.get(orderId);
+            if (order?.buyer_id !== userId) {
+              const { data, error: nameError } = await supabase.rpc(
+                'get_order_customer_name',
+                { p_order_id: orderId }
+              );
+              if (nameError) console.error('Load message sender name error:', nameError);
+              senderNames.set(orderId, data || 'Customer');
+            }
+          }
+
+          messageNotifications = (messages || []).map(message => {
+            const order = orderMap.get(message.order_id);
+            const senderName = order?.buyer_id === userId
+              ? order?.stores?.business_name || 'Business owner'
+              : senderNames.get(message.order_id) || 'Customer';
+            return {
+              id: message.id,
+              order_id: message.order_id,
+              type: 'message',
+              isMessage: true,
+              category: 'MESSAGE',
+              title: `New message from ${senderName}`,
+              body: message.content,
+              published_at: message.created_at,
+              isRead: !!message.read_at
+            };
+          });
+        }
+      }
+    }
+
+    allNotifications = [...advisoryNotifications, ...messageNotifications]
+      .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    filteredNotifications = [...allNotifications];
   } catch (err) {
-    console.error('Load all advisories error:', err);
+    console.error('Load all notifications error:', err);
     $('#list').innerHTML = '<div class="pill bad" style="padding:16px;text-align:center;grid-column:1/-1">Failed to load notifications</div>';
     $('#count').textContent = '';
     $('#pagination').innerHTML = '';
@@ -104,7 +166,7 @@ function setupFilters() {
     const cat = catSelect.value;
     const status = statusSelect.value;
 
-    filteredAdvisories = allAdvisories.filter(a => {
+    filteredNotifications = allNotifications.filter(a => {
       const matchesSearch = !q || a.title.toLowerCase().includes(q) || a.body.toLowerCase().includes(q);
       const matchesCategory = !cat || a.category === cat;
       const matchesStatus = !status || (status === 'unread' ? !a.isRead : a.isRead);
@@ -127,16 +189,16 @@ function setupFilters() {
 }
 
 function renderPage() {
-  totalPages = Math.ceil(filteredAdvisories.length / PAGE_SIZE) || 1;
+  totalPages = Math.ceil(filteredNotifications.length / PAGE_SIZE) || 1;
   currentPage = Math.min(currentPage, totalPages);
 
   const start = (currentPage - 1) * PAGE_SIZE;
   const end = start + PAGE_SIZE;
-  const pageItems = filteredAdvisories.slice(start, end);
+  const pageItems = filteredNotifications.slice(start, end);
 
   // Update count
-  const unreadCount = filteredAdvisories.filter(a => !a.isRead).length;
-  $('#count').textContent = `${filteredAdvisories.length} notification${filteredAdvisories.length !== 1 ? 's' : ''} ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`;
+  const unreadCount = filteredNotifications.filter(a => !a.isRead).length;
+  $('#count').textContent = `${filteredNotifications.length} notification${filteredNotifications.length !== 1 ? 's' : ''} ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`;
 
   if (pageItems.length === 0) {
     $('#list').innerHTML = '';
@@ -149,10 +211,11 @@ function renderPage() {
 
   // Render items
   $('#list').innerHTML = pageItems.map(a => {
-    const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn' }[a.category] || 'warn';
+    const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn', MESSAGE: 'info' }[a.category] || 'warn';
+    const categoryLabel = a.isMessage ? 'Message' : a.category.replace('_', ' ');
     return `
-      <button class="notification-item ${a.isRead ? 'read' : 'unread'}" data-id="${a.id}" role="option" tabindex="0">
-        <span class="notification-cat pill ${catColor}">${a.category.replace('_', ' ')}</span>
+      <button class="notification-item ${a.isRead ? 'read' : 'unread'}" data-id="${esc(a.id)}" data-type="${a.type}" role="option" tabindex="0">
+        <span class="notification-cat pill ${catColor}">${categoryLabel}</span>
         <div class="notification-content">
           <strong>${esc(a.title)}</strong>
           <p class="muted">${esc(a.body)}</p>
@@ -167,11 +230,13 @@ function renderPage() {
   $('#list').querySelectorAll('.notification-item').forEach(item => {
     item.addEventListener('click', async () => {
       const id = item.dataset.id;
-      const advisory = allAdvisories.find(a => a.id === id);
-      if (advisory) {
-        await openNotificationModal(advisory);
+      const notification = allNotifications.find(a => a.id === id && a.type === item.dataset.type);
+      if (notification?.isMessage) {
+        window.location.href = `/chat/?orderId=${encodeURIComponent(notification.order_id)}&messageId=${encodeURIComponent(notification.id)}`;
+      } else if (notification) {
+        await openNotificationModal(notification);
         // Update local state and UI
-        advisory.isRead = true;
+        notification.isRead = true;
         item.classList.remove('unread');
         item.classList.add('read');
         item.querySelector('.notification-dot')?.remove();
@@ -184,8 +249,8 @@ function renderPage() {
 }
 
 function updateCountDisplay() {
-  const unreadCount = filteredAdvisories.filter(a => !a.isRead).length;
-  $('#count').textContent = `${filteredAdvisories.length} notification${filteredAdvisories.length !== 1 ? 's' : ''} ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`;
+  const unreadCount = filteredNotifications.filter(a => !a.isRead).length;
+  $('#count').textContent = `${filteredNotifications.length} notification${filteredNotifications.length !== 1 ? 's' : ''} ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`;
 }
 
 function renderPagination() {
