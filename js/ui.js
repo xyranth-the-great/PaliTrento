@@ -27,6 +27,44 @@ export const badges = s => [
   s.srp_compliant ? '<span class="pill ok">Follows price caps</span>' : ''
 ].join('');
 
+/**
+ * Get store status badge from display status object (returned by get_store_display_status RPC)
+ * This is the single source of truth for rendering store status badges across the app.
+ * @param {Object} status - Object from get_store_display_status RPC
+ * @returns {string} HTML string for the badge
+ */
+export function getStoreStatusBadge(status) {
+  if (!status) {
+    return '<span class="pill warn">Unknown</span>';
+  }
+  const badgeClass = status.badge_class || 'warn';
+  const label = status.label || status.status || 'Unknown';
+  return `<span class="pill ${badgeClass}">${esc(label)}</span>`;
+}
+
+/**
+ * Get store status message HTML (for displaying countdown messages, etc.)
+ * @param {Object} status - Object from get_store_display_status RPC
+ * @returns {string} HTML string for the status message
+ */
+export function getStoreStatusMessage(status) {
+  if (!status || !status.message) return '';
+  const cls = status.badge_class === 'bad' ? 'bad' : status.badge_class === 'ok' ? 'ok' : 'warn';
+  return `<p class="pill ${cls}" style="margin-top:8px;font-size:.8rem">${esc(status.message)}</p>`;
+}
+
+/**
+ * Get upload certificate button HTML (shown when certificate can be uploaded)
+ * @param {Object} status - Object from get_store_display_status RPC
+ * @param {string} storeId - Store ID for data attribute
+ * @returns {string} HTML string for the button
+ */
+export function getCertificateUploadButton(status, storeId) {
+  if (!status || !status.can_upload_certificate && !status.can_reupload) return '';
+  const label = status.can_reupload ? 'Re-upload Certificate' : 'Upload Certificate';
+  return `<button class="btn" data-upload-certificate="true" data-store-id="${esc(storeId)}">${esc(label)}</button>`;
+}
+
 // Price vs LGU cap. Returns null when no cap is set.
 export function srp(p) {
   if (p.lgu_srp_ceiling == null) return null;
@@ -46,6 +84,32 @@ export const storeCard = s => `
       <div class="store-card-badges">${badges(s)}</div>
     </div>
   </a>`;
+
+/**
+ * Get store display status badge for public listings
+ * Uses verification_status for backward compatibility, but can be enhanced
+ * @param {Object} store - Store object from database
+ * @returns {string} HTML string for the status badge
+ */
+export function getPublicStoreStatusBadge(store) {
+  if (!store) return '<span class="pill warn">Unknown</span>';
+
+  // For public listings, only show verified stores with certificate approved
+  // Stores that are approved but cert pending are not shown to public (per RLS)
+  if (store.verification_status === 'VERIFIED' || store.certificate_status === 'APPROVED') {
+    return '<span class="pill ok">Verified</span>';
+  }
+  if (store.verification_status === 'PENDING') {
+    return '<span class="pill warn">Pending Approval</span>';
+  }
+  if (store.verification_status === 'REJECTED' || store.approval_status === 'REJECTED') {
+    return '<span class="pill bad">Rejected</span>';
+  }
+  if (store.verification_status === 'CLARIFICATION_REQUIRED') {
+    return '<span class="pill info">Clarification Needed</span>';
+  }
+  return '<span class="pill warn">Unknown</span>';
+}
 export const getActiveFeaturedProducts = products => products
   .filter(product => Date.parse(product.featured_until) > Date.now())
   .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));

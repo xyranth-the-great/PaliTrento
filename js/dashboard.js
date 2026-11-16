@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, CATS, UNITS, PAY, peso, badges, srp, startAdvisoryToastListener } from './ui.js';
+import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, getStoreStatusBadge, getStoreStatusMessage, getCertificateUploadButton, startAdvisoryToastListener } from './ui.js';
 import { getSessionWithStatus, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage, uploadProductImage, deleteProductImage } from './storage.js';
@@ -67,6 +67,17 @@ async function loadStore(userId) {
   currentStore = store;
   renderStoreCard(store);
 
+  // Get display status from database function (single source of truth)
+  try {
+    const { data: status, error: statusError } = await supabase
+      .rpc('get_store_display_status', { p_store_id: store.id });
+    if (!statusError && status) {
+      updateStoreStatusDisplay(status);
+    }
+  } catch (err) {
+    console.warn('Could not load store display status:', err);
+  }
+
   // Load products
   await loadProducts(store.id);
   // Load orders
@@ -75,6 +86,70 @@ async function loadStore(userId) {
   await loadAnalytics(store.id);
   // Load verification
   await loadVerification(store.id);
+}
+
+function updateStoreStatusDisplay(status) {
+  const badgeContainer = $('#dash-badges');
+  const statusBadge = getStoreStatusBadge(status);
+  // Append status badge to existing DTI/BMBE/SRP badges
+  badgeContainer.insertAdjacentHTML('beforeend', statusBadge);
+
+  // Show status message (countdown, paused, etc.)
+  const messageHtml = getStoreStatusMessage(status);
+  const noticeEl = $('#product-approval-notice');
+  if (messageHtml) {
+    noticeEl.innerHTML = messageHtml;
+    noticeEl.style.display = 'block';
+  }
+
+  // Show upload certificate button if applicable
+  if (status.can_upload_certificate || status.can_reupload) {
+    const uploadBtnHtml = getCertificateUploadButton(status, currentStore.id);
+    const uploadContainer = $('#certificate-upload-container');
+    if (uploadContainer) {
+      uploadContainer.innerHTML = uploadBtnHtml;
+      uploadContainer.style.display = 'block';
+      // Bind click event
+      const btn = uploadContainer.querySelector('[data-upload-certificate]');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          // Open document upload for first missing/rejected document
+          openCertificateUpload();
+        });
+      }
+    }
+  } else {
+    const uploadContainer = $('#certificate-upload-container');
+    if (uploadContainer) uploadContainer.style.display = 'none';
+  }
+
+  // Update product management access
+  const canManageProducts = status.status === 'VERIFIED';
+  const addProductButton = $('#add-product-btn');
+  addProductButton.disabled = !canManageProducts;
+  addProductButton.title = canManageProducts ? '' : 'Available after certificate approval';
+  const approvalNotice = $('#product-approval-notice');
+  if (!messageHtml) {
+    approvalNotice.style.display = canManageProducts ? 'none' : 'block';
+  }
+}
+
+async function openCertificateUpload() {
+  if (!currentStore) return;
+
+  // Find first document that needs upload/re-upload
+  const { data: documents, error } = await supabase
+    .from('business_documents')
+    .select('*')
+    .eq('store_id', currentStore.id)
+    .in('status', ['PENDING_REVIEW', 'REJECTED', 'NOT_SUBMITTED']);
+
+  // Switch to verification tab and trigger upload for first missing doc
+  switchTab('verification');
+  setTimeout(() => {
+    const firstUploadBtn = document.querySelector('#documents-list [data-upload]');
+    if (firstUploadBtn) firstUploadBtn.click();
+  }, 100);
 }
 
 function renderStoreCard(store) {
@@ -90,7 +165,12 @@ function renderStoreCard(store) {
   description.style.display = store.description?.trim() ? 'block' : 'none';
 
   const badgeContainer = $('#dash-badges');
-  badgeContainer.innerHTML = badges(store);
+  // DTI/BMBE/SRP badges only (no verification status here)
+  badgeContainer.innerHTML = [
+    store.dti_registered ? '<span class="pill info">DTI registered</span>' : '',
+    store.bmbe_registered ? '<span class="pill info">BMBE</span>' : '',
+    store.srp_compliant ? '<span class="pill ok">Follows price caps</span>' : ''
+  ].join('');
 
   if (store.storefront_image_url) {
     const img = $('#dash-storefront');
@@ -98,34 +178,14 @@ function renderStoreCard(store) {
     img.style.display = 'block';
   }
 
-  // Status pill
-  const statusColors = {
-    PENDING: 'warn',
-    VERIFIED: 'ok',
-    REJECTED: 'bad',
-    CLARIFICATION_REQUIRED: 'info'
-  };
-  const statusLabels = {
-    PENDING: 'Verification pending',
-    VERIFIED: 'Verified',
-    REJECTED: 'Rejected',
-    CLARIFICATION_REQUIRED: 'Clarification needed'
-  };
-  const pill = document.createElement('span');
-  pill.className = `pill ${statusColors[store.verification_status] || 'warn'}`;
-  pill.textContent = statusLabels[store.verification_status] || store.verification_status;
-  badgeContainer.appendChild(pill);
-
-  const canManageProducts = store.verification_status === 'VERIFIED';
+  // Get display status from database function (single source of truth)
+  // We'll call this after loading store, but for now show basic status
+  const canManageProducts = store.certificate_status === 'APPROVED' || store.verification_status === 'VERIFIED';
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
-  addProductButton.title = canManageProducts ? '' : 'Available after LGU approval';
+  addProductButton.title = canManageProducts ? '' : 'Available after certificate approval';
   const approvalNotice = $('#product-approval-notice');
   approvalNotice.style.display = canManageProducts ? 'none' : 'block';
-  approvalNotice.className = `pill ${statusColors[store.verification_status] || 'warn'}`;
-  approvalNotice.textContent = store.verification_status === 'PENDING'
-    ? 'Your store is awaiting LGU approval. You can view existing products, but adding, editing, or advertising products will be available after approval. Products are not shown to customers before approval.'
-    : `Your store is not yet approved (${statusLabels[store.verification_status] || store.verification_status}). Product management and public listings are available after LGU approval.`;
 
   // Show standee button for verified stores
   const standeeBtn = $('#standee-btn');
@@ -423,6 +483,10 @@ async function loadVerification(storeId) {
   if (!supabase) return;
 
   try {
+    // Get display status from database function
+    const { data: status, error: statusError } = await supabase
+      .rpc('get_store_display_status', { p_store_id: storeId });
+
     // Load compliance record
     const { data: compliance, error: compError } = await supabase
       .from('business_compliance')
@@ -440,100 +504,155 @@ async function loadVerification(storeId) {
     if (compError && compError.code !== 'PGRST116') throw compError;
     if (docError) throw docError;
 
-    renderVerification(compliance, documents || []);
+    renderVerification(compliance, documents || [], status);
   } catch (err) {
     console.error('Load verification error:', err);
     $('#verification-not-available').style.display = 'block';
   }
 }
 
-function renderVerification(compliance, documents) {
+function renderVerification(compliance, documents, status) {
   const verificationCard = $('#verification-card');
   const documentsCard = $('#documents-card');
   const notAvailable = $('#verification-not-available');
 
-  if (!compliance) {
-    verificationCard.style.display = 'none';
-    documentsCard.style.display = 'none';
-    notAvailable.style.display = 'block';
-    return;
-  }
+  // Use status from RPC if available, otherwise fall back to compliance-based logic
+  if (status) {
+    // Update status badge using unified function
+    const statusBadge = getStoreStatusBadge(status);
+    const statusMessage = getStoreStatusMessage(status);
 
-  notAvailable.style.display = 'none';
-  verificationCard.style.display = 'block';
-  documentsCard.style.display = 'block';
+    $('#verification-status-badge').innerHTML = statusBadge;
+    $('#verification-status-text').innerHTML = statusMessage || status.label;
 
-  const now = Date.now();
-  const deadline = compliance.compliance_deadline ? new Date(compliance.compliance_deadline).getTime() : null;
+    // Show/hide countdown based on status
+    const deadlineEl = $('#compliance-deadline');
+    const documentsApprovedEl = $('#documents-approved');
+    const countdownContainer = $('#countdown-container');
 
-  // Status badge
-  let statusText = '';
-  let badgeClass = 'warn';
+    if (status.status === 'VERIFIED' || status.status === 'CERTIFICATE_UNDER_REVIEW') {
+      deadlineEl.style.display = 'none';
+      documentsApprovedEl.style.display = status.status === 'VERIFIED' ? 'block' : 'none';
+      if (countdownContainer) countdownContainer.style.display = 'none';
+      // Clear any existing countdown timer
+      if (window.verificationCountdown) {
+        clearInterval(window.verificationCountdown);
+        window.verificationCountdown = null;
+      }
+    } else if (status.countdown_active && status.remaining_seconds) {
+      deadlineEl.style.display = 'block';
+      documentsApprovedEl.style.display = 'none';
+      if (countdownContainer) countdownContainer.style.display = 'block';
 
-  if (compliance.all_documents_approved) {
-    statusText = 'Verified';
-    badgeClass = 'ok';
-  } else if (compliance.suspended_for_noncompliance) {
-    statusText = 'Suspended - Non-compliance';
-    badgeClass = 'bad';
-  } else if (deadline && deadline <= now) {
-    statusText = 'Deadline Passed - Pending Review';
-    badgeClass = 'bad';
-  } else if (documents.length > 0) {
-    const hasPending = documents.some(d => d.status === 'PENDING_REVIEW');
-    const hasRejected = documents.some(d => d.status === 'REJECTED');
-    if (hasRejected) {
-      statusText = 'Documents Rejected - Resubmit Required';
-      badgeClass = 'bad';
-    } else if (hasPending) {
-      statusText = 'Under Review';
-      badgeClass = 'info';
-    } else {
-      statusText = 'Submitted';
-      badgeClass = 'warn';
-    }
-  } else {
-    statusText = 'Documents Not Submitted';
-    badgeClass = 'warn';
-  }
-
-  $('#verification-status-text').textContent = statusText;
-  $('#verification-status-badge').textContent = statusText;
-  $('#verification-status-badge').className = `pill ${badgeClass}`;
-
-  // Compliance deadline
-  const deadlineEl = $('#compliance-deadline');
-  const documentsApprovedEl = $('#documents-approved');
-
-  if (compliance.all_documents_approved) {
-    deadlineEl.style.display = 'none';
-    documentsApprovedEl.style.display = 'block';
-  } else if (compliance.suspended_for_noncompliance) {
-    deadlineEl.style.display = 'none';
-    documentsApprovedEl.style.display = 'none';
-  } else if (deadline) {
-    deadlineEl.style.display = 'block';
-    documentsApprovedEl.style.display = 'none';
-
-    const diff = deadline - now;
-    if (diff > 0) {
-      $('#deadline-countdown').textContent = formatDuration(diff);
       // Start countdown timer
       if (window.verificationCountdown) clearInterval(window.verificationCountdown);
+      const deadline = new Date(Date.now() + status.remaining_seconds * 1000);
       window.verificationCountdown = setInterval(() => {
         const remaining = deadline - Date.now();
         if (remaining <= 0) {
           clearInterval(window.verificationCountdown);
           $('#deadline-countdown').textContent = 'Expired';
-          loadVerification(currentStore.id); // Refresh
+          loadVerification(currentStore.id);
         } else {
           $('#deadline-countdown').textContent = formatDuration(remaining);
         }
       }, 60000);
+      $('#deadline-date').textContent = `Deadline: ${deadline.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`;
+    } else if (status.countdown_paused) {
+      deadlineEl.style.display = 'block';
+      documentsApprovedEl.style.display = 'none';
+      if (countdownContainer) countdownContainer.style.display = 'block';
+      $('#deadline-countdown').textContent = 'Paused';
+      $('#deadline-date').textContent = `Remaining: ${formatDuration(status.remaining_seconds * 1000)}`;
+      if (window.verificationCountdown) {
+        clearInterval(window.verificationCountdown);
+        window.verificationCountdown = null;
+      }
     } else {
-      $('#deadline-countdown').textContent = 'Expired';
+      deadlineEl.style.display = 'none';
+      documentsApprovedEl.style.display = 'none';
+      if (countdownContainer) countdownContainer.style.display = 'none';
     }
-    $('#deadline-date').textContent = `Deadline: ${new Date(deadline).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`;
+  } else if (!compliance) {
+    verificationCard.style.display = 'none';
+    documentsCard.style.display = 'none';
+    notAvailable.style.display = 'block';
+    return;
+  } else {
+    // Fallback to old logic if no status from RPC
+    notAvailable.style.display = 'none';
+    verificationCard.style.display = 'block';
+    documentsCard.style.display = 'block';
+
+    const now = Date.now();
+    const deadline = compliance.compliance_deadline ? new Date(compliance.compliance_deadline).getTime() : null;
+
+    let statusText = '';
+    let badgeClass = 'warn';
+
+    if (compliance.all_documents_approved) {
+      statusText = 'Verified';
+      badgeClass = 'ok';
+    } else if (compliance.suspended_for_noncompliance) {
+      statusText = 'Suspended - Non-compliance';
+      badgeClass = 'bad';
+    } else if (deadline && deadline <= now) {
+      statusText = 'Deadline Passed - Pending Review';
+      badgeClass = 'bad';
+    } else if (documents.length > 0) {
+      const hasPending = documents.some(d => d.status === 'PENDING_REVIEW');
+      const hasRejected = documents.some(d => d.status === 'REJECTED');
+      if (hasRejected) {
+        statusText = 'Documents Rejected - Resubmit Required';
+        badgeClass = 'bad';
+      } else if (hasPending) {
+        statusText = 'Under Review';
+        badgeClass = 'info';
+      } else {
+        statusText = 'Submitted';
+        badgeClass = 'warn';
+      }
+    } else {
+      statusText = 'Documents Not Submitted';
+      badgeClass = 'warn';
+    }
+
+    $('#verification-status-text').textContent = statusText;
+    $('#verification-status-badge').textContent = statusText;
+    $('#verification-status-badge').className = `pill ${badgeClass}`;
+
+    const deadlineEl = $('#compliance-deadline');
+    const documentsApprovedEl = $('#documents-approved');
+
+    if (compliance.all_documents_approved) {
+      deadlineEl.style.display = 'none';
+      documentsApprovedEl.style.display = 'block';
+    } else if (compliance.suspended_for_noncompliance) {
+      deadlineEl.style.display = 'none';
+      documentsApprovedEl.style.display = 'none';
+    } else if (deadline) {
+      deadlineEl.style.display = 'block';
+      documentsApprovedEl.style.display = 'none';
+
+      const diff = deadline - now;
+      if (diff > 0) {
+        $('#deadline-countdown').textContent = formatDuration(diff);
+        if (window.verificationCountdown) clearInterval(window.verificationCountdown);
+        window.verificationCountdown = setInterval(() => {
+          const remaining = deadline - Date.now();
+          if (remaining <= 0) {
+            clearInterval(window.verificationCountdown);
+            $('#deadline-countdown').textContent = 'Expired';
+            loadVerification(currentStore.id);
+          } else {
+            $('#deadline-countdown').textContent = formatDuration(remaining);
+          }
+        }, 60000);
+      } else {
+        $('#deadline-countdown').textContent = 'Expired';
+      }
+      $('#deadline-date').textContent = `Deadline: ${new Date(deadline).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })}`;
+    }
   }
 
   // Render documents
