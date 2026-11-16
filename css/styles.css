@@ -345,6 +345,28 @@ a.card:hover{border-color:var(--primary);transform:translateY(-2px);box-shadow:0
   .featured-products-carousel .featured-products-grid{animation:none}
 }
 .featured-products-controls{display:none}
+
+/* Featured Products Section Visibility Transitions */
+.catalog-featured-section[data-featured-section] {
+  transition: opacity 0.2s var(--ease), visibility 0.2s var(--ease), height 0.2s var(--ease), margin 0.2s var(--ease), padding 0.2s var(--ease);
+  overflow: hidden;
+}
+
+.catalog-featured-section[data-featured-section].hidden-by-filter {
+  opacity: 0;
+  visibility: hidden;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-featured-section[data-featured-section] {
+    transition: none;
+  }
+}
+
 .featured-badge{margin-bottom:8px}
 .demo-payment-panel{width:100%;max-width:460px;max-height:90vh;overflow:auto;padding:clamp(20px,5vw,32px);text-align:center}
 .demo-payment-panel h2{margin:0 0 8px;font-size:1.55rem}
