@@ -1,7 +1,7 @@
 import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
-import { getSessionWithStatus, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
+import { getSessionWithStatus, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { initPushNotifications } from './push.js';
 
