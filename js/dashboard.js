@@ -793,6 +793,9 @@ function renderSubscriptionDashboard(data) {
 
 function renderFeaturedPromotions(promos, isPremium, loading = false) {
   const promoCards = document.querySelectorAll('[data-featured-promo-card]');
+  const storeIsFeatured = (promos || []).some(promo =>
+    promo.store_id === currentStore?.id && Date.parse(promo.expires_at) > Date.now()
+  );
   const promosHtml = (promos || []).map(promo => `
         <div class="card" style="padding:16px;margin-bottom:12px;border-left:4px solid var(--primary)">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -837,6 +840,13 @@ function renderFeaturedPromotions(promos, isPremium, loading = false) {
       noPromosContainer.textContent = 'No active Featured Store promotions.';
       noPromosContainer.style.display = promosHtml ? 'none' : 'block';
       actions.style.display = 'flex';
+      const button = actions.querySelector('button');
+      if (button) {
+        button.disabled = storeIsFeatured;
+        button.textContent = storeIsFeatured ? 'Store Featured.' : 'Feature Store (₱10/week)';
+        button.setAttribute('aria-disabled', String(storeIsFeatured));
+        button.title = storeIsFeatured ? 'Your store already has an active Featured Store promotion.' : '';
+      }
       if (included) included.style.display = 'none';
     }
   });
@@ -1146,6 +1156,14 @@ async function confirmFeaturedPromo() {
   const isPremiumActive = subscriptionData?.subscription?.is_premium === true && subscriptionData?.subscription?.status === 'ACTIVE';
   if (isPremiumActive) {
     return; // Silent no-op for Premium users
+  }
+
+  const hasActivePromo = (subscriptionData?.featured_promotions || []).some(promo =>
+    promo.store_id === currentStore.id && Date.parse(promo.expires_at) > Date.now()
+  );
+  if (hasActivePromo) {
+    renderFeaturedPromotions(subscriptionData.featured_promotions, false);
+    return;
   }
 
   // Free plan - paid promotion

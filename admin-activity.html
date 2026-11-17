@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>User Activity Logs | PaliTrento Admin</title>
+<meta name="description" content="Review who changed marketplace records and when.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+  <div class="wrap" style="max-width:1200px;padding-top:24px;padding-bottom:48px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      <div>
+        <h1 style="margin:0">User Activity Logs</h1>
+        <p class="muted" style="margin:6px 0 0">Who changed records, what changed, and when.</p>
+      </div>
+      <a href="/admin/" class="btn alt">Back to Admin</a>
+    </div>
+
+    <section class="card" style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+        <p id="activity-count" class="muted" style="margin:0">Loading activity…</p>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label for="activity-action-filter">Action</label>
+          <select id="activity-action-filter" aria-label="Filter activity by action">
+            <option value="">All actions</option>
+            <option value="INSERT">Created</option>
+            <option value="UPDATE">Updated</option>
+            <option value="DELETE">Deleted</option>
+          </select>
+          <button type="button" class="btn alt" id="activity-refresh">Refresh</button>
+        </div>
+      </div>
+
+      <div style="overflow:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:760px">
+          <thead>
+            <tr style="text-align:left;border-bottom:1px solid var(--line)">
+              <th style="padding:10px">When</th>
+              <th style="padding:10px">Who</th>
+              <th style="padding:10px">Action</th>
+              <th style="padding:10px">Record</th>
+              <th style="padding:10px">Changed fields</th>
+            </tr>
+          </thead>
+          <tbody id="activity-rows"></tbody>
+        </table>
+      </div>
+      <p id="activity-empty" class="muted" style="display:none;text-align:center;padding:28px">No activity records found.</p>
+      <p id="activity-error" class="pill bad" role="alert" style="display:none;white-space:normal;margin-top:16px"></p>
+      <p class="muted" style="font-size:.8rem;margin:16px 0 0">Showing the latest 250 records. Field names are logged; private field values are not stored in this activity log.</p>
+    </section>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+<script type="module" src="/js/admin-activity.js"></script>
+</body>
+</html>
