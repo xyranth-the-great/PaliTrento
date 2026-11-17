@@ -96,6 +96,11 @@ section{padding:48px 0}
 .notification-item:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
 .notification-item.unread{background:var(--info-bg)}
 .notification-item.read{opacity:.7}
+.notification-row{display:flex;align-items:stretch;gap:4px}
+.notification-row>.notification-item{flex:1;min-width:0}
+.notification-dismiss{display:flex;align-items:center;justify-content:center;flex:0 0 40px;align-self:center;padding:8px;border:1px solid transparent;border-radius:var(--r-md);background:transparent;color:var(--muted);cursor:pointer}
+.notification-dismiss:hover{border-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
+.notification-dismiss:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 .notification-cat{flex-shrink:0;font-size:.65rem;padding:2px 8px}
 .notification-content{flex:1;min-width:0}
 .notification-content strong{display:block;font-size:.9rem;color:var(--ink);overflow-wrap:break-word;word-wrap:break-word;word-break:break-all}
@@ -150,6 +155,14 @@ section{padding:48px 0}
   display:grid;
   gap:12px;
   grid-template-columns:1fr;
+}
+.advisories-page .notification-row{gap:8px}
+.advisories-page .notification-row>.notification-item{width:auto}
+.advisories-page .notification-dismiss{
+  flex-basis:48px;
+  align-self:stretch;
+  border-color:var(--line);
+  background:var(--card);
 }
 .advisories-page .notification-item{
   display:flex;
