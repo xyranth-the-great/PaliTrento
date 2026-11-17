@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from './auth.js';
 const modal = $('#product-modal');
 const productForm = $('#product-form');
 const demoPaymentModal = $('#demo-payment-modal');
+const CUSTOM_UNIT_VALUE = 'OTHER';
 let currentStore = null;
 let currentProducts = [];
 let currentOrders = [];
@@ -413,7 +414,7 @@ function renderProducts() {
             ${isFeatured ? `<span class="pill info">Featured until ${new Date(featuredUntil).toLocaleDateString('en-PH')}</span>` : '<span class="muted">Not featured on home</span>'}
             ${currentStore?.verification_status === 'VERIFIED' ? `<button type="button" class="btn alt" data-advertise="${p.id}">${isFeatured ? 'Extend ad' : 'Advertise'} · ₱20 / 7 days</button>` : ''}
           </div>
-          <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
+          <p class="price">${peso(p.current_price)} <span class="muted">per ${esc(UNITS[p.unit] || p.unit || 'pc')}</span></p>
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
           <p class="muted" style="margin-top:8px;font-size:.8rem">
             ${p.in_stock ? '<span class="pill ok" style="font-size:.7rem">In stock</span>' : '<span class="pill bad" style="font-size:.7rem">Out of stock</span>'}
@@ -461,6 +462,7 @@ function bindEvents() {
   // Add product
   $('#add-product-btn')?.addEventListener('click', () => openProductModal());
   $('#p-category')?.addEventListener('change', updateOtherCategoryField);
+  $('#p-unit')?.addEventListener('change', updateOtherUnitField);
 
   // Edit store
   $('#edit-store-btn')?.addEventListener('click', () => {
@@ -728,6 +730,7 @@ function openProductModal(productId = null) {
   productForm.reset();
   $('#product-id').value = '';
   updateOtherCategoryField();
+  updateOtherUnitField();
 
   // Reset image previews
   $('#p-image-previews').innerHTML = '';
@@ -746,7 +749,12 @@ function openProductModal(productId = null) {
       categorySelect.value = hasPresetCategory ? product.category : 'Other';
       $('#p-category-other').value = hasPresetCategory ? '' : product.category;
       updateOtherCategoryField();
-      $('#p-unit').value = product.unit;
+      const unitSelect = $('#p-unit');
+      const hasPresetUnit = Array.from(unitSelect.options)
+        .some(option => option.value === product.unit && option.value !== CUSTOM_UNIT_VALUE);
+      unitSelect.value = hasPresetUnit ? product.unit : CUSTOM_UNIT_VALUE;
+      $('#p-unit-other').value = hasPresetUnit ? '' : product.unit;
+      updateOtherUnitField();
       $('#p-price').value = product.current_price;
       $('#p-srp').value = product.lgu_srp_ceiling || '';
       $('#p-stock').value = product.in_stock ? 'true' : 'false';
@@ -790,6 +798,15 @@ function updateOtherCategoryField() {
   input.required = isOther;
 }
 
+function updateOtherUnitField() {
+  const isOther = $('#p-unit')?.value === CUSTOM_UNIT_VALUE;
+  const wrapper = $('#p-unit-other-wrap');
+  const input = $('#p-unit-other');
+  if (!wrapper || !input) return;
+  wrapper.style.display = isOther ? 'block' : 'none';
+  input.required = isOther;
+}
+
 function closeModal() {
   modal.style.display = 'none';
   editingProductId = null;
@@ -820,21 +837,29 @@ async function saveProduct(e) {
     category: $('#p-category').value === 'Other'
       ? $('#p-category-other').value.trim()
       : $('#p-category').value,
-    unit: $('#p-unit').value,
+    unit: $('#p-unit').value === CUSTOM_UNIT_VALUE
+      ? $('#p-unit-other').value.trim()
+      : $('#p-unit').value,
     current_price: parseFloat($('#p-price').value),
     lgu_srp_ceiling: $('#p-srp').value ? parseFloat($('#p-srp').value) : null,
     in_stock: $('#p-stock').value === 'true',
     quantity: $('#p-quantity').value ? parseInt($('#p-quantity').value) : null,
   };
 
+  if ($('#p-category').value === 'Other' && !$('#p-category-other').value.trim()) {
+    alert('Please specify the product category.');
+    $('#p-category-other').focus();
+    return;
+  }
+
   if (!productData.name || !productData.category || !productData.unit || isNaN(productData.current_price)) {
     alert('Please fill all required fields');
     return;
   }
 
-  if ($('#p-category').value === 'Other' && !$('#p-category-other').value.trim()) {
-    alert('Please specify the product category.');
-    $('#p-category-other').focus();
+  if ($('#p-unit').value === CUSTOM_UNIT_VALUE && !$('#p-unit-other').value.trim()) {
+    alert('Please specify the product unit.');
+    $('#p-unit-other').focus();
     return;
   }
 

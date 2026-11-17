@@ -62,7 +62,7 @@ create table if not exists products (
   store_id uuid not null references stores(id) on delete cascade,
   name text not null,
   category text,
-  unit text not null default 'PC' check (unit in ('KG','PC','POUCH','BOTTLE','SACK_25KG','TIE')),
+  unit text not null default 'PC',
   current_price numeric(10,2) not null,
   lgu_srp_ceiling numeric(10,2),                -- null = no Admin cap for this item
   in_stock boolean not null default true,
@@ -72,6 +72,7 @@ create table if not exists products (
   featured_until timestamptz,
   created_at timestamptz not null default now()
 );
+alter table products drop constraint if exists products_unit_check;
 alter table products
   add column if not exists quantity integer,
   add column if not exists image_url text,
