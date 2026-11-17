@@ -266,7 +266,7 @@ async function openModal(storeId, canEdit = false) {
               <button class="btn ok" data-action="restore_store" data-id="${store.id}">Restore Store</button>
             ` : store.approval_status === 'PENDING' ? `
               <button class="btn ok" data-action="approve_store" data-id="${store.id}" ${hasRequiredPermits && allPermitsApproved ? '' : 'disabled'}>Approve Store</button>
-              ${hasRequiredPermits ? '' : '<span class="pill bad">Cannot approve: all three permits are required.</span>'}
+              ${hasRequiredPermits ? '' : '<span class="pill bad">Missing required permits. The owner must submit all three before approval.</span>'}
               ${hasRequiredPermits && !allPermitsApproved ? '<span class="pill warn">Approve each permit above first.</span>' : ''}
               <button class="btn warn" data-action="clarification" data-id="${store.id}">Needs Clarification</button>
               <button class="btn bad" data-action="reject_store" data-id="${store.id}">Reject Store</button>
@@ -276,7 +276,7 @@ async function openModal(storeId, canEdit = false) {
             ` : `
               <span class="pill bad">Store Rejected</span>
               <button class="btn ok" data-action="approve_store" data-id="${store.id}" ${hasRequiredPermits && allPermitsApproved ? '' : 'disabled'}>Approve Store</button>
-              ${hasRequiredPermits ? '' : '<span class="pill bad">Cannot approve: all three permits are required.</span>'}
+              ${hasRequiredPermits ? '' : '<span class="pill bad">Missing required permits. The owner must submit all three before approval.</span>'}
               ${hasRequiredPermits && !allPermitsApproved ? '<span class="pill warn">Approve each permit above first.</span>' : ''}
             `}
           </div>
