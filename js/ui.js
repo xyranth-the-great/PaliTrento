@@ -409,13 +409,9 @@ export const storeCard = (s, isPremium = false) => {
   </a>`;
 };
 
-export const getActiveFeaturedProducts = products => products
-  .filter(product => Date.parse(product.featured_until) > Date.now())
-  .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));
 export const productCard = (p, store, isPremiumStore = false) => {
   if (isPremiumStore) ensureLiquidChromeStill();
   const c = srp(p);
-  const isFeatured = Date.parse(p.featured_until) > Date.now();
 
   const productHref = `/product-detail/?id=${encodeURIComponent(p.id)}`;
   const premiumChip = isPremiumStore ? premiumSellerLabel('premium-card-chip') : '';
@@ -437,7 +433,6 @@ export const productCard = (p, store, isPremiumStore = false) => {
     : '';
 
   const content = `<div class="product-card-content">
-      ${isFeatured ? '<span class="pill featured featured-badge">Featured</span>' : ''}
       <div class="row"><h3>${esc(p.name)}</h3>${p.in_stock ? '' : '<span class="pill bad">Out of stock</span>'}</div>
       <p class="price">${peso(p.current_price)} <span class="muted">per ${esc(UNITS[p.unit] || p.unit || 'pc')}</span></p>
       ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}

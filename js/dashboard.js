@@ -448,8 +448,6 @@ function renderProducts() {
       ? p.image_urls[0]
       : p.image_url;
     const hasImage = imageUrl && imageUrl.trim() !== '';
-    const featuredUntil = Date.parse(p.featured_until);
-    const isFeatured = featuredUntil > Date.now();
     const imageHtml = hasImage
       ? `<img src="${esc(imageUrl)}" alt="${esc(p.name)}" style="width:100%;height:140px;object-fit:cover;border-radius:var(--r-md) var(--r-md) 0 0;margin-bottom:8px">`
       : `<div style="width:100%;height:140px;background:var(--muted-bg);border-radius:var(--r-md) var(--r-md) 0 0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem">No image</div>`;
@@ -466,10 +464,6 @@ function renderProducts() {
                 <button class="btn alt" style="padding:4px 8px;font-size:.75rem;color:var(--bad)" data-delete="${p.id}">Delete</button>
               ` : ''}
             </div>
-          </div>
-          <div class="product-ad-action">
-            ${isFeatured ? `<span class="pill info">Featured until ${new Date(featuredUntil).toLocaleDateString('en-PH')}</span>` : '<span class="muted">Not featured on home</span>'}
-            ${currentStore?.verification_status === 'VERIFIED' ? `<button type="button" class="btn alt" data-advertise="${p.id}">${isFeatured ? 'Extend ad' : 'Advertise'} · ₱20 / 7 days</button>` : ''}
           </div>
           <p class="price">${peso(p.current_price)} <span class="muted">per ${esc(UNITS[p.unit] || p.unit || 'pc')}</span></p>
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
@@ -490,10 +484,6 @@ function renderProducts() {
   list.querySelectorAll('[data-delete]').forEach(btn => {
     btn.addEventListener('click', () => deleteProduct(btn.dataset.delete));
   });
-  list.querySelectorAll('[data-advertise]').forEach(btn => {
-    btn.addEventListener('click', () => advertiseProduct(btn.dataset.advertise));
-  });
-
   // Bind upgrade banner button
   $('#upgrade-banner-btn')?.addEventListener('click', () => {
     switchTab('subscription');
@@ -1676,41 +1666,6 @@ async function createNewProduct(productData, imageFiles, isPaidListing = false) 
   }
 }
 
-function advertiseProduct(productId) {
-  // Check if store can manage products (APPROVED or VERIFIED)
-  const canManageProducts = currentStore?.approval_status === 'APPROVED' || currentStore?.verification_status === 'VERIFIED';
-  if (!canManageProducts) {
-    alert('Products can be advertised after your store is approved by Admin.');
-    return;
-  }
-
-  const product = currentProducts.find(item => item.id === productId);
-  if (!product || !currentStore) return;
-
-  startDemoPayment({
-    amount: 20,
-    title: 'Home page featured ad',
-    description: `Promote ${product.name} from ${currentStore.business_name} on the home page for 7 days.`,
-    successMessage: `${product.name} is now featured on the home page for 7 days.`,
-    onSuccess: async () => {
-      const previousEnd = Date.parse(product.featured_until);
-      const startsAt = Math.max(Date.now(), Number.isFinite(previousEnd) ? previousEnd : 0);
-      const featuredUntil = new Date(startsAt + 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from('products')
-        .update({ featured_until: featuredUntil })
-        .eq('id', product.id)
-        .eq('store_id', currentStore.id)
-        .select('id')
-        .single();
-
-      if (error) throw error;
-      if (!data) throw new Error('The featured ad could not be saved.');
-      await loadProducts(currentStore.id);
-    },
-  });
-}
-
 function startDemoPayment({ amount, title, description, successMessage, onSuccess, onCancel }) {
   demoPaymentAction = onSuccess;
   demoPaymentCancelAction = onCancel || null;
@@ -1770,13 +1725,9 @@ function completeDemoPayment() {
       runPaymentCountdown($('#demo-payment-success-count'), 5, () => closeDemoPayment());
     } catch (err) {
       console.error('Demo payment completion error:', err);
-      const missingFeaturedColumn = err?.code === 'PGRST204'
-        && /featured_until/i.test(err?.message || '');
-      $('#demo-payment-error-message').textContent = missingFeaturedColumn
-        ? 'The database is missing the featured_until column. Run supabase/product-demo-payments.sql in the Supabase SQL Editor, then try again.'
-        : err?.message
-          ? `Could not save your product or ad. ${err.message}`
-          : 'Could not save your product or ad. Please try the simulated payment again.';
+      $('#demo-payment-error-message').textContent = err?.message
+        ? `Could not complete this action. ${err.message}`
+        : 'Could not complete this action. Please try again.';
       showDemoPaymentStep('demo-payment-error');
       $('#demo-payment-simulate').disabled = false;
     }
