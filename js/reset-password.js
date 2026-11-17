@@ -19,31 +19,45 @@ async function init() {
   const type = hashParams.get('type');
   const accessToken = hashParams.get('access_token');
   const refreshToken = hashParams.get('refresh_token');
+  const searchParams = new URLSearchParams(window.location.search);
+  const hasPkceCode = searchParams.has('code');
 
   if (!isSupabaseConfigured()) {
     form.innerHTML = `<p class="muted" style="padding:24px;background:var(--muted-bg);border-radius:var(--r-lg)">${esc('Password reset is not available right now')}</p>`;
     return;
   }
 
-  if (type !== 'recovery' || !accessToken || !refreshToken) {
+  if (type === 'recovery' && accessToken && refreshToken) {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+    if (error) {
+      console.error('[ResetPassword] Failed to set recovery session:', error);
+      showMsg('This reset link is invalid or has expired. Please request a new one.', 'bad');
+      form.style.display = 'none';
+      return;
+    }
+  } else if (hasPkceCode) {
+    // Supabase's PKCE flow exchanges the URL code during client initialization.
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      console.error('[ResetPassword] Failed to load PKCE recovery session:', error);
+      showMsg('This reset link is invalid or has expired. Please request a new one.', 'bad');
+      form.style.display = 'none';
+      return;
+    }
+  } else {
     showMsg('This reset link is invalid or has expired. Please request a new password reset.', 'bad');
     form.style.display = 'none';
     return;
   }
 
-  const { error } = await supabase.auth.setSession({
-    access_token: accessToken,
-    refresh_token: refreshToken
-  });
-  if (error) {
-    console.error('[ResetPassword] Failed to set recovery session:', error);
-    showMsg('This reset link is invalid or has expired. Please request a new one.', 'bad');
-    form.style.display = 'none';
-    return;
-  }
-
   recoverySessionReady = true;
-  window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
+  searchParams.delete('code');
+  const cleanSearch = searchParams.toString();
+  const cleanUrl = `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`;
+  window.history.replaceState(window.history.state, document.title, cleanUrl);
 
   // Inject password strength indicator
   const pwContainer = $('#password-strength-container');
