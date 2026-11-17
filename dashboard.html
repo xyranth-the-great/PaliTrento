@@ -56,6 +56,16 @@
       <h3 style="margin:0">Your Products</h3>
       <button class="btn" id="add-product-btn">Add product</button>
     </div>
+    <div id="products-listing-usage" class="card" style="display:none;padding:14px 16px;margin-bottom:16px" aria-label="Product listing allowance">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
+        <strong id="products-listing-usage-label">Free listings</strong>
+        <span id="products-listing-usage-count" class="muted">Loading usage…</span>
+      </div>
+      <div id="products-listing-usage-track" class="free-listings-track" role="progressbar" aria-label="Free product listings used" aria-valuemin="0" aria-valuemax="15" aria-valuenow="0">
+        <span id="products-listing-usage-fill" class="free-listings-progress-fill"></span>
+      </div>
+      <p id="products-listing-usage-caption" class="free-plan-caption">Loading your listing allowance…</p>
+    </div>
     <div id="products-list" class="grid" style="display:none"></div>
     <p class="muted" id="no-products" style="display:none;text-align:center;padding:32px">No products yet. Add your first product!</p>
   </div>

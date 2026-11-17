@@ -49,6 +49,7 @@ async function init() {
 
   // Load store
   await loadStore(session.user.id);
+  await loadSubscriptionData(session.user.id);
 
   // Bind events
   bindEvents();
@@ -413,6 +414,7 @@ function startOrderRefreshListener(storeId) {
 function renderProducts() {
   const list = $('#products-list');
   const empty = $('#no-products');
+  renderProductsListingUsage();
 
   if (currentProducts.length === 0) {
     list.style.display = 'none';
@@ -489,6 +491,50 @@ function renderProducts() {
     switchTab('subscription');
     $('#sub-upgrade-btn')?.click();
   });
+}
+
+function renderProductsListingUsage() {
+  const card = $('#products-listing-usage');
+  if (!card) return;
+  card.style.display = 'block';
+
+  const data = subscriptionData;
+  if (!data?.entitlement || !data?.plan_details) {
+    $('#products-listing-usage-count').textContent = 'Usage unavailable';
+    $('#products-listing-usage-caption').textContent = 'Your listing allowance could not be loaded. Refresh to try again.';
+    $('#products-listing-usage-track').style.display = 'none';
+    return;
+  }
+
+  const isPremium = data.subscription?.is_premium === true && data.subscription?.status === 'ACTIVE';
+  const quotaValue = Number(data.plan_details.free_listing_quota);
+  const quota = Number.isFinite(quotaValue) && quotaValue >= 0 ? quotaValue : 15;
+  const usedValue = Number(data.entitlement.free_listings_used);
+  const used = Number.isFinite(usedValue) ? Math.max(0, Math.floor(usedValue)) : 0;
+  const track = $('#products-listing-usage-track');
+  const caption = $('#products-listing-usage-caption');
+
+  if (isPremium || quota === 0) {
+    $('#products-listing-usage-label').textContent = 'Product listings';
+    $('#products-listing-usage-count').textContent = 'Unlimited';
+    track.style.display = 'none';
+    caption.textContent = 'Unlimited product listings included with Premium.';
+    return;
+  }
+
+  const usedForProgress = Math.min(used, quota);
+  const remaining = Math.max(0, quota - usedForProgress);
+  $('#products-listing-usage-label').textContent = 'Free listings';
+  $('#products-listing-usage-count').textContent = `${used} of ${quota} used`;
+  track.style.display = 'block';
+  track.setAttribute('aria-valuemax', String(quota));
+  track.setAttribute('aria-valuenow', String(usedForProgress));
+  track.classList.toggle('is-near-limit', quota > 0 && usedForProgress / quota >= 0.8);
+  track.classList.toggle('is-full', usedForProgress >= quota);
+  $('#products-listing-usage-fill').style.width = `${quota ? (usedForProgress / quota) * 100 : 0}%`;
+  caption.textContent = remaining > 0
+    ? `${remaining} free listing${remaining === 1 ? '' : 's'} left. Additional listings cost ₱1 each.`
+    : 'You’ve used all free listings. Additional listings cost ₱1 each.';
 }
 
 function bindEvents() {
@@ -599,8 +645,10 @@ async function loadSubscriptionData(userId) {
     updatePremiumIndicator(currentSession, { ...(profile || {}), is_premium: isPremium, premium_details: data?.subscription ?? null });
 
     renderSubscriptionDashboard(data);
+    renderProducts();
   } catch (err) {
     console.error('Load subscription data error:', err);
+    renderProductsListingUsage();
   }
 }
 
