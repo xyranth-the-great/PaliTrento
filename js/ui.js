@@ -1217,12 +1217,12 @@ export function renderChrome(active, session = null, profile = null, userId = nu
   const isBusinessOwner = role === 'business_owner';
   const isAdmin = role === 'admin';
   const isLoggedInBuyer = !!session && role !== 'admin';
-  const showOrdersLink = !isBusinessOwner
-    && !isAdmin
+  const showOrdersLink = !isAdmin
     && !['/login/', '/register/'].includes(active)
-    && (!!session && role === 'customer'
+    && (isBusinessOwner
+      || (!!session && role === 'customer'
       || (!['/explore/', '/map/', '/products/'].includes(active)
-        && (active !== '/' || isLoggedInBuyer)));
+        && (active !== '/' || isLoggedInBuyer))));
   const links = [
     ['/', 'Home'],
     ...(isAdmin ? [['/admin/', 'Admin Dashboard']] : []),
@@ -1250,8 +1250,8 @@ export function renderChrome(active, session = null, profile = null, userId = nu
       extraLinks = `<a href="/admin/" class="avatar-dropdown-item" role="menuitem">Admin Dashboard</a>`;
     }
 
-    // Keep order history available to customers, but not sellers or admins.
-    const ordersLink = isBusinessOwner || isAdmin
+    // Buyers, including sellers purchasing from other stores, can view their order history.
+    const ordersLink = isAdmin
       ? ''
       : `<a href="/orders/" class="avatar-dropdown-item" role="menuitem">My Orders</a>`;
 
@@ -1840,13 +1840,14 @@ export async function markReservationNotificationRead(supabase, notificationId, 
 }
 
 export async function getOrderStatusNotifications(supabase, userId, limit = null) {
-  if (!await orderNotificationsEnabled(userId)) return [];
+  const notificationsEnabled = await orderNotificationsEnabled(userId);
 
   let query = supabase
     .from('order_status_notifications')
-    .select('id, order_id, previous_status, new_status, created_at, read_at, orders(cancellation_reason, products(name), stores(business_name))')
+    .select('id, order_id, previous_status, new_status, created_at, read_at, orders(ready_at, cancellation_reason, products(name), stores(business_name))')
     .eq('buyer_id', userId)
     .order('created_at', { ascending: false });
+  if (!notificationsEnabled) query = query.in('new_status', ['READY_FOR_PICKUP', 'EXPIRED']);
   if (limit !== null) query = query.limit(limit);
 
   const { data, error } = await query;
@@ -1855,6 +1856,14 @@ export async function getOrderStatusNotifications(supabase, userId, limit = null
     return null;
   }
   return data || [];
+}
+
+export function pickupDeadlineNotice(readyAt) {
+  const deadlineMs = readyAt ? Date.parse(readyAt) + 72 * 60 * 60 * 1000 : NaN;
+  const deadline = Number.isFinite(deadlineMs)
+    ? new Date(deadlineMs).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
+  return `Please pick it up within 72 hours${deadline ? `, by ${deadline}` : ''}. If it is not collected, the reservation will be automatically cancelled.`;
 }
 
 export async function markOrderStatusNotificationRead(supabase, notificationId, userId) {
@@ -2005,8 +2014,6 @@ async function startOrderStatusNotificationListener(userId, isBusinessOwner) {
       table: 'order_status_notifications',
       filter: `buyer_id=eq.${userId}`
     }, async () => {
-      if (!await orderNotificationsEnabled(userId)) return;
-
       const bell = $('#notification-menu .notification-bell');
       if (bell) await updateUnreadCount(bell);
 
@@ -2181,7 +2188,7 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
               <span class="notification-cat pill info">Order update</span>
               <div class="notification-content">
                 <strong>Order ${esc(statusLabel)}</strong>
-                <p class="muted" style="margin:2px 0 0;font-size:.85rem">Your order${product.name ? ` for ${esc(product.name)}` : ''}${store.business_name ? ` from ${esc(store.business_name)}` : ''} is now ${esc(statusLabel.toLowerCase())}.${order.cancellation_reason ? ` Reason: ${esc(order.cancellation_reason)}` : ''}</p>
+                <p class="muted" style="margin:2px 0 0;font-size:.85rem">Your order${product.name ? ` for ${esc(product.name)}` : ''}${store.business_name ? ` from ${esc(store.business_name)}` : ''} is now ${esc(statusLabel.toLowerCase())}.${notification.new_status === 'READY_FOR_PICKUP' ? ` ${esc(pickupDeadlineNotice(order.ready_at))}` : ''}${order.cancellation_reason ? ` Reason: ${esc(order.cancellation_reason)}` : ''}</p>
                 <span class="muted" style="font-size:.7rem">${new Date(notification.created_at).toLocaleString('en-PH')} • Order ${esc(orderLabel)}</span>
               </div>
               ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
@@ -2404,12 +2411,15 @@ async function updateUnreadCount(bell) {
     }
 
     let orderStatusUnread = 0;
-    if (await orderNotificationsEnabled(userId)) {
-      const { count, error: orderStatusCountError } = await supabase
+    {
+      const notificationsEnabled = await orderNotificationsEnabled(userId);
+      let orderStatusQuery = supabase
         .from('order_status_notifications')
         .select('id', { count: 'exact', head: true })
         .eq('buyer_id', userId)
         .is('read_at', null);
+      if (!notificationsEnabled) orderStatusQuery = orderStatusQuery.in('new_status', ['READY_FOR_PICKUP', 'EXPIRED']);
+      const { count, error: orderStatusCountError } = await orderStatusQuery;
       if (orderStatusCountError) console.error('Load unread order status count error:', orderStatusCountError);
       else {
         orderStatusUnread = count || 0;
@@ -2420,12 +2430,14 @@ async function updateUnreadCount(bell) {
           let dismissedUnread = 0;
           const ids = [...dismissedIds];
           for (let index = 0; index < ids.length; index += 100) {
-            const { count: dismissedCount, error: dismissedCountError } = await supabase
+            let dismissedQuery = supabase
               .from('order_status_notifications')
               .select('id', { count: 'exact', head: true })
               .in('id', ids.slice(index, index + 100))
               .eq('buyer_id', userId)
               .is('read_at', null);
+            if (!notificationsEnabled) dismissedQuery = dismissedQuery.in('new_status', ['READY_FOR_PICKUP', 'EXPIRED']);
+            const { count: dismissedCount, error: dismissedCountError } = await dismissedQuery;
             if (dismissedCountError) {
               console.error('Count dismissed unread order status notifications error:', dismissedCountError);
               dismissedUnread = 0;

@@ -19,6 +19,7 @@ let currentSession = null;
 let currentTarget = null;
 let currentAction = null;
 let accounts = [];
+let focusedAccountId = null;
 
 // Duration options in hours
 const DURATION_OPTIONS = {
@@ -70,6 +71,11 @@ async function init() {
   // No special handling needed - just show/hide based on action
 
   await loadAccounts();
+  focusedAccountId = new URLSearchParams(window.location.search).get('userId');
+  const targetAccount = accounts.find(account => account.id === focusedAccountId);
+  if (targetAccount) {
+    renderAccounts();
+  }
 }
 
 async function loadAccounts() {
@@ -169,7 +175,9 @@ function renderAccounts() {
   const filter = $('#account-filter').value;
   const visible = accounts.filter((account) => {
     const status = getAccountStatus(account);
-    const matchesSearch = `${account.full_name || ''} ${account.email || ''}`.toLowerCase().includes(search);
+    const matchesSearch = focusedAccountId
+      ? account.id === focusedAccountId
+      : `${account.full_name || ''} ${account.email || ''}`.toLowerCase().includes(search);
     return matchesSearch && (filter === 'all' || filter === status);
   });
 

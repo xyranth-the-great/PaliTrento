@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pickup No-show Records | PaliTrento Admin</title>
+<meta name="description" content="Review reservations that expired after the customer did not collect them within 72 hours.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .pickup-cases-table { width:100%; border-collapse:collapse; min-width:920px; }
+  .pickup-cases-table th, .pickup-cases-table td { padding:12px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+  .pickup-cases-table th { color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.02em; }
+  @media (max-width:760px) { .pickup-cases-table th, .pickup-cases-table td { padding:9px; } }
+</style>
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+  <div class="wrap" style="max-width:1320px;padding-top:24px;padding-bottom:48px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+      <div>
+        <h1 style="margin:0">Pickup No-show Records</h1>
+        <p class="muted" style="margin:6px 0 0">Persistent records of reservations automatically cancelled after 72 hours without pickup.</p>
+      </div>
+      <a href="/admin/" class="btn alt">Back to Admin</a>
+    </div>
+
+    <section class="card" style="padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+        <p id="pickup-cases-count" class="muted" style="margin:0">Loading records…</p>
+        <button type="button" class="btn alt" id="pickup-cases-refresh">Refresh</button>
+      </div>
+      <p id="pickup-cases-message" class="muted" role="status" aria-live="polite" style="display:none"></p>
+      <div style="overflow:auto">
+        <table class="pickup-cases-table">
+          <thead><tr><th>Customer</th><th>Store</th><th>Product</th><th>Ready for pickup</th><th>Expired</th><th>Order</th><th>Review</th></tr></thead>
+          <tbody id="pickup-cases-rows"></tbody>
+        </table>
+      </div>
+      <p class="muted" style="font-size:.82rem;margin:16px 0 0">These records remain available for admin review. No account is suspended or banned automatically.</p>
+    </section>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+<script type="module" src="/js/admin-pickup-cases.js"></script>
+</body>
+</html>

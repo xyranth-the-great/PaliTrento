@@ -9,6 +9,7 @@ import {
   getReservationNotifications,
   markReservationNotificationRead,
   getOrderStatusNotifications,
+  pickupDeadlineNotice,
   markOrderStatusNotificationRead,
   getNotificationDismissals,
   dismissNotifications,
@@ -212,7 +213,7 @@ async function loadAllNotifications() {
           isOrderStatus: true,
           category: 'ORDER_STATUS',
           title: `Order ${statusLabel}`,
-          body: `Your order${product.name ? ` for ${product.name}` : ''}${store.business_name ? ` from ${store.business_name}` : ''} is now ${statusLabel.toLowerCase()}.${cancellationReason}`,
+          body: `Your order${product.name ? ` for ${product.name}` : ''}${store.business_name ? ` from ${store.business_name}` : ''} is now ${statusLabel.toLowerCase()}.${update.new_status === 'READY_FOR_PICKUP' ? ` ${pickupDeadlineNotice(order.ready_at)}` : ''}${cancellationReason}`,
           published_at: update.created_at,
           isRead: !!update.read_at
         };

@@ -1,5 +1,5 @@
 import { supabase } from './supabase.js';
-import { esc } from './ui.js';
+import { esc, pickupDeadlineNotice } from './ui.js';
 
 const PROFILE_CACHE_KEY = 'palitrento_profile_cache';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -655,12 +655,6 @@ export async function startOrderStatusListener(userId) {
     return;
   }
 
-  const prefs = await getNotificationPreferences(userId);
-  if (!prefs.orders) {
-    console.log('[OrderListener] Order notifications disabled');
-    return;
-  }
-
   // Only notify buyers about their own order updates.
   const { data: orders, error } = await supabase
     .from('orders')
@@ -694,12 +688,13 @@ export async function startOrderStatusListener(userId) {
 
           // Check preferences again (in case changed)
           const currentPrefs = await getNotificationPreferences(userId);
-          if (!currentPrefs.orders) return;
+          const mandatoryPickupWarning = ['READY_FOR_PICKUP', 'EXPIRED'].includes(order.status);
+          if (!currentPrefs.orders && !mandatoryPickupWarning) return;
 
           // Show toast notification
           const statusMessages = {
             CONFIRMED: 'Your order has been confirmed!',
-            READY_FOR_PICKUP: 'Your order is ready for pickup!',
+            READY_FOR_PICKUP: `Your order is ready for pickup. ${pickupDeadlineNotice(order.ready_at)}`,
             COMPLETED: 'Your order has been completed!',
             CANCELLED: order.cancellation_actor === 'CUSTOMER'
               ? 'You cancelled this reservation.'
