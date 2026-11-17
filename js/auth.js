@@ -141,38 +141,6 @@ export async function getSessionWithStatus() {
     return { session, profile, redirectPath: null, redirectUrl: null };
   }
 
-  let premiumDetails = null;
-  let isPremium = null;
-  const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
-  if (cached) {
-    try {
-      const { data, timestamp, userId: cachedUserId } = JSON.parse(cached);
-      if (
-        cachedUserId === session.user.id
-        && Date.now() - timestamp < CACHE_TTL
-        && typeof data?.is_premium === 'boolean'
-        && (!data.is_premium || data.premium_details)
-      ) {
-        isPremium = data.is_premium;
-        premiumDetails = data.premium_details || null;
-      }
-    } catch {
-      // Ignore malformed cached profile data and refresh the status.
-    }
-  }
-
-  if (isPremium === null) {
-    premiumDetails = await getPremiumDetails(session.user.id);
-    isPremium = premiumDetails?.is_premium === true && premiumDetails?.status === 'ACTIVE';
-  }
-
-  profile = { ...profile, is_premium: isPremium, premium_details: premiumDetails };
-  sessionStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify({
-    data: profile,
-    timestamp: Date.now(),
-    userId: session.user.id
-  }));
-
   return { session, profile, redirectPath: null, redirectUrl: null };
 }
 
@@ -185,27 +153,6 @@ export async function getProfile(userId) {
     .single();
   if (error) return null;
   return data;
-}
-
-/**
- * Check if user has active Premium subscription
- * Uses the authoritative subscription RPC
- */
-export async function getPremiumDetails(userId) {
-  if (!supabase) return null;
-  try {
-    const { data, error } = await supabase.rpc('get_subscription_dashboard_data', { p_user_id: userId });
-    if (error) throw error;
-    return data?.subscription ?? null;
-  } catch (err) {
-    console.error('Load premium details error:', err);
-    return null;
-  }
-}
-
-export async function getPremiumStatus(userId) {
-  const subscription = await getPremiumDetails(userId);
-  return subscription?.is_premium === true && subscription?.status === 'ACTIVE';
 }
 
 export async function getCachedProfile(userId) {

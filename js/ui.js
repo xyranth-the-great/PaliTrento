@@ -1,136 +1,8 @@
 import '../css/styles.css';
 import logoUrl from '../logo.png';
-import {
-  LiquidChrome,
-  ensureLiquidChromeStill,
-  registerPremiumTubeFrame,
-  unregisterPremiumTubeFrame
-} from './liquid-chrome.js';
 export const $ = (s, r = document) => r.querySelector(s);
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const peso = n => '₱' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: n % 1 ? 2 : 0 });
-export const premiumSellerLabel = className => `<span class="chrome-pill ${className}" role="img" aria-label="Premium seller"><span class="chrome-pill-icon" aria-hidden="true">✦</span><span class="chrome-pill-text">Premium</span></span>`;
-const premiumChromeInstances = new WeakMap();
-const observedPremiumFrames = new WeakSet();
-
-function getPremiumFrames(node) {
-  if (!(node instanceof Element)) return [];
-  const frames = node.matches('.premium-frame') ? [node] : [];
-  frames.push(...node.querySelectorAll('.premium-frame'));
-  return frames;
-}
-
-if (typeof MutationObserver === 'function' && document.body) {
-  const observeNode = node => {
-    getPremiumFrames(node).forEach(frame => {
-      if (observedPremiumFrames.has(frame)) return;
-      observedPremiumFrames.add(frame);
-      registerPremiumTubeFrame(frame);
-    });
-  };
-  const unobserveNode = node => {
-    getPremiumFrames(node).forEach(frame => {
-      unregisterPremiumTubeFrame(frame);
-      observedPremiumFrames.delete(frame);
-    });
-  };
-
-  observeNode(document.body);
-  const premiumFrameMutationObserver = new MutationObserver(records => {
-    records.forEach(record => {
-      record.removedNodes.forEach(unobserveNode);
-      record.addedNodes.forEach(observeNode);
-    });
-  });
-  premiumFrameMutationObserver.observe(document.body, { childList: true, subtree: true });
-}
-
-export function attachPremiumLiquidShader(surface, options = {}) {
-  const existing = premiumChromeInstances.get(surface);
-  if (existing) {
-    if (options.live !== undefined) existing.setLive(options.live);
-    return existing;
-  }
-
-  ensureLiquidChromeStill();
-  const chrome = new LiquidChrome(surface, {
-    radius: options.radius ?? 'inherit',
-    live: options.live ?? true
-  });
-  premiumChromeInstances.set(surface, chrome);
-  return chrome;
-}
-
-export function setPremiumLiquidLive(surface, live) {
-  premiumChromeInstances.get(surface)?.setLive(live);
-}
-
-export function removePremiumLiquidShader(surface) {
-  premiumChromeInstances.get(surface)?.destroy();
-  premiumChromeInstances.delete(surface);
-}
-
-export function setPlanBadge(element, text, className, isPremium = false) {
-  removePremiumLiquidShader(element);
-
-  element.className = className;
-  if (!isPremium) {
-    element.textContent = text;
-    return;
-  }
-
-  element.classList.remove('ok', 'warn', 'bad', 'off', 'info');
-  element.classList.add('chrome-pill', 'premium-video-label');
-  element.replaceChildren();
-  if (text.trim().startsWith('✦')) {
-    const icon = document.createElement('span');
-    icon.className = 'chrome-pill-icon';
-    icon.setAttribute('aria-hidden', 'true');
-    icon.textContent = '✦';
-    element.append(icon);
-  }
-  const label = document.createElement('span');
-  label.className = 'chrome-pill-text';
-  label.textContent = text.replace(/^\s*✦\s*/, '');
-  element.append(label);
-}
-
-export function renderFreePlanUsage(entitlement, planDetails) {
-  const quotaValue = Number(planDetails?.free_listing_quota);
-  const quota = Number.isFinite(quotaValue) && quotaValue >= 0
-    ? Math.floor(quotaValue)
-    : 15;
-  const usedValue = Number(entitlement?.free_listings_used);
-  const used = Number.isFinite(usedValue) ? Math.max(0, Math.floor(usedValue)) : 0;
-  const remainingValue = Number(entitlement?.remaining_free);
-  const hasRemainingValue = entitlement?.remaining_free !== null
-    && entitlement?.remaining_free !== undefined
-    && entitlement?.remaining_free !== ''
-    && Number.isFinite(remainingValue);
-  const remaining = hasRemainingValue
-    ? Math.min(quota, Math.max(0, Math.floor(remainingValue)))
-    : Math.max(0, quota - used);
-  const usedForProgress = Math.min(used, quota);
-  const progress = quota ? (usedForProgress / quota) * 100 : 0;
-  const progressTrack = $('#sub-free-progress');
-
-  $('#sub-free-used').textContent = String(used);
-  $('#sub-free-quota').textContent = String(quota);
-  progressTrack.setAttribute('aria-valuemax', String(quota));
-  progressTrack.setAttribute('aria-valuenow', String(usedForProgress));
-  progressTrack.classList.toggle('is-near-limit', quota > 0 && usedForProgress / quota >= 0.8);
-  progressTrack.classList.toggle('is-full', quota > 0 && usedForProgress >= quota);
-  $('#sub-free-progress-fill').style.width = `${progress}%`;
-
-  const caption = $('#sub-free-caption');
-  if (remaining === 0) {
-    caption.textContent = `You’ve used all ${quota} free listings. Extra listings are ₱1 each.`;
-  } else if (quota > 0 && usedForProgress / quota >= 0.8) {
-    caption.innerHTML = `Only <strong>${remaining}</strong> free listings left.`;
-  } else {
-    caption.innerHTML = `<strong>${remaining}</strong> listings left.`;
-  }
-}
 
 export const CATS = { SARI_SARI: 'Sari-sari store', CARINDERIA: 'Carinderia', FRESH_PRODUCE: 'Fresh produce', PHARMACY: 'Pharmacy', SERVICES: 'Services', PRODUCT: 'Product', AGRI: 'Agri supply' };
 export const UNITS = { KG: 'kg', PC: 'pc', POUCH: 'pouch', BOTTLE: 'bottle', SACK_25KG: '25-kg sack', TIE: 'tie' };
@@ -367,79 +239,42 @@ export function srp(p) {
     ? { cls: 'ok', text: 'Within cap' }
     : { cls: 'bad', text: `Over cap by ${peso(p.current_price - p.lgu_srp_ceiling)}` };
 }
-export const storeCard = (s, isPremium = false) => {
-  if (isPremium) ensureLiquidChromeStill();
-  const frameStart = isPremium ? '<div class="premium-frame-inner">' : '';
-  const frameEnd = isPremium ? '</div>' : '';
-  const premiumChip = isPremium ? premiumSellerLabel('premium-card-chip') : '';
-  // Format purok: if purely numeric, render as "Purok N"
-  const formattedPurok = s.purok && /^\d+$/.test(String(s.purok).trim()) ? `Purok ${s.purok.trim()}` : s.purok;
-  const placeParts = [s.barangay, formattedPurok].filter(Boolean);
-  const place = placeParts.join(', ');
-  const locationHtml = place ? `<span>in ${esc(place)}</span>` : '';
-  return `
-  <a class="card store-card${isPremium ? ' premium premium-frame' : ''}" href="/business/?trn=${encodeURIComponent(s.trn_code)}">
-    ${isPremium ? '<canvas class="tube-bg" aria-hidden="true"></canvas>' : ''}
-    ${frameStart}
+export const storeCard = s => `
+  <a class="card store-card" href="/business/?trn=${encodeURIComponent(s.trn_code)}">
     <div class="store-card-media">${s.storefront_image_url
       ? `<img src="${esc(s.storefront_image_url)}" alt="${esc(s.business_name)}" loading="lazy" decoding="async">`
-      : '<div class="store-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}${premiumChip}
+      : '<div class="store-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
     </div>
     <div class="store-card-content">
       <div class="row store-card-heading"><h3>${esc(s.business_name)}</h3>${openPill(s)}</div>
-      <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> ${locationHtml}</p>
+      <p class="store-card-meta"><span>${esc(CATS[s.trade_category])}</span> <span>in ${esc(s.barangay)}, ${esc(s.purok)}</span></p>
       <div class="store-card-badges">${badges(s)}${getPublicStoreStatusBadge(s)}</div>
     </div>
-    ${frameEnd}
   </a>`;
-};
 
 export const getActiveFeaturedProducts = products => products
   .filter(product => Date.parse(product.featured_until) > Date.now())
   .sort((a, b) => Date.parse(b.featured_until) - Date.parse(a.featured_until));
-export const productCard = (p, store, isPremiumStore = false) => {
-  if (isPremiumStore) ensureLiquidChromeStill();
+export const productCard = (p, store) => {
   const c = srp(p);
   const isFeatured = Date.parse(p.featured_until) > Date.now();
-
-  const productHref = `/product-detail/?id=${encodeURIComponent(p.id)}`;
-  const premiumChip = isPremiumStore ? premiumSellerLabel('premium-card-chip') : '';
-
   // Use first image from image_urls array, fallback to image_url
   const imageUrl = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
     ? p.image_urls[0]
     : p.image_url;
-
-  const media = `<div class="product-card-media">${imageUrl
+  return `<a class="card product-card" href="/product-detail/?id=${encodeURIComponent(p.id)}">
+    <div class="product-card-media">${imageUrl
       ? `<img src="${esc(imageUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
-      : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}${premiumChip}
-    </div>`;
-
-  const soldAt = store
-    ? `<p class="muted" style="margin-top:8px">Sold at ${isPremiumStore
-      ? `<a class="premium-store-link" href="/business/?trn=${encodeURIComponent(store.trn_code)}">${esc(store.business_name)}</a>`
-      : `<span style="color:var(--primary);font-weight:600">${esc(store.business_name)}</span>`}</p>`
-    : '';
-
-  const content = `<div class="product-card-content">
-      ${isFeatured ? '<span class="pill featured featured-badge">Featured</span>' : ''}
+      : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
+    </div>
+    <div class="product-card-content">
+      ${isFeatured ? '<span class="pill info featured-badge">Featured</span>' : ''}
       <div class="row"><h3>${esc(p.name)}</h3>${p.in_stock ? '' : '<span class="pill bad">Out of stock</span>'}</div>
       <p class="price">${peso(p.current_price)} <span class="muted">per ${esc(UNITS[p.unit] || p.unit || 'pc')}</span></p>
       ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
-      ${soldAt}
-    </div>`;
-
-  if (!isPremiumStore) {
-    return `<a class="card product-card" href="${productHref}">${media}${content}</a>`;
-  }
-  return `<article class="card product-card premium premium-frame">
-    <canvas class="tube-bg" aria-hidden="true"></canvas>
-    <a class="premium-frame-link" href="${productHref}" aria-label="View ${esc(p.name)}"></a>
-    <div class="premium-frame-inner">
-      ${media}
-      ${content}
+      ${store ? `<p class="muted" style="margin-top:8px">Sold at <span style="color:var(--primary);font-weight:600">${esc(store.business_name)}</span></p>` : ''}
     </div>
-  </article>`;
+  </a>`;
 };
 
 export function initializeFeaturedProductsCarousel(section) {
@@ -447,356 +282,224 @@ export function initializeFeaturedProductsCarousel(section) {
   const viewport = carousel.querySelector('.featured-products-viewport');
   const track = viewport.querySelector('.featured-products-grid');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
   const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-  // Speed constant: 40px per second
-  const MARQUEE_SPEED_PX_PER_SEC = 40;
+  console.log('[FeaturedCarousel] Touch device:', isTouchDevice, '| Reduced motion:', reduceMotion.matches);
 
-  // Get original cards and count unique stores (dedupe by trn_code in href)
-  const allCards = Array.from(track.children);
-  if (!allCards.length) return;
+  // Get original cards
+  const originalCards = Array.from(track.children);
+  if (originalCards.length <= 1) return;
 
-  // Deduplicate by store ID (from href /business/?trn=TRN-...)
-  const seenStoreIds = new Set();
-  const uniqueCards = [];
-  allCards.forEach(card => {
-    const href = card.getAttribute('href') || '';
-    const match = href.match(/trn=([^&]+)/);
-    const storeId = match ? match[1] : href;
-    if (!seenStoreIds.has(storeId)) {
-      seenStoreIds.add(storeId);
-      uniqueCards.push(card);
-    }
-  });
+  console.log('[FeaturedCarousel] Initializing with', originalCards.length, 'cards');
 
-  const uniqueCount = uniqueCards.length;
-  console.log('[FeaturedCarousel] Initializing with', uniqueCount, 'unique stores (total cards:', allCards.length, ')');
-
-  // Determine mode
-  const isStaticMode = uniqueCount < 5 || reduceMotion.matches;
-
-  // Clear track and wrap unique cards in slides
-  track.innerHTML = '';
-  const originalSlides = uniqueCards.map((card, index) => {
+  // Wrap each card in a slide div for scroll-snap
+  const slides = originalCards.map((card, index) => {
     const slide = document.createElement('div');
     slide.className = 'featured-products-slide';
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${index + 1} of ${uniqueCount}`);
-    track.appendChild(slide);
+    slide.setAttribute('aria-label', `${index + 1} of ${originalCards.length}`);
+    track.replaceChild(slide, card);
     slide.appendChild(card);
     return slide;
   });
 
-  const originalCount = uniqueCards.length;
-
-  // Create pause/play button
-  const pausePlayBtn = document.createElement('button');
-  pausePlayBtn.type = 'button';
-  pausePlayBtn.className = 'carousel-pause-play-btn';
-  pausePlayBtn.setAttribute('aria-pressed', 'false');
-  pausePlayBtn.setAttribute('aria-label', 'Pause featured stores');
-  pausePlayBtn.innerHTML = `
-    <svg class="pause-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="6" y="4" width="4" height="16"></rect>
-      <rect x="14" y="4" width="4" height="16"></rect>
-    </svg>
-    <svg class="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:none">
-      <polygon points="5 3 19 12 5 21 5 3"></polygon>
-    </svg>
-  `;
-  pausePlayBtn.style.cssText = `
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 10;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: rgba(20, 10, 0, 0.8);
-    color: var(--amber-light);
-    border: 1px solid var(--chrome-edge);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.15s;
-  `;
-  carousel.style.position = 'relative';
-  carousel.appendChild(pausePlayBtn);
-
-  let isPaused = false;
-
-  function setPaused(paused) {
-    isPaused = paused;
-    track.classList.toggle('marquee-paused', paused);
-    pausePlayBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
-    pausePlayBtn.setAttribute('aria-label', paused ? 'Play featured stores' : 'Pause featured stores');
-    pausePlayBtn.querySelector('.pause-icon').style.display = paused ? 'none' : 'block';
-    pausePlayBtn.querySelector('.play-icon').style.display = paused ? 'block' : 'none';
-  }
-
-  pausePlayBtn.addEventListener('click', () => setPaused(!isPaused));
-
-  // ---- STATIC MODE ----
-  if (uniqueCount < 5) {
-    track.style.animation = 'none';
-    track.style.width = 'max-content';
-    track.style.gap = '24px';
-    viewport.style.overflowX = 'auto';
-    viewport.style.scrollSnapType = 'x mandatory';
-    viewport.style.webkitOverflowScrolling = 'touch';
-    viewport.style.scrollbarWidth = 'thin';
-    viewport.style.scrollbarWidth = 'thin';
-    viewport.style.paddingBottom = '8px'; /* space for scrollbar */
-    originalSlides.forEach(slide => {
-      slide.style.scrollSnapAlign = 'start';
-    });
-    pausePlayBtn.style.display = 'none';
-    return;
-  }
-
-  // ---- MARQUEE MODE ----
-  // Wrap unique cards in slides
-  track.innerHTML = '';
-  const originalSlidesWrapped = uniqueCards.map((card, index) => {
-    const slide = document.createElement('div');
-    slide.className = 'featured-products-slide';
-    slide.setAttribute('role', 'group');
-    slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${index + 1} of ${uniqueCount}`);
-    track.appendChild(slide);
-    slide.appendChild(card);
-    return slide;
-  });
-
-  const originalSlidesArray = originalSlidesWrapped;
-
-  // Rebuild loop function
-  let rebuildTimeout = null;
-  let resizeObserver = null;
-  let intersectionObserver = null;
-
-  function unregisterCloneFrames() {
-    if (typeof unregisterPremiumTubeFrame === 'function') {
-      track.querySelectorAll('.featured-products-slide[data-clone="true"] .premium-frame').forEach(frame => {
-        unregisterPremiumTubeFrame(frame);
-      });
-    }
-  }
-
-  function rebuildLoop() {
-    if (reduceMotion.matches || uniqueCount < 5) return;
-
-    // Remove old clones
-    unregisterCloneFrames();
-    track.querySelectorAll('.featured-products-slide[data-clone="true"]').forEach(clone => clone.remove());
-
-    const viewportWidth = viewport.clientWidth;
+  // Clone slides until track is at least 2x viewport width for seamless marquee (ALL devices)
+  function ensureClones() {
+    if (reduceMotion.matches) return;
+    const viewportWidth = viewport.getBoundingClientRect().width;
     if (viewportWidth <= 0) return;
 
-    // Measure setWidth from original slides only (including gap as right margin)
-    const slideStyle = getComputedStyle(originalSlidesArray[0]);
-    const slideMarginRight = parseFloat(slideStyle.marginRight) || 0;
-    let setWidth = 0;
-    originalSlidesArray.forEach(slide => {
-      setWidth += slide.offsetWidth + slideMarginRight;
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    let trackWidth = 0;
+    track.querySelectorAll('.featured-products-slide').forEach(slide => {
+      trackWidth += slide.getBoundingClientRect().width + gap;
     });
+    trackWidth -= gap;
 
-    if (setWidth <= 0) return;
-
-    // Calculate number of sets needed
-    const totalSets = Math.ceil(viewportWidth / setWidth) + 1;
-    const clonesNeeded = totalSets - 1;
-
-    console.log('[FeaturedCarousel] viewportWidth:', viewportWidth, 'setWidth:', setWidth, 'totalSets:', totalSets, 'clonesNeeded:', clonesNeeded);
-
-    // Create clone sets
-    for (let set = 0; set < clonesNeeded; set++) {
-      originalSlidesArray.forEach((originalSlide, slideIndex) => {
-        const clone = originalSlide.cloneNode(true);
-        clone.setAttribute('data-clone', 'true');
-        clone.setAttribute('aria-hidden', 'true');
-        clone.setAttribute('aria-label', `Clone ${set + 2}, slide ${slideIndex + 1} of ${originalCount}`);
-        clone.querySelectorAll('a, button').forEach(el => {
-          el.setAttribute('tabindex', '-1');
-          el.setAttribute('aria-hidden', 'true');
-        });
-        track.appendChild(clone);
-      });
+    // Clone until we have at least 2x viewport width
+    let cloneIndex = 0;
+    while (trackWidth < viewportWidth * 2 && cloneIndex < originalCards.length * 10) {
+      const originalSlide = slides[cloneIndex % originalCards.length];
+      const clone = originalSlide.cloneNode(true);
+      clone.setAttribute('aria-hidden', 'true');
+      // Don't use inert=true - it makes links non-clickable
+      // Just hide from screen readers with aria-hidden
+      track.appendChild(clone);
+      trackWidth += originalSlide.getBoundingClientRect().width + gap;
+      cloneIndex++;
     }
-
-    // Register premium frames in new clones
-    if (typeof registerPremiumTubeFrame === 'function') {
-      track.querySelectorAll('.featured-products-slide[data-clone="true"] .premium-frame').forEach(frame => {
-        registerPremiumTubeFrame(frame);
-      });
-    }
-
-    // Set loop distance EXACTLY to one set width
-    track.style.setProperty('--marquee-shift', `-${setWidth}px`);
-
-    // Set duration for constant speed (40px/sec)
-    const durationSec = (setWidth / 40).toFixed(2);
-    track.style.setProperty('--marquee-duration', `${durationSec}s`);
-    track.style.animationDuration = `${durationSec}s`;
-
-    // Assert
-    console.assert(track.scrollWidth - setWidth >= viewport.clientWidth, 'Marquee is too short: gap would show');
+    console.log('[FeaturedCarousel] Cloned', cloneIndex, 'slides, trackWidth:', trackWidth, 'viewportWidth:', viewportWidth);
   }
 
-  // Initial build
-  rebuildLoop();
-
-  // Debounced rebuild on resize
-  if ('ResizeObserver' in window) {
-    resizeObserver = new ResizeObserver(() => {
-      clearTimeout(rebuildTimeout);
-      rebuildTimeout = setTimeout(() => {
-        rebuildLoop();
-        // Restart animation cleanly
-        track.style.animation = 'none';
-        void track.offsetWidth; // force reflow
-        track.style.animation = '';
-      }, 150);
-    });
-    resizeObserver.observe(viewport);
-  } else {
-    window.addEventListener('resize', () => {
-      clearTimeout(rebuildTimeout);
-      rebuildTimeout = setTimeout(() => {
-        rebuildLoop();
-        track.style.animation = 'none';
-        void track.offsetWidth;
-        track.style.animation = '';
-      }, 150);
-    }, { passive: true });
+  // Calculate marquee shift for ONE SET (original cards) for seamless looping
+  function calculateShift() {
+    if (reduceMotion.matches) return;
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    const firstSlide = slides[0].getBoundingClientRect();
+    const lastOriginalSlide = slides[originalCards.length - 1].getBoundingClientRect();
+    const distance = lastOriginalSlide.right - firstSlide.left + gap;
+    track.style.setProperty('--marquee-shift', `-${distance}px`);
+    console.log('[FeaturedCarousel] Shift set to:', distance, 'px (for', originalCards.length, 'cards)');
   }
 
-  // IntersectionObserver for off-screen pause
-  intersectionObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) {
-        setPaused(true);
-      } else if (!isPaused) {
-        setPaused(false);
-      }
-    });
-  }, { rootMargin: '100px' });
-  intersectionObserver.observe(carousel);
-
-  // Visibility change pause
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      setPaused(true);
-    } else if (!isPaused && intersectionObserver) {
-      // Will be handled by intersection observer
-    }
-  });
-
-  // Pause/Resume handlers
-  function setPaused(paused) {
-    track.classList.toggle('marquee-paused', paused);
-    pausePlayBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
-    pausePlayBtn.setAttribute('aria-label', paused ? 'Play featured stores' : 'Pause featured stores');
-    pausePlayBtn.querySelector('.pause-icon').style.display = paused ? 'none' : 'block';
-    pausePlayBtn.querySelector('.play-icon').style.display = paused ? 'block' : 'none';
+  // Initial setup - ALWAYS create clones and start marquee (unless reduced motion)
+  if (!reduceMotion.matches) {
+    ensureClones();
+    calculateShift();
+    track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
   }
 
-  pausePlayBtn.addEventListener('click', () => {
-    const currentlyPaused = track.classList.contains('marquee-paused');
-    setPaused(!currentlyPaused);
-  });
-
-  // Pause on hover
-  viewport.addEventListener('mouseenter', () => setPaused(true));
-  viewport.addEventListener('mouseleave', () => setPaused(false));
-
-  // Pause on focus-within
-  viewport.addEventListener('focusin', () => setPaused(true));
-  viewport.addEventListener('focusout', () => setPaused(false));
-
-  // Touch pause
-  if (isTouchDevice) {
-    let touchTimer = null;
-    viewport.addEventListener('touchstart', () => {
-      setPaused(true);
-      if (touchTimer) clearTimeout(touchTimer);
-    }, { passive: true });
-    viewport.addEventListener('touchmove', () => {
-      if (touchTimer) clearTimeout(touchTimer);
-    }, { passive: true });
-    viewport.addEventListener('touchend', () => {
-      touchTimer = setTimeout(() => setPaused(false), 300);
-    }, { passive: true });
-    viewport.addEventListener('touchcancel', () => {
-      touchTimer = setTimeout(() => setPaused(false), 300);
-    }, { passive: true });
-  }
-
-  // Reduced motion handling
-  function handleReduceMotionChange() {
-    if (reduceMotion.matches) {
-      track.style.animation = 'none';
-      // Clean up clones
-      unregisterCloneFrames();
-      track.querySelectorAll('.featured-products-slide[data-clone="true"]').forEach(clone => clone.remove());
-      pausePlayBtn.style.display = 'none';
-      // Switch to static mode
-      track.style.animation = 'none';
-      track.style.width = 'max-content';
-      track.style.gap = '24px';
-      viewport.style.overflowX = 'auto';
-      viewport.style.scrollSnapType = 'x mandatory';
-      viewport.style.webkitOverflowScrolling = 'touch';
-      viewport.style.scrollbarWidth = 'thin';
-    } else if (uniqueCount >= 5) {
-      pausePlayBtn.style.display = 'flex';
-      rebuildLoop();
-    }
-  }
-
-  reduceMotion.addEventListener('change', handleReduceMotionChange);
-
-  // Initial reduced motion check
-  if (reduceMotion.matches) {
-    handleReduceMotionChange();
-  }
-
-  // Initial build
-  rebuildLoop();
-
-  // Debounced rebuild on resize
+  // Recalculate on resize
   if ('ResizeObserver' in window) {
     new ResizeObserver(() => {
-      clearTimeout(rebuildTimeout);
-      rebuildTimeout = setTimeout(() => {
-        rebuildLoop();
-        track.style.animation = 'none';
-        void track.offsetWidth;
-        track.style.animation = '';
-      }, 150);
+      if (!reduceMotion.matches) {
+        ensureClones();
+        calculateShift();
+      }
     }).observe(viewport);
   } else {
     window.addEventListener('resize', () => {
-      clearTimeout(rebuildTimeout);
-      rebuildTimeout = setTimeout(() => {
-        rebuildLoop();
-        track.style.animation = 'none';
-        void track.offsetWidth;
-        track.style.animation = '';
-      }, 150);
+      if (!reduceMotion.matches) {
+        ensureClones();
+        calculateShift();
+      }
     }, { passive: true });
   }
 
-  // Pause on focus (keyboard)
-  viewport.addEventListener('focusin', () => setPaused(true));
-  viewport.addEventListener('focusout', () => setPaused(false));
+  // ===== TOUCH/MOBILE: Pause marquee during touch, resume after =====
+  if (isTouchDevice && !reduceMotion.matches) {
+    let touchTimer = null;
+    let isTouching = false;
+
+    function pauseMarquee() {
+      track.classList.add('marquee-paused');
+    }
+
+    function resumeMarquee() {
+      track.classList.remove('marquee-paused');
+    }
+
+    viewport.addEventListener('touchstart', () => {
+      isTouching = true;
+      pauseMarquee();
+      if (touchTimer) clearTimeout(touchTimer);
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', () => {
+      if (touchTimer) clearTimeout(touchTimer);
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', () => {
+      isTouching = false;
+      // Resume after a short delay to let native momentum finish
+      touchTimer = setTimeout(resumeMarquee, 300);
+    }, { passive: true });
+
+    viewport.addEventListener('touchcancel', () => {
+      isTouching = false;
+      touchTimer = setTimeout(resumeMarquee, 300);
+    }, { passive: true });
+  }
+
+  // ===== DESKTOP: Drag to scroll with momentum =====
+  if (!isTouchDevice && !reduceMotion.matches) {
+    let isDragging = false;
+    let velocity = 0;
+    let animationFrame = null;
+    let wasAnimating = false;
+
+    function stopMarquee() {
+      wasAnimating = !track.classList.contains('marquee-paused');
+      if (wasAnimating) track.classList.add('marquee-paused');
+    }
+
+    function resumeMarquee() {
+      if (wasAnimating) track.classList.remove('marquee-paused');
+      wasAnimating = false;
+    }
+
+    function animateMomentum() {
+      if (Math.abs(velocity) < 0.5) {
+        velocity = 0;
+        resumeMarquee();
+        return;
+      }
+      viewport.scrollLeft += velocity;
+      velocity *= 0.95;
+      animationFrame = requestAnimationFrame(animateMomentum);
+    }
+
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('a, button, input, select, textarea')) return;
+
+      isDragging = true;
+      let lastX = e.clientX;
+      let lastTime = performance.now();
+      velocity = 0;
+      stopMarquee();
+      viewport.style.scrollBehavior = 'auto';
+      viewport.style.cursor = 'grabbing';
+      viewport.setPointerCapture(e.pointerId);
+      e.preventDefault();
+
+      function onMove(e) {
+        if (!isDragging) return;
+        const now = performance.now();
+        const deltaX = e.clientX - lastX;
+        const deltaTime = now - lastTime;
+        velocity = deltaX / deltaTime * 16;
+        viewport.scrollLeft -= deltaX;
+        lastX = e.clientX;
+        lastTime = now;
+      }
+
+      function onUp(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        viewport.style.scrollBehavior = '';
+        viewport.style.cursor = '';
+        viewport.releasePointerCapture(e.pointerId);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        animateMomentum();
+      }
+
+      window.addEventListener('pointermove', onMove, { passive: true });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    }, { passive: false });
+  }
+
+  // Keyboard: pause on focus
+  viewport.addEventListener('focusin', () => { track.classList.add('marquee-paused'); });
+  viewport.addEventListener('focusout', () => { track.classList.remove('marquee-paused'); });
+
+  // Respect reduced motion
+  reduceMotion.addEventListener('change', () => {
+    if (reduceMotion.matches) {
+      track.style.animation = 'none';
+    } else {
+      track.style.animation = `featured-marquee var(--marquee-duration) linear infinite`;
+      if (!isTouchDevice) {
+        ensureClones();
+        calculateShift();
+      }
+    }
+  });
+
+  // Hide controls (we removed pause/play button)
+  const controls = carousel.querySelector('[data-featured-controls]');
+  if (controls) controls.style.display = 'none';
 
   // Debug
   setTimeout(() => {
     const computed = getComputedStyle(track);
-    console.log('[FeaturedCarousel] Mode:', uniqueCount < 5 ? 'static' : 'marquee', '| Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'), '| --marquee-duration:', track.style.getPropertyValue('--marquee-duration'), '| Unique stores:', uniqueCount);
+    console.log('[FeaturedCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'), '| Touch:', isTouchDevice);
   }, 1000);
 }
 
@@ -805,129 +508,54 @@ export function initializeStoresCarousel(carousel) {
   const track = viewport.querySelector('.carousel-track');
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-  // Get original cards (rendered once in HTML)
+  // Get original cards (before wrapping) - HTML already duplicates them (6×2=12)
   const allCards = Array.from(track.children);
   if (allCards.length <= 1) return;
 
+  // The first half is the "original set", second half is the duplicate for looping
+  const originalCount = allCards.length / 2;
+  const originalCards = allCards.slice(0, originalCount);
+
+  console.log('[StoresCarousel] Initializing with', originalCount, 'original cards (total:', allCards.length, ')');
+
   // Wrap each card in a slide div for scroll-snap
-  const originalSlides = allCards.map((card, index) => {
+  const slides = allCards.map((card, index) => {
     const slide = document.createElement('div');
     slide.className = 'carousel-slide';
     slide.setAttribute('role', 'group');
     slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${index + 1} of ${allCards.length}`);
+    slide.setAttribute('aria-label', `${(index % originalCount) + 1} of ${originalCount}`);
     track.replaceChild(slide, card);
     slide.appendChild(card);
     return slide;
   });
 
-  const originalCount = originalSlides.length;
-  console.log('[StoresCarousel] Initializing with', originalCount, 'original cards');
+  // Apply fixed width to all slides (including clones) after they exist
+  // The CSS handles this, but ensure it's set for dynamically created slides
+  slides.forEach(slide => {
+    slide.style.width = '260px';
+    slide.style.flex = '0 0 260px';
+  });
 
-  // If fewer than 5 stores or reduced motion: static row, no marquee
-  if (originalCount < 5 || reduceMotion.matches) {
-    track.style.animation = 'none';
-    track.style.width = 'max-content';
-    track.style.gap = '0';
-    viewport.style.overflowX = 'auto';
-    viewport.style.scrollSnapType = 'x mandatory';
-    return;
+  // Calculate marquee shift for ONE SET (originalCount cards) for seamless looping
+  function calculateShift() {
+    const gap = Number.parseFloat(getComputedStyle(track).columnGap) || 0;
+    const firstSlide = slides[0].getBoundingClientRect();
+    const lastOriginalSlide = slides[originalCount - 1].getBoundingClientRect();
+    const distance = lastOriginalSlide.right - firstSlide.left + gap;
+    track.style.setProperty('--marquee-shift', `-${distance}px`);
+    console.log('[StoresCarousel] Shift set to:', distance, 'px (for', originalCount, 'cards)');
+    console.log('[StoresCarousel] Track children:', track.children.length, '| firstSlide.left:', firstSlide.left, '| lastOriginalSlide.right:', lastOriginalSlide.right);
   }
 
-  // ===== REBUILD LOOP (clones based on viewport width) =====
-  let rebuildTimeout = null;
-  let resizeObserver = null;
+  // Initial calculation
+  calculateShift();
 
-  function unregisterCloneFrames() {
-    if (typeof unregisterPremiumTubeFrame === 'function') {
-      track.querySelectorAll('.carousel-slide[data-clone="true"] .premium-frame').forEach(frame => {
-        unregisterPremiumTubeFrame(frame);
-      });
-    }
-  }
-
-  function rebuildLoop() {
-    if (reduceMotion.matches) return;
-
-    // Remove old clones
-    unregisterCloneFrames();
-    track.querySelectorAll('.carousel-slide[data-clone="true"]').forEach(clone => clone.remove());
-
-    const viewportWidth = viewport.clientWidth;
-    if (viewportWidth <= 0) return;
-
-    // Measure setWidth from original slides only
-    let setWidth = 0;
-    originalSlides.forEach(slide => {
-      setWidth += slide.offsetWidth;
-    });
-    if (setWidth <= 0) return;
-
-    // Calculate number of sets needed
-    const totalSets = Math.ceil(viewportWidth / setWidth) + 1;
-    const clonesNeeded = totalSets - 1;
-
-    console.log('[StoresCarousel] viewportWidth:', viewportWidth, 'setWidth:', setWidth, 'totalSets:', totalSets, 'clonesNeeded:', clonesNeeded);
-
-    // Create clone sets
-    for (let set = 0; set < clonesNeeded; set++) {
-      originalSlides.forEach((originalSlide, slideIndex) => {
-        const clone = originalSlide.cloneNode(true);
-        clone.setAttribute('data-clone', 'true');
-        clone.setAttribute('aria-hidden', 'true');
-        clone.setAttribute('aria-label', `Clone ${set + 2}, slide ${slideIndex + 1} of ${originalCount}`);
-        // Disable links/buttons in clones for accessibility
-        clone.querySelectorAll('a, button').forEach(el => {
-          el.setAttribute('tabindex', '-1');
-          el.setAttribute('aria-hidden', 'true');
-        });
-        track.appendChild(clone);
-      });
-    }
-
-    // Register premium frames in new clones
-    if (typeof registerPremiumTubeFrame === 'function') {
-      track.querySelectorAll('.carousel-slide[data-clone="true"] .premium-frame').forEach(frame => {
-        registerPremiumTubeFrame(frame);
-      });
-    }
-
-    // Set loop distance EXACTLY to one set width
-    track.style.setProperty('--marquee-shift', `-${setWidth}px`);
-
-    // Set duration for 60px/sec speed
-    const durationSec = (setWidth / 60).toFixed(2);
-    track.style.setProperty('--marquee-duration', `${durationSec}s`);
-    track.style.animationDuration = `${durationSec}s`;
-
-    }
-
-  // Initial build
-  rebuildLoop();
-
-  // Debounced rebuild on resize
+  // Recalculate on resize
   if ('ResizeObserver' in window) {
-    resizeObserver = new ResizeObserver(() => {
-      clearTimeout(rebuildTimeout);
-      rebuildTimeout = setTimeout(() => {
-        rebuildLoop();
-        // Restart animation cleanly
-        track.style.animation = 'none';
-        void track.offsetWidth; // force reflow
-        track.style.animation = '';
-      }, 150);
-    });
-    resizeObserver.observe(viewport);
+    new ResizeObserver(calculateShift).observe(viewport);
   } else {
-    window.addEventListener('resize', () => {
-      clearTimeout(rebuildTimeout);
-      rebuildTimeout = setTimeout(() => {
-        rebuildLoop();
-        track.style.animation = 'none';
-        void track.offsetWidth;
-        track.style.animation = '';
-      }, 150);
-    }, { passive: true });
+    window.addEventListener('resize', calculateShift, { passive: true });
   }
 
   // ===== DRAG TO SCROLL (with momentum) =====
@@ -963,6 +591,7 @@ export function initializeStoresCarousel(carousel) {
 
   // Use viewport for drag events, but prevent default on card links
   viewport.addEventListener('pointerdown', (e) => {
+    console.log('[StoresCarousel] pointerdown', e.target.tagName, e.target.className);
     if (e.button !== 0) return; // only left click/touch
     // Don't drag if clicking on a link/button
     if (e.target.closest('a, button, input, select, textarea')) return;
@@ -993,6 +622,7 @@ export function initializeStoresCarousel(carousel) {
 
   window.addEventListener('pointerup', (e) => {
     if (!isDragging) return;
+    console.log('[StoresCarousel] pointerup');
     isDragging = false;
     viewport.style.scrollBehavior = '';
     viewport.style.cursor = '';
@@ -1016,20 +646,13 @@ export function initializeStoresCarousel(carousel) {
 
   // Respect reduced motion
   reduceMotion.addEventListener('change', () => {
-    if (reduceMotion.matches) {
-      track.style.animation = 'none';
-      // Clean up clones
-      unregisterCloneFrames();
-      track.querySelectorAll('.carousel-slide[data-clone="true"]').forEach(clone => clone.remove());
-    } else {
-      rebuildLoop();
-    }
+    track.style.animation = reduceMotion.matches ? 'none' : '';
   });
 
   // Debug: log animation state
   setTimeout(() => {
     const computed = getComputedStyle(track);
-    console.log('[StoresCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'), '| --marquee-duration:', track.style.getPropertyValue('--marquee-duration'));
+    console.log('[StoresCarousel] Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'));
   }, 1000);
 }
 
@@ -1041,166 +664,6 @@ const CHEVRON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 // Notification bell SVG
 const BELL_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`;
-
-// Premium indicator SVG
-const PREMIUM_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
-const CLOSE_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>`;
-
-/**
- * Check if user has active Premium subscription
- * Uses cached profile data or session metadata for quick check
- */
-export function isUserPremium(profile, session) {
-  // Quick check from cached profile or session metadata
-  if (profile?.is_premium === true) return true;
-  if (session?.user?.user_metadata?.is_premium === true) return true;
-  if (profile?.subscription_status === 'PREMIUM') return true;
-  return false;
-}
-
-/**
- * Update premium indicator in navigation
- */
-export function updatePremiumIndicator(session, profile) {
-  const avatarMenu = document.querySelector('#avatar-menu');
-  if (!avatarMenu) return;
-
-  const isPremium = isUserPremium(profile, session);
-  let wrapper = avatarMenu.parentElement.querySelector('.premium-indicator-wrap');
-
-  if (!isPremium) {
-    const indicator = wrapper?.querySelector('.premium-profile-indicator');
-    if (indicator?.getAttribute('aria-expanded') === 'true') indicator.click();
-    if (indicator) removePremiumLiquidShader(indicator);
-    wrapper?.remove();
-    return;
-  }
-
-  if (!wrapper) {
-    wrapper = document.createElement('div');
-    wrapper.className = 'premium-indicator-wrap';
-    wrapper.innerHTML = `
-      <button type="button" class="premium-profile-indicator premium-video-label chrome-pill" aria-label="Premium subscription details" aria-haspopup="dialog" aria-expanded="false" aria-controls="premium-details-popover">
-        <span class="chrome-pill-icon" aria-hidden="true">${PREMIUM_SVG}</span><span class="chrome-pill-text">PRO</span>
-      </button>
-      <div id="premium-details-popover" class="premium-details-modal" role="dialog" aria-modal="true" aria-labelledby="premium-details-title" hidden>
-        <section class="premium-details-shell" aria-label="Premium membership details">
-          <div class="premium-details-panel premium-details-header">
-            <div class="premium-details-heading">
-              <h2 id="premium-details-title"><span aria-hidden="true">✦</span> Premium Plan</h2>
-              <span class="premium-details-status"><span class="premium-details-status-dot" aria-hidden="true"></span>Active</span>
-            </div>
-            <button type="button" class="premium-details-close" aria-label="Close Premium details">
-              ${CLOSE_SVG}
-            </button>
-          </div>
-          <div class="premium-details-content">
-            <div class="premium-details-panel premium-details-price">
-              <strong data-premium-amount></strong>
-              <span>/ month</span>
-            </div>
-            <p class="premium-details-panel premium-details-renewal">Next renewal · <strong data-premium-renewal></strong></p>
-            <section class="premium-details-panel premium-details-benefits" aria-labelledby="premium-benefits-title">
-              <h3 id="premium-benefits-title">Included with Premium</h3>
-              <ul>
-                <li><span class="premium-benefit-icon" aria-hidden="true">✦</span><span>Unlimited product listings</span></li>
-                <li><span class="premium-benefit-icon" aria-hidden="true">✦</span><span>Highlighted product &amp; store cards</span></li>
-                <li><span class="premium-benefit-icon" aria-hidden="true">✦</span><span>Priority placement in search</span></li>
-                <li><span class="premium-benefit-icon" aria-hidden="true">✦</span><span>Your store, automatically featured</span></li>
-              </ul>
-            </section>
-            <div class="premium-details-panel premium-details-footer">
-              <button type="button" class="premium-details-manage">Manage Membership</button>
-            </div>
-          </div>
-        </section>
-      </div>
-    `;
-
-    const indicator = wrapper.querySelector('.premium-profile-indicator');
-    const modal = wrapper.querySelector('.premium-details-modal');
-    const shell = wrapper.querySelector('.premium-details-shell');
-    const closeButton = wrapper.querySelector('.premium-details-close');
-    const manageButton = wrapper.querySelector('.premium-details-manage');
-    const premiumBanner = document.querySelector('#sub-premium-status');
-    let previousBodyOverflow = '';
-
-    function closeCard(returnFocus = true) {
-      if (modal.hidden) return;
-      modal.hidden = true;
-      indicator.setAttribute('aria-expanded', 'false');
-      document.removeEventListener('keydown', closeOnEscape);
-      document.body.style.overflow = previousBodyOverflow;
-      removePremiumLiquidShader(shell);
-      setPremiumLiquidLive(premiumBanner, true);
-      if (returnFocus) indicator.focus();
-    }
-
-    function closeOnBackdropClick(event) {
-      if (event.target === modal) closeCard(true);
-    }
-
-    function closeOnEscape(event) {
-      if (event.key === 'Escape') {
-        closeCard(true);
-      } else if (event.key === 'Tab') {
-        const focusable = Array.from(modal.querySelectorAll(
-          'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
-        )).filter(element => element.getClientRects().length > 0);
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (!first) {
-          event.preventDefault();
-        } else if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    }
-
-    indicator.addEventListener('click', (event) => {
-      event.stopPropagation();
-      if (modal.hidden) {
-        previousBodyOverflow = document.body.style.overflow;
-        modal.hidden = false;
-        document.body.style.overflow = 'hidden';
-        indicator.setAttribute('aria-expanded', 'true');
-        setPremiumLiquidLive(premiumBanner, false);
-        const saveData = Boolean(navigator.connection && navigator.connection.saveData);
-        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const forcedColors = window.matchMedia('(forced-colors: active)').matches;
-        attachPremiumLiquidShader(shell, { radius: 20, live: !saveData && !reducedMotion && !forcedColors });
-        document.addEventListener('keydown', closeOnEscape);
-        closeButton.focus();
-      } else {
-        closeCard(true);
-      }
-    });
-
-    closeButton.addEventListener('click', () => closeCard(true));
-    manageButton.addEventListener('click', () => {
-      window.location.href = '/dashboard/#tab-subscription';
-    });
-    modal.addEventListener('click', closeOnBackdropClick);
-
-    avatarMenu.insertAdjacentElement('afterend', wrapper);
-  }
-
-  const details = profile?.premium_details;
-  const planEnd = details?.current_period_end ? new Date(details.current_period_end) : null;
-  const renewalDate = planEnd && !Number.isNaN(planEnd.getTime())
-    ? planEnd.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : 'December 17, 2026';
-  const monthlyPrice = Number.isFinite(details?.price_monthly_cents)
-    ? peso(details.price_monthly_cents / 100)
-    : '₱49';
-
-  wrapper.querySelector('[data-premium-amount]').textContent = monthlyPrice;
-  wrapper.querySelector('[data-premium-renewal]').textContent = renewalDate;
-}
 
 export function renderChrome(active, session = null, profile = null, userId = null) {
   const role = profile?.role ?? session?.user?.user_metadata?.role;
@@ -1300,7 +763,6 @@ export function renderChrome(active, session = null, profile = null, userId = nu
   if (session) {
     initAvatarDropdown();
     initNotificationBell(session.user.id, isBusinessOwner);
-    updatePremiumIndicator(session, profile);
   }
 }
 
@@ -1587,7 +1049,7 @@ function closeNotificationModal() {
   setTimeout(removeModal, 300);
 }
 
-export { ensureLiquidChromeStill, openNotificationModal };
+export { openNotificationModal };
 
 /**
  * Show order status change toast

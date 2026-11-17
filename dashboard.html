@@ -45,7 +45,6 @@
     <button class="tab-btn" role="tab" aria-selected="true" data-tab="products">Products</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">Orders</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="verification">Business Verification</button>
-    <button class="tab-btn" role="tab" aria-selected="false" data-tab="subscription">Subscription</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="analytics">Analytics</button>
   </div>
 
@@ -97,147 +96,6 @@
     <p class="muted" id="verification-not-available" style="display:none;text-align:center;padding:32px">Business verification is available after your store is submitted for Admin review.</p>
   </div>
 
-  <!-- Subscription tab -->
-  <div id="tab-subscription" role="tabpanel" style="display:none">
-    <h3 style="margin-bottom:8px">Subscription & Product Listings</h3>
-    <p class="muted" style="margin-bottom:24px">Manage your plan, product listing allowance, and Featured Store promotions.</p>
-
-    <!-- Current Plan Card -->
-    <div class="card" id="subscription-plan-card" style="padding:20px;margin-bottom:24px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-        <div>
-          <h4 style="margin:0 0 4px" id="sub-plan-name">Free Plan</h4>
-          <p class="muted" id="sub-plan-description">15 free listings, then ₱1 per additional listing.</p>
-        </div>
-        <span id="sub-plan-badge" class="pill free-plan-badge">Free</span>
-      </div>
-
-      <div id="sub-premium-status" class="premium-active-panel" style="display:none;padding:24px;border-radius:var(--r-lg)">
-        <div class="premium-active-content">
-          <span class="premium-active-status"><span class="premium-active-status-icon" aria-hidden="true">✦</span>Premium Member · Active</span>
-          <p class="premium-card-subtitle">Your membership, renewal, and perks at a glance.</p>
-          <div class="premium-feature-list" aria-label="Premium features">
-            <span>Unlimited product listings</span>
-            <span>Highlighted product &amp; store cards</span>
-            <span>Priority placement in search</span>
-            <span>Your store, automatically featured</span>
-          </div>
-          <div class="premium-renewal-row">
-            <span>Next renewal ·</span>
-            <strong id="sub-renewal-date">—</strong>
-            <span id="sub-grace-warning" style="display:none">⚠ Grace period ends <strong id="sub-grace-end">—</strong></span>
-          </div>
-        </div>
-      </div>
-
-      <div id="sub-free-status" class="free-plan-content" style="display:none">
-        <div class="free-plan-usage">
-          <div class="free-usage-heading">
-            <span id="free-plan-usage-label">Free listings</span>
-            <span class="free-usage-count"><strong id="sub-free-used">0</strong> of <span id="sub-free-quota">15</span> used</span>
-          </div>
-          <div id="sub-free-progress" class="free-listings-track" role="progressbar" aria-labelledby="free-plan-usage-label" aria-valuemin="0" aria-valuemax="15" aria-valuenow="0">
-            <span id="sub-free-progress-fill" class="free-listings-progress-fill"></span>
-          </div>
-          <p id="sub-free-caption" class="free-plan-caption"><strong>15</strong> listings left.</p>
-        </div>
-        <div class="free-upgrade-block">
-          <ul class="free-benefits-list" aria-label="Free plan features">
-            <li>List up to 15 products</li>
-            <li>Choose product categories</li>
-            <li>Add pricing and photos</li>
-            <li>Manage listings from your dashboard</li>
-          </ul>
-          <div class="free-upgrade-actions">
-            <button type="button" class="chrome-pill free-upgrade-btn" id="sub-upgrade-btn"><span class="chrome-pill-text">Upgrade to Premium · ₱49/month</span></button>
-            <button type="button" class="btn alt" id="sub-featured-promo-btn" aria-describedby="sub-feature-promo-caption">Feature Store · ₱10/week</button>
-            <p class="free-feature-caption" id="sub-feature-promo-caption">Get your store featured for a week.</p>
-          </div>
-        </div>
-      </div>
-
-      <div id="sub-expired-status" style="display:none;padding:16px;background:#fee2e2;border:1px solid #b91c1c;border-radius:var(--r-lg)">
-        <h4 style="margin:0 0 8px;color:#b91c1c">Subscription Expired</h4>
-        <p style="margin:0 0 12px;color:#7f1d1d">Your Premium subscription has expired. Products are locked.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn" id="sub-renew-btn">Renew Premium (₱49/mo)</button>
-          <button class="btn alt" id="sub-unlock-products-btn">Unlock Products (₱1 each)</button>
-        </div>
-      </div>
-
-      <div id="sub-grace-status" style="display:none;padding:16px;background:#fef3c7;border:1px solid #b45309;border-radius:var(--r-lg)">
-        <h4 style="margin:0 0 8px;color:#b45309">Grace Period Active</h4>
-        <p style="margin:0 0 12px;color:#78350f">You have <strong id="sub-grace-days">5</strong> days to renew before products are locked.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn" id="sub-renew-grace-btn">Renew Now (₱49/mo)</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Product Listing Entitlement Card -->
-    <div class="card" id="entitlement-card" style="padding:20px;margin-bottom:24px;display:none">
-      <h4 style="margin:0 0 16px">Product Listing Allowance</h4>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
-        <div style="padding:16px;background:var(--muted-bg);border-radius:var(--r-lg);text-align:center">
-          <div style="font-size:2rem;font-weight:800;color:var(--primary)" id="entitlement-total">15</div>
-          <div class="muted" style="font-size:.85rem">Total Allowed This Period</div>
-        </div>
-        <div style="padding:16px;background:var(--muted-bg);border-radius:var(--r-lg);text-align:center">
-          <div style="font-size:2rem;font-weight:800;color:var(--ok)" id="entitlement-free-used">0</div>
-          <div class="muted" style="font-size:.85rem">Free Listings Used</div>
-        </div>
-        <div style="padding:16px;background:var(--muted-bg);border-radius:var(--r-lg);text-align:center">
-          <div style="font-size:2rem;font-weight:800;color:var(--warn)" id="entitlement-paid-count">0</div>
-          <div class="muted" style="font-size:.85rem">Paid Unlocks Used</div>
-        </div>
-        <div style="padding:16px;background:var(--muted-bg);border-radius:var(--r-lg);text-align:center">
-          <div style="font-size:2rem;font-weight:800;color:var(--primary)" id="entitlement-remaining">15</div>
-          <div class="muted" style="font-size:.85rem">Free Listings Remaining</div>
-        </div>
-      </div>
-      <p class="muted" style="margin:12px 0 0;font-size:.8rem">Free listings (15) are a lifetime allowance per business. Paid unlocks (₱1 each) persist even after plan changes.</p>
-    </div>
-
-    <!-- Featured Store Promotions Card -->
-    <div class="card" id="featured-promo-card" style="padding:20px;margin-bottom:24px;display:none">
-      <h4 style="margin:0 0 16px">Featured Store Promotions</h4>
-      <p class="muted" style="margin-bottom:16px;font-size:.9rem">Featured Stores appear in the Featured Stores section on the home page.</p>
-      <div id="active-featured-promos" style="display:none">
-        <div class="card" style="padding:16px;margin-bottom:12px;border-left:4px solid var(--primary)">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <div>
-              <strong id="promo-store-name"></strong>
-              <div class="muted" style="font-size:.85rem">Expires: <strong id="promo-expires"></strong></div>
-            </div>
-            <span class="pill info" id="promo-type">Paid Promotion</span>
-          </div>
-        </div>
-      </div>
-      <div id="no-featured-promos" style="display:none" class="muted" style="padding:16px;text-align:center">No active Featured Store promotions.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
-        <button class="btn" id="sub-featured-promo-btn2">Feature Store (₱10/week)</button>
-      </div>
-    </div>
-
-    <!-- Locked Products Card -->
-    <div class="card" id="locked-products-card" style="padding:20px;margin-bottom:24px;display:none">
-      <h4 style="margin:0 0 16px">Locked Products</h4>
-      <p class="muted" style="margin-bottom:16px;font-size:.9rem">These products are hidden from the marketplace. Unlock individually or in bulk (₱1 per product).</p>
-      <div id="locked-products-summary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:.9rem">
-        <span class="pill warn" id="lock-total">Total Locked: 0</span>
-        <span class="pill info" id="lock-grace">Grace Period: 0</span>
-        <span class="pill bad" id="lock-expired">Expired Sub: 0</span>
-      </div>
-      <div id="locked-products-list" style="max-height:300px;overflow:auto"></div>
-      <div id="no-locked-products" style="display:none;text-align:center;padding:24px" class="muted">No locked products.</div>
-      <div id="locked-products-actions" style="display:none;margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" id="bulk-unlock-btn">Unlock Selected (₱<span id="bulk-unlock-total">0</span>)</button>
-        <button class="btn alt" id="select-all-locked-btn">Select All</button>
-        <button class="btn alt" id="deselect-all-locked-btn" style="display:none">Deselect All</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Analytics tab -->
   <div id="tab-analytics" role="tabpanel" style="display:none">
     <h3 style="margin-bottom:16px">Analytics</h3>
@@ -269,8 +127,6 @@
       <h3 id="modal-title" style="margin:0">Add Product</h3>
       <button type="button" class="btn alt" id="modal-close" style="padding:8px;line-height:1">&times;</button>
     </div>
-    <!-- Upgrade banner for Free plan users who have used 15+ free listings -->
-    <div id="upgrade-banner-modal" style="display:none;padding:0 20px"></div>
     <form id="product-form" novalidate style="padding:20px;display:grid;gap:16px">
       <input type="hidden" id="product-id" name="id">
       <div>
@@ -376,7 +232,7 @@
       <p class="demo-payment-disclaimer">Demo illustration only. This is not a real GCash QR and no money will be charged.</p>
       <div class="demo-payment-actions">
         <button type="button" class="btn alt" id="demo-payment-cancel">Cancel</button>
-        <button type="button" class="btn" id="demo-payment-simulate">Simulate scan & pay</button>
+        <button type="button" class="btn" id="demo-payment-simulate">Simulate scan &amp; pay</button>
       </div>
     </div>
 
@@ -394,85 +250,11 @@
     </div>
 
     <div id="demo-payment-error" class="demo-payment-step" style="display:none" aria-live="assertive">
-      <h2 tabindex="-1">Couldn't complete the demo</h2>
+      <h2 tabindex="-1">Couldn’t complete the demo</h2>
       <p id="demo-payment-error-message" class="muted"></p>
       <div class="demo-payment-actions">
         <button type="button" class="btn alt" id="demo-payment-error-cancel">Cancel</button>
         <button type="button" class="btn" id="demo-payment-retry">Try again</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Subscription Upgrade Modal -->
-<div id="sub-upgrade-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sub-upgrade-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1100;align-items:center;justify-content:center;padding:20px">
-  <div class="card" style="width:100%;max-width:480px">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
-      <h3 id="sub-upgrade-title" style="margin:0">Upgrade to Premium</h3>
-      <button type="button" class="btn alt" id="sub-upgrade-close" style="padding:8px;line-height:1">&times;</button>
-    </div>
-    <div style="padding:20px;display:grid;gap:16px">
-      <div style="padding:16px;background:var(--primary);border-radius:var(--r-lg);color:#fff;text-align:center">
-        <div style="font-size:2rem;font-weight:800">₱49/month</div>
-        <div class="muted" style="color:#fef3e2">Billed monthly</div>
-      </div>
-      <ul style="margin:0;padding-left:20px;display:grid;gap:8px">
-        <li><strong>Unlimited</strong> product listings</li>
-        <li><strong>Premium</strong> neon-liquid visual highlighting</li>
-        <li><strong>Priority</strong> search and category placement</li>
-        <li><strong>Automatic</strong> Featured Store eligibility</li>
-        <li>No additional product listing fees</li>
-      </ul>
-      <div style="padding:12px;background:var(--muted-bg);border-radius:var(--r-md);font-size:.85rem">
-        <strong>Current Free Plan:</strong> 15 free listings, then ₱1 each. Featured Store: ₱10/week.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn alt" id="sub-upgrade-cancel-btn" style="flex:1">Cancel</button>
-        <button class="btn" id="sub-upgrade-confirm-btn" style="flex:1">Upgrade Now (₱49)</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Featured Store Promo Modal -->
-<div id="featured-promo-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="featured-promo-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1100;align-items:center;justify-content:center;padding:20px">
-  <div class="card" style="width:100%;max-width:480px">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
-      <h3 id="featured-promo-title" style="margin:0">Feature Store Promotion</h3>
-      <button type="button" class="btn alt" id="featured-promo-close" style="padding:8px;line-height:1">&times;</button>
-    </div>
-    <div style="padding:20px;display:grid;gap:16px">
-      <div style="padding:16px;background:var(--amber);border-radius:var(--r-lg);color:#fff;text-align:center">
-        <div style="font-size:2rem;font-weight:800">₱10/week</div>
-        <div class="muted" style="color:#fff">7-day Featured Store promotion</div>
-      </div>
-      <p>Your store will appear in the <strong>Featured Stores</strong> section on the home page for 7 days.</p>
-      <p class="muted" style="font-size:.85rem"><strong>Note:</strong> Premium subscribers get this automatically at no extra cost.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn alt" id="featured-promo-cancel-btn" style="flex:1">Cancel</button>
-        <button class="btn" id="featured-promo-confirm-btn" style="flex:1">Pay ₱10 & Feature Store</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Bulk Unlock Products Modal -->
-<div id="bulk-unlock-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="bulk-unlock-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1100;align-items:center;justify-content:center;padding:20px">
-  <div class="card" style="width:100%;max-width:480px">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
-      <h3 id="bulk-unlock-title" style="margin:0">Unlock Products</h3>
-      <button type="button" class="btn alt" id="bulk-unlock-close" style="padding:8px;line-height:1">&times;</button>
-    </div>
-    <div style="padding:20px;display:grid;gap:16px">
-      <p>Unlock <strong id="bulk-unlock-count">0</strong> selected locked products.</p>
-      <div style="padding:16px;background:var(--muted-bg);border-radius:var(--r-lg);text-align:center">
-        <div style="font-size:2rem;font-weight:800;color:var(--primary)" id="bulk-unlock-price">₱0</div>
-        <div class="muted">₱1 per product</div>
-      </div>
-      <p class="muted" style="font-size:.85rem">Unlocked products will reappear in the marketplace immediately. Previously unlocked products will not be charged again.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn alt" id="bulk-unlock-cancel-btn" style="flex:1">Cancel</button>
-        <button class="btn" id="bulk-unlock-confirm-btn" style="flex:1">Pay ₱<span id="bulk-unlock-confirm-price">0</span> & Unlock</button>
       </div>
     </div>
   </div>

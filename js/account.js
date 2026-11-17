@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, BARANGAYS, peso, updatePremiumIndicator, setPlanBadge, renderFreePlanUsage, attachPremiumLiquidShader, removePremiumLiquidShader } from './ui.js';
+import { renderChrome, $, esc, BARANGAYS, peso } from './ui.js';
 import { supabase } from './supabase.js';
 import {
   getSessionWithStatus, getCachedProfile, updateProfile, uploadAvatar, deleteAvatar,
@@ -15,15 +15,9 @@ const avatarPlaceholder = $('#avatar-placeholder');
 const avatarInput = $('#avatar-input');
 const avatarRemove = $('#avatar-remove');
 const avatarMsg = $('#avatar-msg');
-const premiumStatusPanel = $('#sub-premium-status');
 
 let currentProfile = null;
 let currentSession = null;
-function setPremiumShader(active) {
-  if (!premiumStatusPanel) return;
-  if (active) attachPremiumLiquidShader(premiumStatusPanel);
-  else removePremiumLiquidShader(premiumStatusPanel);
-}
 
 async function loadAccount() {
   if (!isSupabaseConfigured()) {
@@ -56,9 +50,6 @@ async function loadAccount() {
 
   // Fetch fresh profile for the form
   currentProfile = await getCachedProfile(session.user.id);
-
-  // Load subscription data
-  await loadSubscriptionData(session.user.id);
 
   // Populate barangay dropdown
   const brgySelect = $('#acc-barangay');
@@ -291,142 +282,5 @@ onAuthStateChange((event, session) => {
 });
 
 function $$ (s, r = document) { return r.querySelectorAll(s); }
-
-// ===== Subscription Functions =====
-
-async function loadSubscriptionData(userId) {
-  if (!supabase) return;
-
-  try {
-    const { data, error } = await supabase.rpc('get_subscription_dashboard_data', { p_user_id: userId });
-    if (error) throw error;
-
-    renderSubscriptionData(data);
-
-    // Update profile cache with premium status for quick access
-    const isPremium = data?.subscription?.is_premium === true && data?.subscription?.status === 'ACTIVE';
-    const { getCachedProfile } = await import('./auth.js');
-    const profile = await getCachedProfile(userId);
-    if (profile) {
-      const updatedProfile = { ...profile, is_premium: isPremium, premium_details: data?.subscription ?? null };
-      sessionStorage.setItem('palitrento_profile_cache', JSON.stringify({
-        data: updatedProfile,
-        timestamp: Date.now(),
-        userId
-      }));
-    }
-
-    // Update premium indicator in nav
-    const { getSession } = await import('./auth.js');
-    const session = await getSession();
-    if (session) {
-      const freshProfile = await getCachedProfile(session.user.id);
-      updatePremiumIndicator(session, freshProfile);
-    }
-  } catch (err) {
-    console.error('Load subscription data error:', err);
-    // Default to Free Plan
-    renderSubscriptionData({ subscription: null, plan_details: { code: 'FREE', name: 'Free Plan', price_monthly_cents: 0, free_listing_quota: 15, featured_promo_price_cents: 1000, priority_search_boost: 0, visual_badge: 'FREE' }, entitlement: { free_listings_used: 0, paid_listings_count: 0, total_listings_allowed: 15, remaining_free: 15 } });
-  }
-}
-
-function renderSubscriptionData(data) {
-  const { subscription, plan_details, entitlement, locks, featured_promotions, stores } = data;
-
-  // Show/hide plan status sections
-  const premiumStatus = $('#sub-premium-status');
-  const freeStatus = $('#sub-free-status');
-  const expiredStatus = $('#sub-expired-status');
-  const graceStatus = $('#sub-grace-status');
-  const planBadge = $('#sub-plan-badge');
-  const planName = $('#sub-plan-name');
-  const planDescription = $('#sub-plan-description');
-
-  // Reset all
-  [premiumStatus, freeStatus, expiredStatus, graceStatus].forEach(el => el.style.display = 'none');
-  $('#subscription-plan-card').classList.remove('premium-active-plan-card');
-  setPremiumShader(false);
-
-  if (subscription) {
-    const isPremium = subscription.is_premium;
-    const status = subscription.status;
-
-    if (status === 'ACTIVE' && isPremium) {
-      // Premium Active
-      premiumStatus.style.display = 'block';
-      $('#subscription-plan-card').classList.add('premium-active-plan-card');
-      setPremiumShader(true);
-      setPlanBadge(planBadge, '✦ Premium', 'pill ok', true);
-      planName.textContent = 'Premium Plan';
-      planDescription.textContent = 'Your membership, renewal, and perks at a glance.';
-      $('#sub-renewal-date').textContent = new Date(subscription.current_period_end).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-      $('#sub-grace-warning').style.display = 'none';
-    } else if (status === 'ACTIVE' && !isPremium) {
-      // Free Plan
-      freeStatus.style.display = 'grid';
-      setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
-      planName.textContent = 'Free Plan';
-      planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
-      renderFreePlanUsage(entitlement, plan_details);
-    } else if (status === 'PAST_DUE') {
-      // Grace Period
-      graceStatus.style.display = 'block';
-      setPlanBadge(planBadge, 'Grace Period', 'pill warn');
-      planName.textContent = 'Premium Plan (Grace Period)';
-      planDescription.textContent = 'Your subscription has expired. You have 5 days to renew.';
-      const graceEnd = new Date(subscription.grace_period_ends_at);
-      const daysLeft = Math.ceil((graceEnd - Date.now()) / (1000 * 60 * 60 * 24));
-      $('#sub-grace-days').textContent = Math.max(0, daysLeft);
-      $('#sub-grace-end').textContent = graceEnd.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-    } else if (status === 'EXPIRED' || status === 'CANCELLED') {
-      // Expired
-      expiredStatus.style.display = 'block';
-      setPlanBadge(planBadge, 'Expired', 'pill bad');
-      planName.textContent = isPremium ? 'Premium Plan (Expired)' : 'Free Plan';
-      planDescription.textContent = 'Your subscription has expired. Products are locked.';
-    }
-  } else {
-    // No subscription - Free Plan default
-    freeStatus.style.display = 'grid';
-    setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
-    planName.textContent = 'Free Plan';
-    planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
-    renderFreePlanUsage(entitlement, plan_details);
-  }
-
-  // Bind upgrade/renew buttons
-  bindSubscriptionButtons();
-}
-
-function bindSubscriptionButtons() {
-  // Upgrade to Premium
-  $('#sub-upgrade-btn')?.addEventListener('click', () => {
-    window.location.href = '/dashboard/?upgrade=1#tab-subscription';
-  });
-
-  $('#sub-featured-promo-btn')?.addEventListener('click', () => {
-    window.location.href = '/dashboard/#tab-subscription';
-  });
-
-  // Renew during grace period
-  $('#sub-renew-grace-btn')?.addEventListener('click', () => {
-    window.location.href = '/dashboard/?upgrade=1#tab-subscription';
-  });
-
-  // Renew after expiry
-  $('#sub-renew-btn')?.addEventListener('click', () => {
-    window.location.href = '/dashboard/?upgrade=1#tab-subscription';
-  });
-
-  // Unlock products (redirect to dashboard)
-  $('#sub-unlock-products-btn')?.addEventListener('click', () => {
-    window.location.href = '/dashboard/#tab-subscription';
-  });
-
-  // Manage subscription
-  $('#sub-manage-btn')?.addEventListener('click', () => {
-    window.location.href = '/dashboard/#tab-subscription';
-  });
-}
 
 loadAccount();
