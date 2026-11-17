@@ -25,6 +25,11 @@ alter table public.stores
   add column if not exists business_permit_review_note text,
   add column if not exists updated_at timestamptz not null default now();
 
+-- A table-wide constraint blocks unrelated admin actions on legacy rows
+-- that are missing permits. Enforce permit completeness in the approval RPC.
+alter table public.stores
+  drop constraint if exists stores_all_required_permits_check;
+
 create index if not exists stores_approval_status_idx on public.stores(approval_status);
 create index if not exists stores_certificate_status_idx on public.stores(certificate_status);
 create index if not exists stores_is_suspended_idx on public.stores(is_suspended) where is_suspended = true;
@@ -166,16 +171,6 @@ set compliance_deadline = null,
     suspension_reason = null,
     suspended_at = null,
     updated_at = now();
-
-alter table public.stores
-  drop constraint if exists stores_all_required_permits_check;
-alter table public.stores
-  add constraint stores_all_required_permits_check
-  check (
-    nullif(trim(barangay_clearance_image_url), '') is not null
-    and nullif(trim(cedula_image_url), '') is not null
-    and nullif(trim(business_permit_image_url), '') is not null
-  ) not valid;
 
 create or replace function public.get_store_display_status(p_store_id uuid)
 returns jsonb
