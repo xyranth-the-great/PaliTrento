@@ -427,7 +427,7 @@ function renderProducts() {
 
   // Show upgrade banner for Free plan users who have used 15+ free listings
   const isPremium = subscriptionData?.subscription?.is_premium || false;
-  const freeUsed = subscriptionData?.entitlement?.free_listings_used || 0;
+  const freeUsed = getEffectiveFreeListingUsage();
   const showUpgradeBanner = !isPremium && freeUsed >= 15;
 
   let upgradeBannerHtml = '';
@@ -493,6 +493,13 @@ function renderProducts() {
   });
 }
 
+function getEffectiveFreeListingUsage(quota = 15) {
+  const reportedValue = Number(subscriptionData?.entitlement?.free_listings_used);
+  const reportedUsage = Number.isFinite(reportedValue) ? Math.max(0, Math.floor(reportedValue)) : 0;
+  const productCount = Math.min(currentProducts.length, quota);
+  return Math.max(reportedUsage, productCount);
+}
+
 function renderProductsListingUsage() {
   const card = $('#products-listing-usage');
   if (!card) return;
@@ -516,8 +523,7 @@ function renderProductsListingUsage() {
   const isPremium = data.subscription?.is_premium === true && data.subscription?.status === 'ACTIVE';
   const quotaValue = Number(data.plan_details.free_listing_quota);
   const quota = Number.isFinite(quotaValue) && quotaValue >= 0 ? quotaValue : 15;
-  const usedValue = Number(data.entitlement.free_listings_used);
-  const used = Number.isFinite(usedValue) ? Math.max(0, Math.floor(usedValue)) : 0;
+  const used = getEffectiveFreeListingUsage(quota);
   const track = $('#products-listing-usage-track');
   const caption = $('#products-listing-usage-caption');
 
@@ -1404,7 +1410,7 @@ function openProductModal(productId = null) {
     if (subscriptionData?.subscription?.is_premium) {
       listingFee = 0;
     } else {
-      const freeUsed = subscriptionData?.entitlement?.free_listings_used || 0;
+      const freeUsed = getEffectiveFreeListingUsage();
       if (freeUsed >= 15) {
         listingFee = 1;
       }
@@ -1554,7 +1560,7 @@ async function saveProduct(e) {
       ? `You've used all 15 free listings. This product costs ₱1 to list.`
       : subscriptionData?.subscription?.is_premium
         ? 'Unlimited listings included with Premium.'
-        : `Free listing (${(subscriptionData?.entitlement?.free_listings_used || 0) + 1} of 15 used).`;
+        : `Free listing (${getEffectiveFreeListingUsage() + 1} of 15 used).`;
 
     startDemoPayment({
       amount: listingFee,

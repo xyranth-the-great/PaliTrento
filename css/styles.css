@@ -1500,17 +1500,17 @@ html.dark {
 @media(prefers-reduced-motion:reduce){.demo-payment-spinner{animation:none}}
 .product-detail-header{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:center;margin-bottom:24px}
 .product-detail-header.has-image{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
-.product-detail-image{aspect-ratio:4/3;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--muted-bg)}
+.product-detail-image{position:relative;aspect-ratio:4/3;overflow:hidden;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--muted-bg)}
 #store-name{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 #store-name .premium-heading-label{margin-left:0;flex:none}
 
 /* Product Detail Image Carousel */
-.product-image-carousel{position:relative;width:100%;height:100%;overflow:hidden;border-radius:var(--r-xl)}
-.product-image-carousel .carousel-viewport{width:100%;height:100%;overflow:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
+.product-image-carousel{position:absolute;inset:0;overflow:hidden;border-radius:var(--r-xl)}
+.product-image-carousel .carousel-viewport{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none}
 .product-image-carousel .carousel-viewport::-webkit-scrollbar{display:none}
-.product-image-carousel .carousel-track{display:flex;height:100%;transition:transform .3s var(--ease);will-change:transform;gap:0;animation:none}
+.product-image-carousel .carousel-track{display:flex;width:100%;height:100%;min-height:100%;transition:transform .3s var(--ease);will-change:transform;gap:0;animation:none}
 .product-image-carousel .carousel-slide{flex:0 0 100%;width:100%;height:100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center}
-.product-image-carousel .carousel-slide img{display:block;width:100%;height:100%;object-fit:contain}
+.product-image-carousel .carousel-slide img{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
 
 /* Carousel Navigation Buttons */
 .carousel-btn{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:none;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:1.5rem;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:10;transition:background .2s var(--ease),transform .2s var(--ease)}

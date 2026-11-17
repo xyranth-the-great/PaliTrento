@@ -5,6 +5,22 @@ import { getSessionWithStatus, getCachedProfile, getPostLoginPath, isNewGoogleAc
 import { supabase } from './supabase.js';
 import { initPushNotifications } from './push.js';
 
+const TRENT_PUBLIC_MARKET = { lat: 8.0472, lng: 126.0631 };
+const NEAR_CENTER_RADIUS_MILES = 2;
+
+function distanceMiles(from, to) {
+  if (from.lat == null || from.lng == null || to.lat == null || to.lng == null) return Infinity;
+  const lat1 = Number(from.lat) * Math.PI / 180;
+  const lat2 = Number(to.lat) * Math.PI / 180;
+  const deltaLat = lat2 - lat1;
+  const deltaLng = (Number(to.lng) - Number(from.lng)) * Math.PI / 180;
+  if (![lat1, lat2, deltaLat, deltaLng].every(Number.isFinite)) return Infinity;
+
+  const haversine = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return 3958.7613 * 2 * Math.asin(Math.sqrt(Math.min(1, haversine)));
+}
+
 // Check for auth error params FIRST (before any session check)
 // This handles Supabase redirect for banned/suspended users
 const authErrorRedirect = checkAuthErrorParams();
@@ -116,7 +132,7 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
       featuredStoresSection.style.display = 'none';
     }
 
-    // Load stores and products for Bantay Presyo and Stores near the center
+    // Load stores and products for Bantay Presyo and nearby stores
     const [stores, products] = await Promise.all([getStores(), getProducts()]);
     const storeById = new Map(stores.map(store => [store.id, store]));
     const approvedProducts = products.filter(product => storeById.has(product.store_id));
@@ -125,12 +141,22 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
     $('#board').innerHTML = capped.map(p => { const c = srp(p); return `<div class="prow">
   <div>${esc(p.name)}<div class="muted">Cap ${peso(p.lgu_srp_ceiling)} per ${esc(UNITS[p.unit] || p.unit || 'pc')}</div></div>
   <b>${peso(p.current_price)}</b><span class="pill ${c.cls}">${c.text}</span></div>`; }).join('') || '<p class="muted">No price advisories yet.</p>';
+    const marketStore = stores.find(store => store.trn_code === 'TRN-2024-012');
+    const marketCenter = marketStore?.lat != null && marketStore?.lng != null
+      ? { lat: marketStore.lat, lng: marketStore.lng }
+      : TRENT_PUBLIC_MARKET;
+    const nearbyStores = stores
+      .map(store => ({ store, distance: distanceMiles(marketCenter, store) }))
+      .filter(({ distance }) => distance <= NEAR_CENTER_RADIUS_MILES)
+      .sort((a, b) => a.distance - b.distance)
+      .map(({ store }) => store);
+
     const premiumStoreIds = new Set(
       featuredStores.filter(store => store.is_premium).map(store => store.id)
     );
-    const featuredCards = stores.slice(0, 6).map(s => storeCard(s, premiumStoreIds.has(s.id))).join('');
-    $('#featured-track').innerHTML = featuredCards;
-    initializeStoresCarousel($('#featured-carousel'));
+    const nearbyStoreCards = nearbyStores.map(store => storeCard(store, premiumStoreIds.has(store.id))).join('');
+    $('#featured-track').innerHTML = nearbyStoreCards || '<p class="muted">No approved stores are within 2 miles of Trento Public Market yet.</p>';
+    if (nearbyStores.length) initializeStoresCarousel($('#featured-carousel'));
   }
 }
 
