@@ -18,6 +18,7 @@ let currentStore = null;
 let currentSession = null;
 let map = null;
 let storeMarker = null;
+let imageCarousel = null;
 
 async function init() {
   if (!isSupabaseConfigured()) {
@@ -95,18 +96,106 @@ function renderProduct() {
   $('#p-name').textContent = p.name;
   $('#p-category').textContent = `${CATS[p.category] || p.category} • ${UNITS[p.unit] || p.unit}`;
   $('#p-price').textContent = peso(p.current_price);
-  if (p.image_url) {
+
+  // Product images - support multiple images via image_urls array
+  const imageUrls = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
+    ? p.image_urls
+    : (p.image_url ? [p.image_url] : []);
+
+  if (imageUrls.length > 0) {
     const imageWrap = $('#p-image-wrap');
-    const image = $('#p-image');
-    image.src = p.image_url;
-    image.alt = p.name;
-    image.loading = 'eager';
-    image.addEventListener('error', () => {
-      imageWrap.style.display = 'none';
-      $('.product-detail-header').classList.remove('has-image');
-    }, { once: true });
+    const track = $('#p-image-track');
+    const indicators = $('#p-image-indicators');
+    const viewport = $('#p-image-viewport');
+    const prevBtn = $('.carousel-prev', imageWrap);
+    const nextBtn = $('.carousel-next', imageWrap);
+
+    // Clear existing content
+    track.innerHTML = '';
+    indicators.innerHTML = '';
+
+    imageUrls.forEach((url, index) => {
+      const slide = document.createElement('div');
+      slide.className = 'carousel-slide';
+      slide.style.flex = '0 0 100%';
+      slide.innerHTML = `<img src="${esc(url)}" alt="${esc(p.name)} ${index + 1}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async">`;
+      track.appendChild(slide);
+
+      // Create indicator
+      const indicator = document.createElement('button');
+      indicator.className = 'carousel-indicator' + (index === 0 ? ' active' : '');
+      indicator.setAttribute('aria-label', `Image ${index + 1}`);
+      indicator.dataset.index = index;
+      indicator.addEventListener('click', () => goToSlide(index));
+      indicators.appendChild(indicator);
+    });
+
     imageWrap.style.display = 'block';
     $('.product-detail-header').classList.add('has-image');
+
+    // Initialize carousel if more than one image
+    if (imageUrls.length > 1) {
+      indicators.style.display = 'flex';
+      prevBtn.style.display = 'flex';
+      nextBtn.style.display = 'flex';
+
+      let currentSlide = 0;
+      const totalSlides = imageUrls.length;
+
+      function updateCarousel() {
+        const slideWidth = viewport.clientWidth;
+        track.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
+        indicators.querySelectorAll('.carousel-indicator').forEach((ind, i) => {
+          ind.classList.toggle('active', i === currentSlide);
+        });
+      }
+
+      function goToSlide(index) {
+        currentSlide = Math.max(0, Math.min(index, totalSlides - 1));
+        updateCarousel();
+      }
+
+      function nextSlide() {
+        goToSlide(currentSlide + 1);
+      }
+
+      function prevSlide() {
+        goToSlide(currentSlide - 1);
+      }
+
+      prevBtn.addEventListener('click', prevSlide);
+      nextBtn.addEventListener('click', nextSlide);
+
+      // Touch/swipe support
+      let touchStartX = 0;
+      viewport.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+      }, { passive: true });
+      viewport.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+          diff > 0 ? nextSlide() : prevSlide();
+        }
+      }, { passive: true });
+
+      // Keyboard navigation
+      viewport.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowLeft') prevSlide();
+        else if (e.key === 'ArrowRight') nextSlide();
+      });
+
+      // Handle resize
+      window.addEventListener('resize', updateCarousel);
+
+      // Store reference for cleanup
+      imageCarousel = { updateCarousel, goToSlide, nextSlide, prevSlide };
+    } else {
+      // Single image - no carousel controls needed
+      indicators.style.display = 'none';
+      prevBtn.style.display = 'none';
+      nextBtn.style.display = 'none';
+    }
   }
 
   // SRP badge

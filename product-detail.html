@@ -21,7 +21,14 @@
   <div id="product-content" style="display:none">
     <div class="product-detail-header">
       <div class="product-detail-image" id="p-image-wrap" style="display:none">
-        <img id="p-image" alt="">
+        <div class="product-image-carousel" id="p-image-carousel">
+          <button class="carousel-btn carousel-prev" aria-label="Previous image" style="display:none">&lsaquo;</button>
+          <div class="carousel-viewport" id="p-image-viewport">
+            <div class="carousel-track" id="p-image-track"></div>
+          </div>
+          <button class="carousel-btn carousel-next" aria-label="Next image" style="display:none">&rsaquo;</button>
+        </div>
+        <div class="carousel-indicators" id="p-image-indicators" style="display:none"></div>
       </div>
       <div class="product-detail-intro">
         <h1 id="p-name" style="margin:0 0 8px"></h1>

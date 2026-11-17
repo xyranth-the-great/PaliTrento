@@ -196,18 +196,16 @@
         </div>
       </div>
       <div>
-        <label for="p-image">Product Image <span class="bad">*</span></label>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label for="p-image">Product Images <span class="bad">*</span> <span class="muted" style="font-size:.8rem">(max 3)</span></label>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
           <label class="btn alt" style="cursor:pointer">
-            Choose image
-            <input id="p-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" style="display:none">
+            Choose images
+            <input id="p-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" multiple style="display:none">
           </label>
           <span id="p-image-filename" class="muted" style="font-size:.85rem"></span>
         </div>
-        <div id="p-image-preview" style="display:none;margin-top:8px">
-          <img id="p-image-preview-img" src="" alt="Preview" style="max-width:200px;max-height:200px;border-radius:var(--r-md);border:1px solid var(--line)">
-          <button type="button" class="btn alt" id="p-image-remove" style="margin-top:8px;padding:4px 12px;font-size:.8rem">Remove</button>
-        </div>
+        <div id="p-image-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+        <p id="p-image-hint" class="muted" style="font-size:.75rem;margin-top:4px">Upload up to 3 images (JPG, PNG, WebP • max 5 MB each)</p>
       </div>
       <div style="display:flex;gap:12px;justify-content:flex-end;padding-top:8px">
         <button type="button" class="btn alt" id="modal-cancel">Cancel</button>

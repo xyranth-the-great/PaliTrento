@@ -1,8 +1,14 @@
 -- Product Images Migration
 -- Run in Supabase SQL Editor
 
--- Add image_url column to products table
+-- Add image_url column to products table (single image, backwards compatibility)
 alter table if exists products add column if not exists image_url text;
+
+-- Add image_urls array column for multiple product images (up to 3)
+alter table if exists products add column if not exists image_urls text[];
+
+-- Create index for products with multiple images
+create index if not exists products_image_urls_idx on products using gin (image_urls) where image_urls is not null;
 
 -- Create storage bucket for product images
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
