@@ -165,6 +165,7 @@ async function loadAllNotifications() {
       reservationNotifications = reservations.map(reservation => {
         const order = reservation.orders || {};
         const product = order.products || {};
+        const isExpired = order.status === 'EXPIRED';
         return {
           id: reservation.id,
           order_id: reservation.order_id,
@@ -172,8 +173,12 @@ async function loadAllNotifications() {
           isMessage: false,
           isReservation: true,
           category: 'RESERVATION',
-          title: `New reservation from ${reservation.buyer_name}`,
-          body: `${order.quantity || 0} × ${product.name || 'Product'} • Order ${reservation.order_id.slice(0, 8)}`,
+          title: isExpired
+            ? `Reservation expired for ${reservation.buyer_name}`
+            : `New reservation from ${reservation.buyer_name}`,
+          body: isExpired
+            ? `${order.cancellation_reason || 'Not picked up within 3 days of being marked ready'} • ${order.quantity || 0} × ${product.name || 'Product'} • Order ${reservation.order_id.slice(0, 8)}`
+            : `${order.quantity || 0} × ${product.name || 'Product'} • Order ${reservation.order_id.slice(0, 8)}`,
           published_at: reservation.created_at,
           isRead: !!reservation.read_at
         };
@@ -189,13 +194,15 @@ async function loadAllNotifications() {
         CONFIRMED: 'Confirmed',
         READY_FOR_PICKUP: 'Ready for pickup',
         COMPLETED: 'Completed',
-        CANCELLED: 'Cancelled'
+        CANCELLED: 'Cancelled',
+        EXPIRED: 'Expired - not picked up'
       };
       orderStatusNotifications = statusUpdates.map(update => {
         const order = update.orders || {};
         const product = order.products || {};
         const store = order.stores || {};
         const statusLabel = statusLabels[update.new_status] || 'Updated';
+        const cancellationReason = order.cancellation_reason ? ` Reason: ${order.cancellation_reason}` : '';
         return {
           id: update.id,
           order_id: update.order_id,
@@ -205,7 +212,7 @@ async function loadAllNotifications() {
           isOrderStatus: true,
           category: 'ORDER_STATUS',
           title: `Order ${statusLabel}`,
-          body: `Your order${product.name ? ` for ${product.name}` : ''}${store.business_name ? ` from ${store.business_name}` : ''} is now ${statusLabel.toLowerCase()}.`,
+          body: `Your order${product.name ? ` for ${product.name}` : ''}${store.business_name ? ` from ${store.business_name}` : ''} is now ${statusLabel.toLowerCase()}.${cancellationReason}`,
           published_at: update.created_at,
           isRead: !!update.read_at
         };

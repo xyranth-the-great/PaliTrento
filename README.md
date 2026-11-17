@@ -20,6 +20,8 @@ Account deletion uses the server-side `delete-account` Edge Function. Deploy it 
 
 For the buyer's name to appear in seller chats, run `supabase/chat-customer-name.sql` after `supabase/orders.sql` and `supabase/chat.sql`. The function only exposes a buyer's name to participants in that order.
 
+For reservation cancellation, inventory holds, and automatic expiry of uncollected orders, run `supabase/orders.sql` and then `supabase/reservation-notifications.sql` in the Supabase SQL Editor. The latter enables a `pg_cron` job that expires new reservations 72 hours after they are marked ready. Existing active reservations are not backfilled.
+
 For new Google sign-ups to choose a customer or business-owner account, run `supabase/google-auth-role.sql` in the Supabase SQL Editor after `supabase/schema.sql`.
 
 ## Deploy to GitHub Pages

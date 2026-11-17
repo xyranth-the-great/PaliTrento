@@ -1058,14 +1058,24 @@ export function showOrderStatusToast(orderId, status, message) {
   const statusColors = {
     CONFIRMED: 'ok',
     READY_FOR_PICKUP: 'info',
-    COMPLETED: 'ok'
+    COMPLETED: 'ok',
+    CANCELLED: 'bad',
+    EXPIRED: 'bad'
+  };
+  const statusLabels = {
+    CONFIRMED: 'Confirmed',
+    READY_FOR_PICKUP: 'Ready for pickup',
+    COMPLETED: 'Completed',
+    CANCELLED: 'Cancelled',
+    EXPIRED: 'Expired - not picked up'
   };
   const color = statusColors[status] || 'info';
+  const statusLabel = statusLabels[status] || status.replace(/_/g, ' ');
 
   // Create advisory-like object for modal
   const advisory = {
     id: `order-${orderId}`,
-    title: `Order ${status.replace('_', ' ')}`,
+    title: `Order ${statusLabel}`,
     body: message,
     category: 'ORDER_STATUS',
     published_at: new Date().toISOString(),
@@ -1079,7 +1089,7 @@ export function showOrderStatusToast(orderId, status, message) {
   toast.dataset.advisory = JSON.stringify(advisory);
   toast.innerHTML = `
     <div class="advisory-toast-content">
-      <span class="advisory-toast-cat pill ${color}">Order ${status.replace('_', ' ')}</span>
+      <span class="advisory-toast-cat pill ${color}">Order ${esc(statusLabel)}</span>
       <div>
         <strong>${esc(message)}</strong>
         <p class="muted" style="margin:2px 0 0;font-size:.85rem">Order #${orderId.slice(0,8)}</p>
@@ -1240,7 +1250,7 @@ export async function getReservationNotifications(supabase, userId, limit = null
 
   let query = supabase
     .from('reservation_notifications')
-    .select('id, order_id, created_at, read_at, orders(id, buyer_id, quantity, products(name))')
+    .select('id, order_id, created_at, read_at, orders(id, buyer_id, quantity, status, cancellation_reason, products(name))')
     .eq('owner_id', userId)
     .order('created_at', { ascending: false });
   if (limit !== null) query = query.limit(limit);
@@ -1282,7 +1292,7 @@ export async function getOrderStatusNotifications(supabase, userId, limit = null
 
   let query = supabase
     .from('order_status_notifications')
-    .select('id, order_id, previous_status, new_status, created_at, read_at, orders(products(name), stores(business_name))')
+    .select('id, order_id, previous_status, new_status, created_at, read_at, orders(cancellation_reason, products(name), stores(business_name))')
     .eq('buyer_id', userId)
     .order('created_at', { ascending: false });
   if (limit !== null) query = query.limit(limit);
@@ -1474,7 +1484,7 @@ async function startReservationNotificationListener(userId, isBusinessOwner) {
   reservationNotificationChannel = supabase
     .channel(`reservation-notifications-${userId}`)
     .on('postgres_changes', {
-      event: 'INSERT',
+      event: '*',
       schema: 'public',
       table: 'reservation_notifications',
       filter: `owner_id=eq.${userId}`
@@ -1565,16 +1575,23 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
         const product = order.products || {};
         const isRead = !!reservation.read_at;
         const orderLabel = reservation.order_id.slice(0, 8);
+        const isExpired = order.status === 'EXPIRED';
+        const title = isExpired
+          ? `Reservation expired for ${reservation.buyer_name}`
+          : `New reservation from ${reservation.buyer_name}`;
+        const body = isExpired
+          ? `${order.cancellation_reason || 'Not picked up within 3 days of being marked ready'} • ${order.quantity || 0} × ${product.name || 'Product'} • Order ${orderLabel}`
+          : `${order.quantity || 0} × ${product.name || 'Product'} • Order ${orderLabel}`;
         return {
           id: reservation.id,
           type: 'reservation',
           createdAt: reservation.created_at,
           html: `
             <button class="notification-item reservation-notification ${isRead ? 'read' : 'unread'}" data-reservation-id="${esc(reservation.id)}" data-order-id="${esc(reservation.order_id)}" role="option" tabindex="0">
-              <span class="notification-cat pill info">Reservation</span>
+              <span class="notification-cat pill ${isExpired ? 'bad' : 'info'}">${isExpired ? 'Expired' : 'Reservation'}</span>
               <div class="notification-content">
-                <strong>New reservation from ${esc(reservation.buyer_name)}</strong>
-                <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(order.quantity || 0)} × ${esc(product.name || 'Product')} • Order ${esc(orderLabel)}</p>
+                <strong>${esc(title)}</strong>
+                <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(body)}</p>
                 <span class="muted" style="font-size:.7rem">${new Date(reservation.created_at).toLocaleString('en-PH')}</span>
               </div>
               ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
@@ -1593,7 +1610,8 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
         CONFIRMED: 'Confirmed',
         READY_FOR_PICKUP: 'Ready for pickup',
         COMPLETED: 'Completed',
-        CANCELLED: 'Cancelled'
+        CANCELLED: 'Cancelled',
+        EXPIRED: 'Expired - not picked up'
       };
       orderStatusItems = orderStatusNotifications.map(notification => {
         const order = notification.orders || {};
@@ -1611,7 +1629,7 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
               <span class="notification-cat pill info">Order update</span>
               <div class="notification-content">
                 <strong>Order ${esc(statusLabel)}</strong>
-                <p class="muted" style="margin:2px 0 0;font-size:.85rem">Your order${product.name ? ` for ${esc(product.name)}` : ''}${store.business_name ? ` from ${esc(store.business_name)}` : ''} is now ${esc(statusLabel.toLowerCase())}.</p>
+                <p class="muted" style="margin:2px 0 0;font-size:.85rem">Your order${product.name ? ` for ${esc(product.name)}` : ''}${store.business_name ? ` from ${esc(store.business_name)}` : ''} is now ${esc(statusLabel.toLowerCase())}.${order.cancellation_reason ? ` Reason: ${esc(order.cancellation_reason)}` : ''}</p>
                 <span class="muted" style="font-size:.7rem">${new Date(notification.created_at).toLocaleString('en-PH')} • Order ${esc(orderLabel)}</span>
               </div>
               ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}

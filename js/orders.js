@@ -8,6 +8,7 @@ const msgEl = $('#orders-message');
 
 let currentSession = null;
 let currentOrders = [];
+let orderChangesChannel = null;
 
 async function loadOrders() {
   if (!isSupabaseConfigured()) {
@@ -39,7 +40,13 @@ async function loadOrders() {
   // Start advisory toast listener
   startAdvisoryToastListener();
   startOrderStatusListener(session.user.id);
+  startOrderRefreshListener(session.user.id);
 
+  await refreshOrders();
+  $('#orders-content').style.display = 'block';
+}
+
+async function refreshOrders() {
   try {
     const { data: orders, error } = await supabase
       .from('orders')
@@ -61,8 +68,25 @@ async function loadOrders() {
     console.error('Load orders error:', err);
     showMsg('Failed to load orders. Please try again.', 'bad');
   }
+}
 
-  $('#orders-content').style.display = 'block';
+function startOrderRefreshListener(userId) {
+  orderChangesChannel = supabase
+    .channel(`customer-orders-${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'orders',
+        filter: `buyer_id=eq.${userId}`
+      },
+      () => refreshOrders()
+    )
+    .subscribe((status, err) => {
+      if (err) console.error('Customer order updates subscription error:', err);
+      console.log('Customer order subscription:', status);
+    });
 }
 
 function renderOrders() {
@@ -78,14 +102,16 @@ function renderOrders() {
     CONFIRMED: 'info',
     READY_FOR_PICKUP: 'ok',
     COMPLETED: 'ok',
-    CANCELLED: 'bad'
+    CANCELLED: 'bad',
+    EXPIRED: 'bad'
   };
   const statusLabels = {
     PENDING: 'Pending',
     CONFIRMED: 'Confirmed',
     READY_FOR_PICKUP: 'Ready for pickup',
     COMPLETED: 'Completed',
-    CANCELLED: 'Cancelled'
+    CANCELLED: 'Cancelled',
+    EXPIRED: 'Expired - not picked up'
   };
 
   container.innerHTML = currentOrders.map(o => {
@@ -106,12 +132,37 @@ function renderOrders() {
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
           <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
+          ${o.status === 'PENDING' ? `<button type="button" class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel-order="${esc(o.id)}">Cancel reservation</button>` : ''}
         </div>
         <p class="muted" style="margin:8px 0 0;font-size:.75rem">Ordered: ${new Date(o.created_at).toLocaleString('en-PH')}</p>
         ${o.notes ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Notes: ${esc(o.notes)}</p>` : ''}
+        ${o.cancellation_reason ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Cancellation reason: ${esc(o.cancellation_reason)}</p>` : ''}
       </div>
     `;
   }).join('');
+
+  container.querySelectorAll('[data-cancel-order]').forEach(button => {
+    button.addEventListener('click', () => cancelOrder(button.dataset.cancelOrder));
+  });
+}
+
+async function cancelOrder(orderId) {
+  if (!confirm('Cancel this reservation?')) return;
+
+  try {
+    const { error } = await supabase.rpc('update_order_status', {
+      p_order_id: orderId,
+      p_new_status: 'CANCELLED',
+      p_cancellation_reason: null
+    });
+
+    if (error) throw error;
+
+    await refreshOrders();
+  } catch (err) {
+    console.error('Cancel order error:', err);
+    showMsg(typeof err?.message === 'string' ? err.message : 'Failed to cancel this reservation.', 'bad');
+  }
 }
 
 function focusOrderFromQuery() {

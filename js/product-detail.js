@@ -288,7 +288,11 @@ reserveForm.addEventListener('submit', async (e) => {
     setTimeout(() => window.location.href = '/orders/', 2000);
   } catch (err) {
     console.error('Reserve error:', err);
-    showMsg('Failed to reserve. Please try again.', 'bad');
+    showMsg(typeof err?.message === 'string' && err.message.includes('Insufficient stock')
+      ? 'The remaining stock was just reserved by someone else. Refresh and try again.'
+      : typeof err?.message === 'string' && err.message.includes('out of stock')
+        ? 'This product is out of stock.'
+        : 'Failed to reserve. Please try again.', 'bad');
     submitBtn.disabled = false;
     submitBtn.textContent = 'Reserve for Pickup';
   }

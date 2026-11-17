@@ -25,12 +25,16 @@ create table if not exists orders (
   product_id uuid not null references products(id) on delete cascade,
   quantity integer not null default 1 check (quantity > 0),
   total_price numeric(10,2) not null,
-  status text not null default 'PENDING' check (status in ('PENDING','CONFIRMED','READY_FOR_PICKUP','COMPLETED','CANCELLED')),
+  status text not null default 'PENDING' check (status in ('PENDING','CONFIRMED','READY_FOR_PICKUP','COMPLETED','CANCELLED','EXPIRED')),
   payment_method text not null check (payment_method in ('CASH','GCASH')),
   notes text,
   confirmed_at timestamptz,
   ready_at timestamptz,
   completed_at timestamptz,
+  cancelled_at timestamptz,
+  cancelled_by uuid references auth.users(id) on delete set null,
+  cancellation_actor text check (cancellation_actor in ('CUSTOMER','BUSINESS_OWNER','ADMIN','SYSTEM')),
+  cancellation_reason text,
   created_at timestamptz not null default now()
 );
 
@@ -54,6 +58,13 @@ create policy "buyer create orders" on orders
   for insert to authenticated
   with check (
     auth.uid() = buyer_id
+    and status = 'PENDING'
+    and exists (
+      select 1
+      from products
+      where products.id = orders.product_id
+        and products.store_id = orders.store_id
+    )
     and not exists (
       select 1 from stores
       where stores.id = orders.store_id
@@ -69,16 +80,8 @@ create policy "owner read orders" on orders
     store_id in (select id from stores where user_id = auth.uid())
   );
 
--- Store owners can update their store's orders (confirm, ready, complete)
+-- Order status changes go through the permission-checking update_order_status RPC.
 drop policy if exists "owner update orders" on orders;
-create policy "owner update orders" on orders
-  for update to authenticated
-  using (
-    store_id in (select id from stores where user_id = auth.uid())
-  )
-  with check (
-    store_id in (select id from stores where user_id = auth.uid())
-  );
 
 -- Admin can read all orders
 drop policy if exists "admin read orders" on orders;
@@ -86,9 +89,6 @@ create policy "admin read orders" on orders
   for select to authenticated
   using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
 
--- Admin can update all orders
+-- Status updates are handled by update_order_status, not direct table writes.
 drop policy if exists "admin update orders" on orders;
-create policy "admin update orders" on orders
-  for all to authenticated
-  using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'))
-  with check (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+revoke update on table orders from anon, authenticated;

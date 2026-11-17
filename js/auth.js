@@ -632,7 +632,7 @@ export async function startOrderStatusListener(userId) {
         const oldOrder = payload.old;
 
         // Only notify on status change to specific states
-        const notifyingStatuses = ['CONFIRMED', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED'];
+        const notifyingStatuses = ['CONFIRMED', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED', 'EXPIRED'];
         if (order.status !== oldOrder.status && notifyingStatuses.includes(order.status)) {
           console.log('[OrderListener] Status changed to:', order.status);
 
@@ -645,7 +645,12 @@ export async function startOrderStatusListener(userId) {
             CONFIRMED: 'Your order has been confirmed!',
             READY_FOR_PICKUP: 'Your order is ready for pickup!',
             COMPLETED: 'Your order has been completed!',
-            CANCELLED: 'Your order has been cancelled by the seller.'
+            CANCELLED: order.cancellation_actor === 'CUSTOMER'
+              ? 'You cancelled this reservation.'
+              : order.cancellation_actor === 'BUSINESS_OWNER'
+                ? `The business owner cancelled your reservation.${order.cancellation_reason ? ` Reason: ${order.cancellation_reason}` : ''}`
+                : `Your reservation has been cancelled.${order.cancellation_reason ? ` Reason: ${order.cancellation_reason}` : ''}`,
+            EXPIRED: order.cancellation_reason || 'Your reservation expired because it was not picked up within 3 days.'
           };
 
           const { showOrderStatusToast } = await import('./ui.js');

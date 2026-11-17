@@ -15,6 +15,7 @@ let currentSession = null;
 let demoPaymentAction = null;
 let demoPaymentCancelAction = null;
 let paymentCountdownInterval = null;
+let orderChangesChannel = null;
 
 async function init() {
   if (!isSupabaseConfigured()) return;
@@ -82,6 +83,7 @@ async function loadStore(userId) {
   await loadProducts(store.id);
   // Load orders
   await loadOrders(store.id);
+  startOrderRefreshListener(store.id);
   // Load analytics
   await loadAnalytics(store.id);
   // Load verification
@@ -293,14 +295,16 @@ function renderOrders() {
     CONFIRMED: 'info',
     READY_FOR_PICKUP: 'ok',
     COMPLETED: 'ok',
-    CANCELLED: 'bad'
+    CANCELLED: 'bad',
+    EXPIRED: 'bad'
   };
   const statusLabels = {
     PENDING: 'Pending',
     CONFIRMED: 'Confirmed',
     READY_FOR_PICKUP: 'Ready for pickup',
     COMPLETED: 'Completed',
-    CANCELLED: 'Cancelled'
+    CANCELLED: 'Cancelled',
+    EXPIRED: 'Expired - not picked up'
   };
 
   list.innerHTML = currentOrders.map(o => {
@@ -313,18 +317,19 @@ function renderOrders() {
     if (o.status === 'PENDING') {
       actions = `
         <button class="btn ok" style="padding:6px 12px;font-size:.8rem" data-confirm="${o.id}">Confirm</button>
-        <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel</button>
+        <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel reservation</button>
         <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'CONFIRMED') {
       actions = `
         <button class="btn ok" style="padding:6px 12px;font-size:.8rem" data-ready="${o.id}">Mark Ready</button>
-        <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel</button>
+        <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel reservation</button>
         <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'READY_FOR_PICKUP') {
       actions = `
         <button class="btn ok" style="padding:6px 12px;font-size:.8rem" data-complete="${o.id}">Complete</button>
+        <button class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel="${o.id}">Cancel reservation</button>
         <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
       `;
     } else if (o.status === 'COMPLETED') {
@@ -334,6 +339,8 @@ function renderOrders() {
       `;
     } else if (o.status === 'CANCELLED') {
       actions = '<span class="pill bad">Cancelled</span>';
+    } else if (o.status === 'EXPIRED') {
+      actions = '<span class="pill bad">Expired - not picked up</span>';
     }
 
     return `
@@ -348,6 +355,7 @@ function renderOrders() {
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">${actions}</div>
         ${o.notes ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Notes: ${esc(o.notes)}</p>` : ''}
+        ${o.cancellation_reason ? `<p class="muted" style="margin:8px 0 0;font-size:.8rem">Cancellation reason: ${esc(o.cancellation_reason)}</p>` : ''}
         <p class="muted" style="margin:8px 0 0;font-size:.75rem">Ordered: ${new Date(o.created_at).toLocaleString('en-PH')}</p>
       </div>
     `;
@@ -364,10 +372,31 @@ function renderOrders() {
     btn.addEventListener('click', () => updateOrderStatus(btn.dataset.complete, 'COMPLETED'));
   });
   list.querySelectorAll('[data-cancel]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (confirm('Cancel this order?')) updateOrderStatus(btn.dataset.cancel, 'CANCELLED');
-    });
+    btn.addEventListener('click', () => cancelOrder(btn.dataset.cancel));
   });
+}
+
+function startOrderRefreshListener(storeId) {
+  if (orderChangesChannel) orderChangesChannel.unsubscribe();
+
+  orderChangesChannel = supabase
+    .channel(`dashboard-orders-${storeId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'orders',
+        filter: `store_id=eq.${storeId}`
+      },
+      async () => {
+        await Promise.all([loadOrders(storeId), loadProducts(storeId)]);
+      }
+    )
+    .subscribe((status, err) => {
+      if (err) console.error('Order updates subscription error:', err);
+      console.log('Dashboard order subscription:', status);
+    });
 }
 
 function renderProducts() {
@@ -413,7 +442,7 @@ function renderProducts() {
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
           <p class="muted" style="margin-top:8px;font-size:.8rem">
             ${p.in_stock ? '<span class="pill ok" style="font-size:.7rem">In stock</span>' : '<span class="pill bad" style="font-size:.7rem">Out of stock</span>'}
-            ${p.quantity != null ? ` • Qty: ${p.quantity}` : ''}
+            ${p.quantity != null ? ` • Available: ${p.quantity}` : ''}
           </p>
           <p class="muted" style="font-size:.7rem;margin-top:8px">Category: ${esc(p.category)}</p>
         </div>
@@ -1066,28 +1095,38 @@ async function deleteProduct(productId) {
   }
 }
 
-async function updateOrderStatus(orderId, newStatus) {
-  const updates = { status: newStatus };
-  const now = new Date().toISOString();
-  if (newStatus === 'CONFIRMED') updates.confirmed_at = now;
-  else if (newStatus === 'READY_FOR_PICKUP') updates.ready_at = now;
-  else if (newStatus === 'COMPLETED') updates.completed_at = now;
-
+async function updateOrderStatus(orderId, newStatus, cancellationReason = null) {
   try {
-    const { error } = await supabase
-      .from('orders')
-      .update(updates)
-      .eq('id', orderId);
+    const { error } = await supabase.rpc('update_order_status', {
+      p_order_id: orderId,
+      p_new_status: newStatus,
+      p_cancellation_reason: cancellationReason
+    });
 
     if (error) throw error;
 
     await loadOrders(currentStore.id);
-    if (newStatus === 'COMPLETED') await loadProducts(currentStore.id);
+    if (newStatus === 'COMPLETED' || newStatus === 'CANCELLED') {
+      await loadProducts(currentStore.id);
+    }
   } catch (err) {
     console.error('Update order error:', err);
-    alert(typeof err?.message === 'string' && err.message.includes('Insufficient stock')
-      ? 'Cannot complete this order: there is not enough stock remaining.'
-      : 'Failed to update. Please try again.');
+    alert(typeof err?.message === 'string' ? err.message : 'Failed to update. Please try again.');
+  }
+}
+
+async function cancelOrder(orderId) {
+  const enteredReason = prompt('Enter a reason for cancelling this reservation:');
+  if (enteredReason === null) return;
+
+  const reason = enteredReason.trim();
+  if (!reason) {
+    alert('A cancellation reason is required.');
+    return;
+  }
+
+  if (confirm('Cancel this reservation? The held stock will be released.')) {
+    await updateOrderStatus(orderId, 'CANCELLED', reason);
   }
 }
 
