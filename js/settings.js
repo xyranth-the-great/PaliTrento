@@ -607,6 +607,229 @@ async function getUserOrderIds(userId) {
 }
 
 // ===== Export/Download Data =====
+
+// Format configurations
+const EXPORT_FORMATS = {
+  xlsx: { ext: 'xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'Excel' },
+  csv: { ext: 'csv', mime: 'text/csv;charset=utf-8', label: 'CSV' },
+  xml: { ext: 'xml', mime: 'application/xml;charset=utf-8', label: 'XML' },
+  json: { ext: 'json', mime: 'application/json;charset=utf-8', label: 'JSON' }
+};
+
+// Load SheetJS (xlsx) dynamically from CDN
+let XLSX = null;
+async function loadXLSX() {
+  if (XLSX) return XLSX;
+  return new Promise((resolve, reject) => {
+    if (window.XLSX) { XLSX = window.XLSX; return resolve(XLSX); }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+    script.onload = () => { XLSX = window.XLSX; resolve(XLSX); };
+    script.onerror = () => reject(new Error('Failed to load SheetJS library'));
+    document.head.appendChild(script);
+  });
+}
+
+// Flatten object for CSV/XML (dot notation for nested)
+function flattenObject(obj, prefix = '') {
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const newKey = prefix ? `${prefix}.${key}` : key;
+    if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+      Object.assign(result, flattenObject(value, newKey));
+    } else {
+      result[newKey] = value;
+    }
+  }
+  return result;
+}
+
+// Convert array of objects to CSV
+function arrayToCSV(arr) {
+  if (!arr.length) return '';
+  const headers = [...new Set(arr.flatMap(obj => Object.keys(flattenObject(obj))))];
+  const rows = arr.map(obj => {
+    const flat = flattenObject(obj);
+    return headers.map(h => {
+      const val = flat[h] ?? '';
+      // Escape quotes and wrap in quotes if contains comma, quote, or newline
+      const str = String(val);
+      if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+      return str;
+    }).join(',');
+  });
+  return [headers.join(','), ...rows].join('\n');
+}
+
+// Convert array of objects to XML
+function arrayToXML(arr, rootName = 'data', itemName = 'item') {
+  const escape = (str) => String(str)
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, '&apos;');
+
+  const objToXML = (obj, indent = 2) => {
+    let xml = '';
+    for (const [key, value] of Object.entries(obj)) {
+      const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const spaces = ' '.repeat(indent);
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        xml += `${spaces}<${safeKey}>\n${objToXML(value, indent + 2)}${spaces}</${safeKey}>\n`;
+      } else if (Array.isArray(value)) {
+        xml += value.map(v => `${spaces}<${safeKey}>${escape(v)}</${safeKey}>`).join('\n') + '\n';
+      } else {
+        xml += `${spaces}<${safeKey}>${escape(value)}</${safeKey}>\n`;
+      }
+    }
+    return xml;
+  };
+
+  const itemsXml = arr.map(item => `  <${itemName}>\n${objToXML(item, 4)}  </${itemName}>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<${rootName}>\n${itemsXml}\n</${rootName}>`;
+}
+
+// Export data in selected format
+async function exportData(data, format, filename) {
+  const { ext, mime } = EXPORT_FORMATS[format];
+  let blob;
+
+  if (format === 'xlsx') {
+    const XLSX = await loadXLSX();
+    const wb = XLSX.utils.book_new();
+
+    // Profile sheet
+    if (data.profile) {
+      const profileFlat = flattenObject(data.profile);
+      const ws = XLSX.utils.json_to_sheet([profileFlat]);
+      XLSX.utils.book_append_sheet(wb, ws, 'Profile');
+    }
+
+    // Orders sheet
+    if (data.orders?.length) {
+      const ws = XLSX.utils.json_to_sheet(data.orders.map(flattenObject));
+      XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+    }
+
+    // Messages sheet
+    if (data.messages?.length) {
+      const ws = XLSX.utils.json_to_sheet(data.messages.map(flattenObject));
+      XLSX.utils.book_append_sheet(wb, ws, 'Messages');
+    }
+
+    // Export info sheet
+    const infoWs = XLSX.utils.json_to_sheet([{ exportedAt: data.exportedAt, format: 'xlsx' }]);
+    XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    blob = new Blob([wbout], { type: mime });
+
+  } else if (format === 'csv') {
+    // For CSV, combine all data with a type column
+    const combined = [];
+    if (data.profile) combined.push({ ...flattenObject(data.profile), _type: 'profile' });
+    if (data.orders?.length) data.orders.forEach(o => combined.push({ ...flattenObject(o), _type: 'order' }));
+    if (data.messages?.length) data.messages.forEach(m => combined.push({ ...flattenObject(m), _type: 'message' }));
+    combined.push({ _type: 'export_info', exportedAt: data.exportedAt });
+
+    const csv = arrayToCSV(combined);
+    const bom = '﻿'; // UTF-8 BOM
+    blob = new Blob([bom + csv], { type: mime });
+
+  } else if (format === 'xml') {
+    // For XML, create structured document
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<export>\n';
+    xml += `  <exportedAt>${data.exportedAt}</exportedAt>\n`;
+    if (data.profile) {
+      xml += `  <profile>\n`;
+      for (const [k, v] of Object.entries(flattenObject(data.profile))) {
+        xml += `    <${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>${String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')}</${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>\n`;
+      }
+      xml += `  </profile>\n`;
+    }
+    if (data.orders?.length) {
+      xml += `  <orders>\n`;
+      data.orders.forEach(o => {
+        xml += `    <order>\n`;
+        for (const [k, v] of Object.entries(flattenObject(o))) {
+          xml += `      <${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>${String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')}</${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>\n`;
+        }
+        xml += `    </order>\n`;
+      });
+      xml += `  </orders>\n`;
+    }
+    if (data.messages?.length) {
+      xml += `  <messages>\n`;
+      data.messages.forEach(m => {
+        xml += `    <message>\n`;
+        for (const [k, v] of Object.entries(flattenObject(m))) {
+          xml += `      <${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>${String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')}</${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>\n`;
+        }
+        xml += `    </message>\n`;
+      });
+      xml += `  </messages>\n`;
+    }
+    xml += `</export>`;
+    const bom = '﻿';
+    blob = new Blob([bom + xml], { type: mime });
+
+  } else { // json
+    const jsonString = JSON.stringify(data, null, 2);
+    const readableJson = jsonString.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    const bom = '﻿';
+    blob = new Blob([bom + readableJson], { type: mime });
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Export chat history in selected format
+async function exportChatHistory(messages, format, filename) {
+  const { ext, mime } = EXPORT_FORMATS[format];
+  let blob;
+
+  if (format === 'xlsx') {
+    const XLSX = await loadXLSX();
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(messages.map(flattenObject));
+    XLSX.utils.book_append_sheet(wb, ws, 'Chat History');
+    const infoWs = XLSX.utils.json_to_sheet([{ exportedAt: new Date().toISOString(), messageCount: messages.length }]);
+    XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    blob = new Blob([wbout], { type: mime });
+
+  } else if (format === 'csv') {
+    const csv = arrayToCSV(messages.map(flattenObject));
+    const bom = '﻿';
+    blob = new Blob([bom + csv], { type: mime });
+
+  } else if (format === 'xml') {
+    const xml = arrayToXML(messages.map(flattenObject), 'chatHistory', 'message');
+    const bom = '﻿';
+    blob = new Blob([bom + xml], { type: mime });
+
+  } else { // json
+    const jsonString = JSON.stringify({ chatHistory: messages, exportedAt: new Date().toISOString() }, null, 2);
+    const readableJson = jsonString.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    const bom = '﻿';
+    blob = new Blob([bom + readableJson], { type: mime });
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Event handlers
 $('#export-data-btn').addEventListener('click', async () => {
   if (!supabase || !currentSession) return alert('Not available');
 
@@ -616,6 +839,8 @@ $('#export-data-btn').addEventListener('click', async () => {
   btn.textContent = 'Exporting...';
 
   try {
+    const format = $('#export-format').value;
+
     // Fetch user's order IDs using shared helper
     const orderIds = await getUserOrderIds(currentSession.user.id);
 
@@ -638,13 +863,7 @@ $('#export-data-btn').addEventListener('click', async () => {
       exportedAt: new Date().toISOString()
     };
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `palitrento-data-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await exportData(data, format, `palitrento-data-${Date.now()}`);
   } catch (err) {
     console.error('Export error:', err);
     alert(`Failed to export data: ${err.message || 'Unknown error'}`);
@@ -663,6 +882,8 @@ $('#download-data-btn').addEventListener('click', async () => {
   btn.textContent = 'Downloading...';
 
   try {
+    const format = $('#chat-format').value || $('#export-format').value;
+
     // Fetch user's order IDs using shared helper
     const orderIds = await getUserOrderIds(currentSession.user.id);
 
@@ -674,18 +895,7 @@ $('#download-data-btn').addEventListener('click', async () => {
 
     if (error) throw error;
 
-    const data = {
-      chatHistory: messages,
-      exportedAt: new Date().toISOString()
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `palitrento-chat-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await exportChatHistory(messages || [], format, `palitrento-chat-${Date.now()}`);
   } catch (err) {
     console.error('Download chat error:', err);
     alert(`Failed to download chat history: ${err.message || 'Unknown error'}`);
