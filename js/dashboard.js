@@ -516,6 +516,18 @@ function getEffectiveFreeListingUsage(quota = 15) {
   return Math.max(reportedUsage, productCount);
 }
 
+function getEffectiveSubscriptionEntitlement(entitlement, planDetails) {
+  const quotaValue = Number(planDetails?.free_listing_quota);
+  if (Number.isFinite(quotaValue) && quotaValue < 0) return entitlement;
+  const quota = Number.isFinite(quotaValue) && quotaValue >= 0 ? quotaValue : 15;
+  const used = getEffectiveFreeListingUsage(quota);
+  return {
+    ...entitlement,
+    free_listings_used: used,
+    remaining_free: Math.max(0, quota - Math.min(used, quota))
+  };
+}
+
 function renderProductsListingUsage() {
   const card = $('#products-listing-usage');
   if (!card) return;
@@ -698,6 +710,7 @@ async function loadSubscriptionData(userId) {
 
 function renderSubscriptionDashboard(data) {
   const { subscription, plan_details, entitlement, locks } = data;
+  const displayEntitlement = getEffectiveSubscriptionEntitlement(entitlement, plan_details);
 
   // Show/hide plan status sections
   const premiumStatus = $('#sub-premium-status');
@@ -743,7 +756,7 @@ function renderSubscriptionDashboard(data) {
       setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
       planName.textContent = 'Free Plan';
       planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
-      renderFreePlanUsage(entitlement, plan_details);
+      renderFreePlanUsage(displayEntitlement, plan_details);
       entitlementCard.style.display = 'block';
       featuredPromoCard.style.display = 'block';
     } else if (status === 'PAST_DUE') {
@@ -775,16 +788,16 @@ function renderSubscriptionDashboard(data) {
     setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
     planName.textContent = 'Free Plan';
     planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
-    renderFreePlanUsage(entitlement, plan_details);
+    renderFreePlanUsage(displayEntitlement, plan_details);
     entitlementCard.style.display = 'block';
     featuredPromoCard.style.display = 'block';
   }
 
   // Render entitlement
   $('#entitlement-total').textContent = plan_details.free_listing_quota === -1 ? '∞' : entitlement.total_listings_allowed;
-  $('#entitlement-free-used').textContent = entitlement.free_listings_used;
+  $('#entitlement-free-used').textContent = displayEntitlement.free_listings_used;
   $('#entitlement-paid-count').textContent = entitlement.paid_listings_count;
-  $('#entitlement-remaining').textContent = entitlement.remaining_free === 999999 ? '∞' : entitlement.remaining_free;
+  $('#entitlement-remaining').textContent = displayEntitlement.remaining_free === 999999 ? '∞' : displayEntitlement.remaining_free;
 
   // Render locked products
   if ((locks?.total_locked || 0) > 0) lockedProductsCard.style.display = 'block';
