@@ -62,12 +62,12 @@ export async function subscribeToPush() {
   if (!swRegistration) {
     swRegistration = await registerServiceWorker();
   }
-  if (!swRegistration) return { error: 'Service Worker not available' };
+  if (!swRegistration) return { subscription: null, error: { code: 'SW_NOT_AVAILABLE', message: 'Service Worker not available' } };
 
   // Check for valid VAPID key
   if (!isValidVapidKey(VAPID_PUBLIC_KEY)) {
     console.warn('[Push] VAPID public key not configured, skipping push subscription');
-    return { subscription: null, error: 'VAPID key not configured' };
+    return { subscription: null, error: { code: 'VAPID_NOT_CONFIGURED', message: 'VAPID key not configured' } };
   }
 
   try {
@@ -102,14 +102,27 @@ export async function subscribeToPush() {
 
       if (error) {
         console.error('[Push] Failed to save subscription:', error);
-        return { subscription, error };
+        return { subscription, error: { code: 'SAVE_FAILED', message: error.message || 'Failed to save subscription' } };
       }
     }
 
     return { subscription, error: null };
   } catch (error) {
     console.error('[Push] Subscription failed:', error);
-    return { subscription: null, error };
+
+    // Determine error code based on error type
+    let code = 'SUBSCRIPTION_FAILED';
+    let message = error.message || 'Subscription failed';
+
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError' ||
+        (error.message && error.message.includes('permission'))) {
+      code = 'PERMISSION_DENIED';
+      message = 'Notification permission denied';
+    } else if (error.name === 'AbortError' || error.name === 'InvalidStateError') {
+      code = 'SUBSCRIPTION_FAILED';
+    }
+
+    return { subscription: null, error: { code, message } };
   }
 }
 
@@ -128,17 +141,30 @@ export async function unsubscribeFromPush() {
       // Remove from Supabase
       const session = await getSession();
       if (session) {
-        await supabase
+        const { error } = await supabase
           .from('push_subscriptions')
           .delete()
           .eq('user_id', session.user.id)
           .eq('endpoint', subscription.endpoint);
+
+        if (error) {
+          console.error('[Push] Failed to remove subscription from DB:', error);
+          return { error: { code: 'DELETE_FAILED', message: error.message || 'Failed to remove subscription' } };
+        }
       }
     }
     return { error: null };
   } catch (error) {
     console.error('[Push] Unsubscribe failed:', error);
-    return { error };
+    let code = 'UNSUBSCRIBE_FAILED';
+    let message = error.message || 'Unsubscribe failed';
+
+    if (error.name === 'NotFoundError' || (error.message && error.message.includes('not found'))) {
+      code = 'SUBSCRIPTION_NOT_FOUND';
+      message = 'Subscription not found';
+    }
+
+    return { error: { code, message } };
   }
 }
 
@@ -156,7 +182,7 @@ export async function isPushSubscribed() {
  */
 export async function requestNotificationPermission() {
   if (!('Notification' in window)) {
-    return { granted: false, error: 'Notifications not supported' };
+    return { granted: false, error: { code: 'NOT_SUPPORTED', message: 'Notifications not supported' } };
   }
 
   if (Notification.permission === 'granted') {
@@ -164,11 +190,14 @@ export async function requestNotificationPermission() {
   }
 
   if (Notification.permission === 'denied') {
-    return { granted: false, error: 'Permission denied' };
+    return { granted: false, error: { code: 'PERMISSION_DENIED', message: 'Permission denied' } };
   }
 
   const permission = await Notification.requestPermission();
-  return { granted: permission === 'granted', error: permission === 'granted' ? null : 'Permission denied' };
+  return {
+    granted: permission === 'granted',
+    error: permission === 'granted' ? null : { code: 'PERMISSION_DENIED', message: 'Permission denied' }
+  };
 }
 
 /**
@@ -207,7 +236,7 @@ export async function initPushNotifications() {
   // Skip if VAPID key not configured (development)
   if (!isValidVapidKey(VAPID_PUBLIC_KEY)) {
     console.log('[Push] VAPID key not configured, skipping push initialization');
-    return { success: false, error: 'VAPID key not configured' };
+    return { success: false, error: { code: 'VAPID_NOT_CONFIGURED', message: 'VAPID key not configured' } };
   }
 
   const { granted, error } = await requestNotificationPermission();

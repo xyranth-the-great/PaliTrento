@@ -355,7 +355,6 @@ function loadPreferences() {
       if (el) el.checked = prefs[key];
     });
   } catch {}
-
 }
 
 async function saveNotifications() {
@@ -382,7 +381,23 @@ async function saveNotifications() {
           pushCheckbox.checked = false;
           prefs.push = false;
           localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
-          showMsg('Failed to enable push notifications', 'bad');
+          // Show user-friendly message based on error code
+          let message = 'Failed to enable push notifications';
+          switch (error.code) {
+            case 'VAPID_NOT_CONFIGURED':
+              message = 'Push notifications not configured. Contact administrator.';
+              break;
+            case 'PERMISSION_DENIED':
+              message = 'Permission denied. Enable in browser settings.';
+              break;
+            case 'SUBSCRIPTION_FAILED':
+              message = 'Failed to subscribe. Try again.';
+              break;
+            case 'SAVE_FAILED':
+              message = 'Subscription created but failed to save. Try again.';
+              break;
+          }
+          showMsg(message, 'bad');
         } else {
           // Save all prefs to database after successful push subscription
           await saveNotificationPreferencesToDb(prefs);
@@ -397,7 +412,20 @@ async function saveNotifications() {
           pushCheckbox.checked = true;
           prefs.push = true;
           localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
-          showMsg('Failed to disable push notifications', 'bad');
+          // Show user-friendly message based on error code
+          let message = 'Failed to disable push notifications';
+          switch (error.code) {
+            case 'DELETE_FAILED':
+              message = 'Subscription removed but failed to update server. Try again.';
+              break;
+            case 'UNSUBSCRIBE_FAILED':
+              message = 'Failed to unsubscribe. Try again.';
+              break;
+            case 'SUBSCRIPTION_NOT_FOUND':
+              message = 'Subscription not found. Already removed.';
+              break;
+          }
+          showMsg(message, 'bad');
         } else {
           // Save all prefs to database after successful push unsubscription
           await saveNotificationPreferencesToDb(prefs);
@@ -526,16 +554,82 @@ $('#save-password-btn').addEventListener('click', async () => {
   }
 });
 
+// ===== Shared Helper: Get User Order IDs =====
+/**
+ * Fetches all order IDs for the current user (as buyer or store owner).
+ * Returns an array of order IDs, or a dummy UUID array if none found
+ * to avoid Supabase .in() errors with empty arrays.
+ */
+async function getUserOrderIds(userId) {
+  if (!supabase) return [];
+
+  try {
+    // Step 1: Get store IDs owned by the user
+    const { data: stores, error: storesError } = await supabase
+      .from('stores')
+      .select('id')
+      .eq('user_id', userId);
+
+    if (storesError) {
+      console.error('Fetch stores error:', storesError);
+      throw storesError;
+    }
+
+    const storeIds = (stores || []).map(s => s.id);
+
+    // Step 2: Build orders query - buyer_id OR store_id.in(storeIds)
+    let ordersQuery;
+    if (storeIds.length > 0) {
+      ordersQuery = supabase.from('orders').select('id').or(`buyer_id.eq.${userId},store_id.in.(${storeIds.join(',')})`);
+    } else {
+      ordersQuery = supabase.from('orders').select('id').eq('buyer_id', userId);
+    }
+
+    const { data: orders, error: ordersError } = await ordersQuery;
+
+    if (ordersError) {
+      console.error('Fetch orders error:', ordersError);
+      throw ordersError;
+    }
+
+    const orderIds = (orders || []).map(o => o.id);
+
+    // Step 3: Handle empty array - return dummy UUID to avoid .in() error
+    if (orderIds.length === 0) {
+      return ['00000000-0000-0000-0000-000000000000'];
+    }
+
+    return orderIds;
+  } catch (err) {
+    console.error('getUserOrderIds error:', err);
+    throw err;
+  }
+}
+
 // ===== Export/Download Data =====
 $('#export-data-btn').addEventListener('click', async () => {
   if (!supabase || !currentSession) return alert('Not available');
+
+  const btn = $('#export-data-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Exporting...';
+
   try {
-    // Fetch user data
+    // Fetch user's order IDs using shared helper
+    const orderIds = await getUserOrderIds(currentSession.user.id);
+
+    // Fetch user data in parallel
     const [profileRes, ordersRes, messagesRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', currentSession.user.id).single(),
-      supabase.from('orders').select('*').or(`buyer_id.eq.${currentSession.user.id},store_id.in.(select id from stores where user_id=eq.${currentSession.user.id})`),
-      supabase.from('messages').select('*').in('order_id', (await supabase.from('orders').select('id').or(`buyer_id.eq.${currentSession.user.id},store_id.in.(select id from stores where user_id=eq.${currentSession.user.id})`)).data?.map(o => o.id) || [])
+      supabase.from('orders').select('*').in('id', orderIds),
+      supabase.from('messages').select('*').in('order_id', orderIds)
     ]);
+
+    // Check for errors in responses
+    if (profileRes.error) throw profileRes.error;
+    if (ordersRes.error) throw ordersRes.error;
+    if (messagesRes.error) throw messagesRes.error;
 
     const data = {
       profile: profileRes.data,
@@ -553,24 +647,32 @@ $('#export-data-btn').addEventListener('click', async () => {
     URL.revokeObjectURL(url);
   } catch (err) {
     console.error('Export error:', err);
-    alert('Failed to export data');
+    alert(`Failed to export data: ${err.message || 'Unknown error'}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 });
 
 $('#download-data-btn').addEventListener('click', async () => {
   if (!supabase || !currentSession) return alert('Not available');
-  try {
-    // Get user's order IDs
-    const { data: stores } = await supabase.from('stores').select('id').eq('user_id', currentSession.user.id);
-    const storeIds = (stores || []).map(s => s.id);
-    let query = supabase.from('orders').select('id').eq('buyer_id', currentSession.user.id);
-    if (storeIds.length > 0) {
-      query = query.or(`buyer_id.eq.${currentSession.user.id},store_id.in.(${storeIds.join(',')})`);
-    }
-    const { data: orders } = await query;
-    const orderIds = (orders || []).map(o => o.id);
 
-    const { data: messages } = await supabase.from('messages').select('*').in('order_id', orderIds);
+  const btn = $('#download-data-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Downloading...';
+
+  try {
+    // Fetch user's order IDs using shared helper
+    const orderIds = await getUserOrderIds(currentSession.user.id);
+
+    // Fetch chat messages for those orders
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .in('order_id', orderIds);
+
+    if (error) throw error;
 
     const data = {
       chatHistory: messages,
@@ -586,7 +688,10 @@ $('#download-data-btn').addEventListener('click', async () => {
     URL.revokeObjectURL(url);
   } catch (err) {
     console.error('Download chat error:', err);
-    alert('Failed to download chat history');
+    alert(`Failed to download chat history: ${err.message || 'Unknown error'}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 });
 
