@@ -436,7 +436,7 @@ function renderProducts() {
       <div style="grid-column:1/-1;margin-bottom:16px;padding:16px;background:linear-gradient(135deg,rgba(91,33,182,0.1),rgba(139,92,246,0.1));border:1px solid rgba(139,92,246,0.3);border-radius:var(--r-lg);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
         <div>
           <strong style="color:var(--premium-violet)">Need unlimited product listings?</strong>
-          <p class="muted" style="margin:4px 0 0;font-size:.9rem">You've used all 15 free listings. Additional listings cost ₱1 each.</p>
+          <p class="muted" style="margin:4px 0 0;font-size:.9rem">You've used the 15 listing allowance. Product listings have no additional fee.</p>
         </div>
         <button class="btn" id="upgrade-banner-btn" style="white-space:nowrap">Upgrade to Premium – ₱49/month</button>
       </div>
@@ -546,8 +546,8 @@ function renderProductsListingUsage() {
   track.classList.toggle('is-full', usedForProgress >= quota);
   $('#products-listing-usage-fill').style.width = `${quota ? (usedForProgress / quota) * 100 : 0}%`;
   caption.textContent = remaining > 0
-    ? `${remaining} free listing${remaining === 1 ? '' : 's'} left. Additional listings cost ₱1 each.`
-    : 'You’ve used all free listings. Additional listings cost ₱1 each.';
+    ? `${remaining} free listing${remaining === 1 ? '' : 's'} left.`
+    : 'You’ve used the 15 listing allowance. Product listings have no additional fee.';
 }
 
 function bindEvents() {
@@ -711,7 +711,7 @@ function renderSubscriptionDashboard(data) {
       freeStatus.style.display = 'grid';
       setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
       planName.textContent = 'Free Plan';
-      planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
+      planDescription.textContent = '15 product listings included. No product listing fees.';
       renderFreePlanUsage(entitlement, plan_details);
       entitlementCard.style.display = 'block';
       featuredPromoCard.style.display = 'block';
@@ -743,7 +743,7 @@ function renderSubscriptionDashboard(data) {
     freeStatus.style.display = 'grid';
     setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
     planName.textContent = 'Free Plan';
-    planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
+    planDescription.textContent = '15 product listings included. No product listing fees.';
     renderFreePlanUsage(entitlement, plan_details);
     entitlementCard.style.display = 'block';
     featuredPromoCard.style.display = 'block';
@@ -1405,30 +1405,12 @@ function openProductModal(productId = null) {
       }
     }
   } else {
-    // Calculate listing fee for display
-    let listingFee = 0;
-    if (subscriptionData?.subscription?.is_premium) {
-      listingFee = 0;
-    } else {
-      const freeUsed = getEffectiveFreeListingUsage();
-      if (freeUsed >= 15) {
-        listingFee = 1;
-      }
-    }
-
     $('#modal-title').textContent = 'Add Product';
-    if (listingFee > 0) {
-      $('#modal-save').textContent = `Pay ₱${listingFee} & add product`;
-    } else if (subscriptionData?.subscription?.is_premium) {
-      $('#modal-save').textContent = 'Add product (included with Premium)';
-    } else {
-      const freeUsed = subscriptionData?.entitlement?.free_listings_used || 0;
-      $('#modal-save').textContent = `Add product (Free - ${freeUsed + 1} of 15)`;
-    }
+    $('#modal-save').textContent = 'Add product';
 
-    // Add upgrade banner in modal for Free plan users who have used 15+ free listings
+    // Offer the Premium upgrade after the free listing allowance is used.
     const isPremium = subscriptionData?.subscription?.is_premium || false;
-    const freeUsed = subscriptionData?.entitlement?.free_listings_used || 0;
+    const freeUsed = getEffectiveFreeListingUsage();
     const showUpgradeBanner = !isPremium && freeUsed >= 15;
     const upgradeBannerEl = $('#upgrade-banner-modal');
     if (showUpgradeBanner) {
@@ -1437,7 +1419,7 @@ function openProductModal(productId = null) {
         <div style="padding:12px;background:linear-gradient(135deg,rgba(91,33,182,0.1),rgba(139,92,246,0.1));border:1px solid rgba(139,92,246,0.3);border-radius:var(--r-md);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>
             <strong style="color:var(--premium-violet)">You've used all 15 free listings</strong>
-            <p class="muted" style="margin:4px 0 0;font-size:.8rem">Additional listings cost ₱1 each. Upgrade to Premium for unlimited listings.</p>
+            <p class="muted" style="margin:4px 0 0;font-size:.8rem">Product listings have no additional fee. Upgrade to Premium for unlimited listings.</p>
           </div>
           <button class="btn" id="upgrade-modal-btn" style="white-space:nowrap">Upgrade to Premium – ₱49/month</button>
         </div>
@@ -1536,48 +1518,22 @@ async function saveProduct(e) {
   }
 
   if (!editingProductId) {
-    // Calculate listing fee based on subscription and entitlement
-    let listingFee = 0;
-    let isPaidListing = false;
+    const saveBtn = $('#modal-save');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
 
-    if (subscriptionData?.subscription?.is_premium) {
-      // Premium: unlimited free listings
-      listingFee = 0;
-      isPaidListing = false;
-    } else {
-      // Free plan: first 15 free, then ₱1 each
-      const freeUsed = subscriptionData?.entitlement?.free_listings_used || 0;
-      if (freeUsed >= 15) {
-        listingFee = 1;
-        isPaidListing = true;
-      } else {
-        listingFee = 0;
-        isPaidListing = false;
-      }
+    try {
+      await createNewProduct(productData, imageFiles);
+      closeModal();
+      await loadProducts(currentStore.id);
+      await loadSubscriptionData(currentStore.user_id);
+    } catch (err) {
+      console.error('Save product error:', err);
+      alert(err?.message ? `Failed to save: ${err.message}` : 'Failed to save. Please try again.');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Add product';
     }
-
-    const feeDescription = isPaidListing
-      ? `You've used all 15 free listings. This product costs ₱1 to list.`
-      : subscriptionData?.subscription?.is_premium
-        ? 'Unlimited listings included with Premium.'
-        : `Free listing (${getEffectiveFreeListingUsage() + 1} of 15 used).`;
-
-    startDemoPayment({
-      amount: listingFee,
-      title: listingFee > 0 ? 'Product listing fee' : 'Free product listing',
-      description: feeDescription,
-      successMessage: 'Your product has been added successfully.',
-      onCancel: () => {
-        modal.style.display = 'flex';
-        $('#p-name').focus();
-      },
-      onSuccess: async () => {
-        await createNewProduct(productData, imageFiles, isPaidListing);
-        closeModal();
-        await loadProducts(currentStore.id);
-        await loadSubscriptionData(currentStore.user_id); // Refresh entitlement
-      },
-    });
     return;
   }
 
@@ -1630,7 +1586,7 @@ async function saveProduct(e) {
   }
 }
 
-async function createNewProduct(productData, imageFiles, isPaidListing = false) {
+async function createNewProduct(productData, imageFiles) {
   // Check if store can manage products (APPROVED or VERIFIED)
   const canManageProducts = currentStore?.approval_status === 'APPROVED' || currentStore?.verification_status === 'VERIFIED';
   if (!canManageProducts) {
@@ -1648,10 +1604,11 @@ async function createNewProduct(productData, imageFiles, isPaidListing = false) 
   // Record product listing entitlement
   if (supabase && currentSession) {
     try {
-      await supabase.rpc('record_product_listing', {
+      const { error: entitlementError } = await supabase.rpc('record_product_listing', {
         p_user_id: currentSession.user.id,
-        p_is_paid: isPaidListing
+        p_is_paid: false
       });
+      if (entitlementError) throw entitlementError;
     } catch (entitlementError) {
       console.warn('Could not record product listing entitlement:', entitlementError);
     }
