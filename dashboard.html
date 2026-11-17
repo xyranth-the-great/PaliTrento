@@ -66,6 +66,23 @@
       </div>
       <p id="products-listing-usage-caption" class="free-plan-caption">Loading your listing allowance…</p>
     </div>
+    <div id="products-featured-promo-card" class="card" data-featured-promo-card style="display:none;padding:20px;margin-bottom:24px">
+      <h4 style="margin:0 0 16px">Featured Store Promotions</h4>
+      <p class="muted" style="margin-bottom:16px;font-size:.9rem">Featured Stores appear in the Featured Stores section on the home page.</p>
+      <div data-featured-included class="featured-included" style="display:none">
+        <span class="chrome-pill premium-heading-label" role="img" aria-label="Included with Premium">
+          <span class="chrome-pill-icon" aria-hidden="true">✦</span>
+          <span class="chrome-pill-text">Included with Premium</span>
+        </span>
+        <p>Your store is automatically featured in the Featured Stores section on the home page while your Premium plan is active.</p>
+        <p class="muted">You don't need to buy weekly Featured Store promotions.</p>
+      </div>
+      <div data-active-featured-promos style="display:none"></div>
+      <div data-no-featured-promos class="muted" style="display:none;padding:16px;text-align:center">No active Featured Store promotions.</div>
+      <div data-featured-promo-actions style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+        <button type="button" class="btn" id="products-featured-promo-btn">Feature Store (₱10/week)</button>
+      </div>
+    </div>
     <div id="products-list" class="grid" style="display:none"></div>
     <p class="muted" id="no-products" style="display:none;text-align:center;padding:32px">No products yet. Add your first product!</p>
   </div>
@@ -209,10 +226,18 @@
     </div>
 
     <!-- Featured Store Promotions Card -->
-    <div class="card" id="featured-promo-card" style="padding:20px;margin-bottom:24px;display:none">
+    <div class="card" id="featured-promo-card" data-featured-promo-card style="padding:20px;margin-bottom:24px;display:none">
       <h4 style="margin:0 0 16px">Featured Store Promotions</h4>
       <p class="muted" style="margin-bottom:16px;font-size:.9rem">Featured Stores appear in the Featured Stores section on the home page.</p>
-      <div id="active-featured-promos" style="display:none">
+      <div data-featured-included class="featured-included" style="display:none">
+        <span class="chrome-pill premium-heading-label" role="img" aria-label="Included with Premium">
+          <span class="chrome-pill-icon" aria-hidden="true">✦</span>
+          <span class="chrome-pill-text">Included with Premium</span>
+        </span>
+        <p>Your store is automatically featured in the Featured Stores section on the home page while your Premium plan is active.</p>
+        <p class="muted">You don't need to buy weekly Featured Store promotions.</p>
+      </div>
+      <div id="active-featured-promos" data-active-featured-promos style="display:none">
         <div class="card" style="padding:16px;margin-bottom:12px;border-left:4px solid var(--primary)">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
             <div>
@@ -223,8 +248,8 @@
           </div>
         </div>
       </div>
-      <div id="no-featured-promos" style="display:none" class="muted" style="padding:16px;text-align:center">No active Featured Store promotions.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+      <div id="no-featured-promos" data-no-featured-promos style="display:none;padding:16px;text-align:center" class="muted">No active Featured Store promotions.</div>
+      <div data-featured-promo-actions style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
         <button class="btn" id="sub-featured-promo-btn2">Feature Store (₱10/week)</button>
       </div>
     </div>

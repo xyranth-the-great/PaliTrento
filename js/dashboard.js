@@ -752,89 +752,54 @@ function renderSubscriptionDashboard(data) {
 }
 
 function renderFeaturedPromotions(promos, isPremium, loading = false) {
-  const activeContainer = $('#active-featured-promos');
-  const noPromosContainer = $('#no-featured-promos');
-  const promoCard = $('#featured-promo-card');
-  const buyButtonContainer = promoCard?.querySelector('div[style*="display:flex"][style*="gap:8px"]');
-  const featuredIncludedContainer = $('#featured-included-container');
-
-  // Remove any existing featured-included container (will be recreated if needed)
-  if (featuredIncludedContainer) {
-    featuredIncludedContainer.remove();
-  }
-
-  if (loading) {
-    // LOADING STATE: show title and Line 1 only, hide button and status areas
-    activeContainer.style.display = 'none';
-    noPromosContainer.style.display = 'none';
-    if (buyButtonContainer) buyButtonContainer.style.display = 'none';
-    return;
-  }
-
-  if (isPremium) {
-    // PREMIUM STATE: show "Included with Premium" status block, REMOVE buy button from DOM
-    if (buyButtonContainer) buyButtonContainer.remove();
-    noPromosContainer.style.display = 'none';
-
-    // Create the featured-included status block
-    const includedHtml = `
-      <div id="featured-included-container" class="featured-included">
-        <span class="chrome-pill premium-heading-label" role="img" aria-label="Included with Premium">
-          <span class="chrome-pill-icon" aria-hidden="true">✦</span>
-          <span class="chrome-pill-text">Included with Premium</span>
-        </span>
-        <p>Your store is automatically featured in the Featured Stores section on the home page while your Premium plan is active.</p>
-        <p class="muted">You don't need to buy weekly Featured Store promotions.</p>
-      </div>
-    `;
-
-    // Insert after the first paragraph (Line 1)
-    const firstParagraph = promoCard?.querySelector('p.muted');
-    if (firstParagraph) {
-      firstParagraph.insertAdjacentHTML('afterend', includedHtml);
-    }
-
-    // Show active promotions if any
-    if (promos && promos.length > 0) {
-      activeContainer.style.display = 'block';
-      activeContainer.innerHTML = promos.map(promo => `
+  const promoCards = document.querySelectorAll('[data-featured-promo-card]');
+  const promosHtml = (promos || []).map(promo => `
         <div class="card" style="padding:16px;margin-bottom:12px;border-left:4px solid var(--primary)">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
             <div>
-              <strong>${esc(promo.store_id)}</strong>
+              <strong>${esc(currentStore?.id === promo.store_id ? currentStore.business_name : promo.store_id)}</strong>
               <div class="muted" style="font-size:.85rem">Expires: <strong>${new Date(promo.expires_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong></div>
             </div>
             <span class="pill ${promo.price_paid_cents === 0 ? 'ok' : 'info'}">${promo.price_paid_cents === 0 ? 'Premium Included' : 'Paid Promotion'}</span>
           </div>
         </div>
       `).join('');
-    } else {
-      activeContainer.style.display = 'none';
-    }
-  } else {
-    // NOT PREMIUM STATE: show exactly as before (buy button visible)
-    if (buyButtonContainer) buyButtonContainer.style.display = 'flex';
 
-    if (promos && promos.length > 0) {
-      activeContainer.style.display = 'block';
-      noPromosContainer.style.display = 'none';
+  promoCards.forEach(card => {
+    if (card.id === 'products-featured-promo-card') card.style.display = 'block';
+    const activeContainer = card.querySelector('[data-active-featured-promos]');
+    const noPromosContainer = card.querySelector('[data-no-featured-promos]');
+    const actions = card.querySelector('[data-featured-promo-actions]');
+    const included = card.querySelector('[data-featured-included]');
 
-      activeContainer.innerHTML = promos.map(promo => `
-        <div class="card" style="padding:16px;margin-bottom:12px;border-left:4px solid var(--primary)">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-            <div>
-              <strong>${esc(promo.store_id)}</strong>
-              <div class="muted" style="font-size:.85rem">Expires: <strong>${new Date(promo.expires_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</strong></div>
-            </div>
-            <span class="pill ${promo.price_paid_cents === 0 ? 'ok' : 'info'}">${promo.price_paid_cents === 0 ? 'Premium Included' : 'Paid Promotion'}</span>
-          </div>
-        </div>
-      `).join('');
-    } else {
+    if (loading) {
       activeContainer.style.display = 'none';
+      noPromosContainer.textContent = 'Loading Featured Store promotions…';
       noPromosContainer.style.display = 'block';
+      actions.style.display = 'none';
+      if (included) included.style.display = 'none';
+      return;
     }
-  }
+
+    if (promosHtml) {
+      activeContainer.innerHTML = promosHtml;
+      activeContainer.style.display = 'block';
+    } else {
+      activeContainer.replaceChildren();
+      activeContainer.style.display = 'none';
+    }
+
+    if (isPremium) {
+      noPromosContainer.style.display = 'none';
+      actions.style.display = 'none';
+      if (included) included.style.display = 'block';
+    } else {
+      noPromosContainer.textContent = 'No active Featured Store promotions.';
+      noPromosContainer.style.display = promosHtml ? 'none' : 'block';
+      actions.style.display = 'flex';
+      if (included) included.style.display = 'none';
+    }
+  });
 }
 
 function renderLockedProducts(locks) {
@@ -1097,7 +1062,7 @@ function bindSubscriptionEvents() {
   });
 
   // Featured Store promotion
-  $$('#sub-featured-promo-btn, #sub-featured-promo-btn2, #featured-promo-confirm-btn').forEach(btn => {
+  $$('#sub-featured-promo-btn, #sub-featured-promo-btn2, #products-featured-promo-btn, #featured-promo-confirm-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       if (btn.id === 'featured-promo-confirm-btn') {
         confirmFeaturedPromo();
