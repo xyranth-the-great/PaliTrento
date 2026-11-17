@@ -15,6 +15,7 @@ The anon key is safe to expose. Security comes from the row-level security rules
 For an existing project, run `supabase/store-submission.sql` in the SQL Editor to add store-submission columns and owner permissions.
 Run `supabase/store-product-approval.sql` as well to restrict product publishing to Admin-verified stores.
 For existing projects, run `supabase/remove-trike-cod.sql` to remove Trike COD from saved store payment preferences.
+For existing projects, run `supabase/custom-product-units.sql` to allow custom product units.
 
 Account deletion uses the server-side `delete-account` Edge Function. Deploy it separately with `supabase functions deploy delete-account`; the function requires the Supabase URL, anon key, and service-role key in the Edge Function environment. Never expose the service-role key in the frontend.
 
@@ -46,4 +47,3 @@ Verify the barangay list in `js/ui.js` against the official PSGC list.
 - Resend domain `palitrento.online` verified (production sender configured)
 - GitHub Actions automated deployment with Supabase secrets
 - **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser`
-

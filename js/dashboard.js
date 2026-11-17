@@ -1,12 +1,13 @@
 import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, getStoreStatusBadge, getStoreStatusMessage, startAdvisoryToastListener } from './ui.js';
 import { getSessionWithStatus, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
-import { uploadStoreImage, deleteStoreImage, uploadProductImage, deleteProductImage } from './storage.js';
+import { uploadStoreImage, deleteStoreImage, uploadProductImages, deleteProductImages } from './storage.js';
 import { isSupabaseConfigured } from './auth.js';
 
 const modal = $('#product-modal');
 const productForm = $('#product-form');
 const demoPaymentModal = $('#demo-payment-modal');
+const CUSTOM_UNIT_VALUE = 'OTHER';
 let currentStore = null;
 let currentProducts = [];
 let currentOrders = [];
@@ -414,11 +415,15 @@ function renderProducts() {
 
   list.innerHTML = currentProducts.map(p => {
     const s = srp(p);
-    const hasImage = p.image_url && p.image_url.trim() !== '';
+    // Use first image from image_urls array, fallback to image_url
+    const imageUrl = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
+      ? p.image_urls[0]
+      : p.image_url;
+    const hasImage = imageUrl && imageUrl.trim() !== '';
     const featuredUntil = Date.parse(p.featured_until);
     const isFeatured = featuredUntil > Date.now();
     const imageHtml = hasImage
-      ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" style="width:100%;height:140px;object-fit:cover;border-radius:var(--r-md) var(--r-md) 0 0;margin-bottom:8px">`
+      ? `<img src="${esc(imageUrl)}" alt="${esc(p.name)}" style="width:100%;height:140px;object-fit:cover;border-radius:var(--r-md) var(--r-md) 0 0;margin-bottom:8px">`
       : `<div style="width:100%;height:140px;background:var(--muted-bg);border-radius:var(--r-md) var(--r-md) 0 0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem">No image</div>`;
 
     return `
@@ -438,7 +443,7 @@ function renderProducts() {
             ${isFeatured ? `<span class="pill info">Featured until ${new Date(featuredUntil).toLocaleDateString('en-PH')}</span>` : '<span class="muted">Not featured on home</span>'}
             ${currentStore?.verification_status === 'VERIFIED' ? `<button type="button" class="btn alt" data-advertise="${p.id}">${isFeatured ? 'Extend ad' : 'Advertise'} · ₱20 / 7 days</button>` : ''}
           </div>
-          <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
+          <p class="price">${peso(p.current_price)} <span class="muted">per ${esc(UNITS[p.unit] || p.unit || 'pc')}</span></p>
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
           <p class="muted" style="margin-top:8px;font-size:.8rem">
             ${p.in_stock ? '<span class="pill ok" style="font-size:.7rem">In stock</span>' : '<span class="pill bad" style="font-size:.7rem">Out of stock</span>'}
@@ -486,6 +491,7 @@ function bindEvents() {
   // Add product
   $('#add-product-btn')?.addEventListener('click', () => openProductModal());
   $('#p-category')?.addEventListener('change', updateOtherCategoryField);
+  $('#p-unit')?.addEventListener('change', updateOtherUnitField);
 
   // Edit store
   $('#edit-store-btn')?.addEventListener('click', () => {
@@ -499,7 +505,11 @@ function bindEvents() {
 
   // Image upload
   $('#p-image')?.addEventListener('change', handleImageSelect);
-  $('#p-image-remove')?.addEventListener('click', handleImageRemove);
+  // Delegate click for remove buttons on dynamic previews
+  $('#p-image-previews')?.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-remove-index]');
+    if (removeBtn) handleImageRemove(parseInt(removeBtn.dataset.removeIndex));
+  });
 
   // Product form
   productForm?.addEventListener('submit', saveProduct);
@@ -650,39 +660,84 @@ function renderVerification(compliance, status) {
 }
 
 async function handleImageSelect(e) {
-  const file = e.target.files[0];
-  if (!file) return;
+  const files = Array.from(e.target.files);
+  if (!files.length) return;
 
-  // Validate file type
+  const MAX_IMAGES = 3;
+  const MAX_SIZE = 5 * 1024 * 1024;
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
-    alert('Please choose a JPG, PNG or WebP image');
+
+  // Validate total count (including existing previews)
+  const existingPreviews = $('#p-image-previews').querySelectorAll('.image-preview-item').length;
+  if (existingPreviews + files.length > MAX_IMAGES) {
+    alert(`Maximum ${MAX_IMAGES} images allowed. You already have ${existingPreviews}.`);
     e.target.value = '';
     return;
   }
 
-  // Validate file size (5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    alert('Image must be under 5 MB');
-    e.target.value = '';
-    return;
+  // Validate each file
+  for (const file of files) {
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please choose only JPG, PNG or WebP images');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      alert('Each image must be under 5 MB');
+      e.target.value = '';
+      return;
+    }
   }
 
-  // Show preview
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    $('#p-image-preview-img').src = event.target.result;
-    $('#p-image-preview').style.display = 'block';
-    $('#p-image-filename').textContent = file.name;
-  };
-  reader.readAsDataURL(file);
+  // Show previews
+  const previewsContainer = $('#p-image-previews');
+  const filenameEl = $('#p-image-filename');
+
+  for (const file of files) {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const index = previewsContainer.children.length;
+      const previewItem = document.createElement('div');
+      previewItem.className = 'image-preview-item';
+      previewItem.style.cssText = 'position:relative;width:120px;height:120px;flex-shrink:0';
+      previewItem.innerHTML = `
+        <img src="${event.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);border:1px solid var(--line)">
+        <button type="button" data-remove-index="${index}" style="position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;padding:0" aria-label="Remove image">&times;</button>
+      `;
+      previewsContainer.appendChild(previewItem);
+      updateFilenameDisplay();
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
-function handleImageRemove() {
-  $('#p-image').value = '';
-  $('#p-image-preview').style.display = 'none';
-  $('#p-image-preview-img').src = '';
-  $('#p-image-filename').textContent = '';
+function handleImageRemove(index) {
+  const previewsContainer = $('#p-image-previews');
+  const items = previewsContainer.querySelectorAll('.image-preview-item');
+  if (items[index]) {
+    items[index].remove();
+    updateFilenameDisplay();
+  }
+  // If all removed, clear file input
+  if (previewsContainer.children.length === 0) {
+    $('#p-image').value = '';
+  }
+}
+
+function updateFilenameDisplay() {
+  const fileInput = $('#p-image');
+  const filenameEl = $('#p-image-filename');
+  const previewsContainer = $('#p-image-previews');
+  const count = previewsContainer.children.length;
+  const fileCount = fileInput.files?.length || 0;
+
+  if (count > 0) {
+    filenameEl.textContent = `${count} image${count !== 1 ? 's' : ''} selected`;
+  } else if (fileCount > 0) {
+    filenameEl.textContent = `${fileCount} file${fileCount !== 1 ? 's' : ''} selected`;
+  } else {
+    filenameEl.textContent = '';
+  }
 }
 
 function switchTab(tab) {
@@ -704,10 +759,10 @@ function openProductModal(productId = null) {
   productForm.reset();
   $('#product-id').value = '';
   updateOtherCategoryField();
+  updateOtherUnitField();
 
-  // Reset image preview
-  $('#p-image-preview').style.display = 'none';
-  $('#p-image-preview-img').src = '';
+  // Reset image previews
+  $('#p-image-previews').innerHTML = '';
   $('#p-image-filename').textContent = '';
   $('#p-image').value = '';
 
@@ -723,17 +778,32 @@ function openProductModal(productId = null) {
       categorySelect.value = hasPresetCategory ? product.category : 'Other';
       $('#p-category-other').value = hasPresetCategory ? '' : product.category;
       updateOtherCategoryField();
-      $('#p-unit').value = product.unit;
+      const unitSelect = $('#p-unit');
+      const hasPresetUnit = Array.from(unitSelect.options)
+        .some(option => option.value === product.unit && option.value !== CUSTOM_UNIT_VALUE);
+      unitSelect.value = hasPresetUnit ? product.unit : CUSTOM_UNIT_VALUE;
+      $('#p-unit-other').value = hasPresetUnit ? '' : product.unit;
+      updateOtherUnitField();
       $('#p-price').value = product.current_price;
       $('#p-srp').value = product.lgu_srp_ceiling || '';
       $('#p-stock').value = product.in_stock ? 'true' : 'false';
       $('#p-quantity').value = product.quantity ?? '';
 
-      // Show existing image if present
-      if (product.image_url) {
-        $('#p-image-preview-img').src = product.image_url;
-        $('#p-image-preview').style.display = 'block';
-        $('#p-image-filename').textContent = 'Current image';
+      // Show existing images if present (support both image_url and image_urls)
+      const imageUrls = product.image_urls || (product.image_url ? [product.image_url] : []);
+      if (imageUrls.length > 0) {
+        const previewsContainer = $('#p-image-previews');
+        imageUrls.forEach((url, index) => {
+          const previewItem = document.createElement('div');
+          previewItem.className = 'image-preview-item';
+          previewItem.style.cssText = 'position:relative;width:120px;height:120px;flex-shrink:0';
+          previewItem.innerHTML = `
+            <img src="${url}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);border:1px solid var(--line)">
+            <button type="button" data-remove-index="${index}" style="position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;padding:0" aria-label="Remove image">&times;</button>
+          `;
+          previewsContainer.appendChild(previewItem);
+        });
+        updateFilenameDisplay();
       }
     }
   } else {
@@ -741,7 +811,7 @@ function openProductModal(productId = null) {
     $('#modal-save').textContent = 'Pay ₱2 & add product';
   }
 
-  // New products must include a photo. Existing products can keep their current image.
+  // New products must include at least one photo. Existing products can keep their current images.
   $('#p-image').required = !productId;
 
   modal.style.display = 'flex';
@@ -752,6 +822,15 @@ function updateOtherCategoryField() {
   const isOther = $('#p-category')?.value === 'Other';
   const wrapper = $('#p-category-other-wrap');
   const input = $('#p-category-other');
+  if (!wrapper || !input) return;
+  wrapper.style.display = isOther ? 'block' : 'none';
+  input.required = isOther;
+}
+
+function updateOtherUnitField() {
+  const isOther = $('#p-unit')?.value === CUSTOM_UNIT_VALUE;
+  const wrapper = $('#p-unit-other-wrap');
+  const input = $('#p-unit-other');
   if (!wrapper || !input) return;
   wrapper.style.display = isOther ? 'block' : 'none';
   input.required = isOther;
@@ -771,10 +850,12 @@ async function saveProduct(e) {
     return;
   }
 
-  const imageFile = $('#p-image')?.files?.[0] ?? null;
+  const imageFiles = $('#p-image')?.files;
+  const hasNewImages = imageFiles && imageFiles.length > 0;
+  const existingImagesCount = $('#p-image-previews').children.length;
 
-  if (!editingProductId && !imageFile) {
-    alert('Please add a product picture before saving.');
+  if (!editingProductId && !hasNewImages && existingImagesCount === 0) {
+    alert('Please add at least one product picture before saving.');
     $('#p-image').focus();
     return;
   }
@@ -785,21 +866,29 @@ async function saveProduct(e) {
     category: $('#p-category').value === 'Other'
       ? $('#p-category-other').value.trim()
       : $('#p-category').value,
-    unit: $('#p-unit').value,
+    unit: $('#p-unit').value === CUSTOM_UNIT_VALUE
+      ? $('#p-unit-other').value.trim()
+      : $('#p-unit').value,
     current_price: parseFloat($('#p-price').value),
     lgu_srp_ceiling: $('#p-srp').value ? parseFloat($('#p-srp').value) : null,
     in_stock: $('#p-stock').value === 'true',
     quantity: $('#p-quantity').value ? parseInt($('#p-quantity').value) : null,
   };
 
+  if ($('#p-category').value === 'Other' && !$('#p-category-other').value.trim()) {
+    alert('Please specify the product category.');
+    $('#p-category-other').focus();
+    return;
+  }
+
   if (!productData.name || !productData.category || !productData.unit || isNaN(productData.current_price)) {
     alert('Please fill all required fields');
     return;
   }
 
-  if ($('#p-category').value === 'Other' && !$('#p-category-other').value.trim()) {
-    alert('Please specify the product category.');
-    $('#p-category-other').focus();
+  if ($('#p-unit').value === CUSTOM_UNIT_VALUE && !$('#p-unit-other').value.trim()) {
+    alert('Please specify the product unit.');
+    $('#p-unit-other').focus();
     return;
   }
 
@@ -814,7 +903,7 @@ async function saveProduct(e) {
         $('#p-name').focus();
       },
       onSuccess: async () => {
-        await createNewProduct(productData, imageFile);
+        await createNewProduct(productData, imageFiles);
         closeModal();
         await loadProducts(currentStore.id);
       },
@@ -827,12 +916,20 @@ async function saveProduct(e) {
   saveBtn.textContent = 'Saving...';
 
   try {
-    if (imageFile) {
-      const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, editingProductId, imageFile);
+    // Handle image updates
+    if (hasNewImages) {
+      // Upload new images
+      const { error: uploadError, urls } = await uploadProductImages(currentSession.user.id, editingProductId, imageFiles);
       if (uploadError) throw uploadError;
+
+      // Get existing images and combine with new ones (max 3 total)
+      const product = currentProducts.find(p => p.id === editingProductId);
+      const existingUrls = product?.image_urls || (product?.image_url ? [product.image_url] : []);
+      const combinedUrls = [...existingUrls, ...urls].slice(0, 3);
+
       const { error: imageUpdateError } = await supabase
         .from('products')
-        .update({ image_url: url })
+        .update({ image_urls: combinedUrls, image_url: combinedUrls[0] || null }) // Keep image_url for backwards compat
         .eq('id', editingProductId);
       if (imageUpdateError) throw imageUpdateError;
     }
@@ -863,7 +960,7 @@ async function saveProduct(e) {
   }
 }
 
-async function createNewProduct(productData, imageFile) {
+async function createNewProduct(productData, imageFiles) {
   if (currentStore?.verification_status !== 'VERIFIED') {
     throw new Error('Products can be added after your store is approved by Admin.');
   }
@@ -877,17 +974,22 @@ async function createNewProduct(productData, imageFile) {
   if (insertError) throw insertError;
 
   try {
-    const { error: uploadError, url } = await uploadProductImage(currentSession.user.id, newProduct.id, imageFile);
+    // Upload multiple images (up to 3)
+    const { error: uploadError, urls } = await uploadProductImages(currentSession.user.id, newProduct.id, imageFiles);
     if (uploadError) throw uploadError;
 
+    // Save image_urls array and first image as image_url for backwards compatibility
     const { error: imageUpdateError } = await supabase
       .from('products')
-      .update({ image_url: url })
+      .update({ image_urls: urls, image_url: urls[0] || null })
       .eq('id', newProduct.id)
       .eq('store_id', currentStore.id);
 
     if (imageUpdateError) {
-      await deleteProductImage(currentSession.user.id, newProduct.id, url);
+      // Clean up uploaded images on failure
+      if (urls.length > 0) {
+        await deleteProductImages(currentSession.user.id, newProduct.id, urls);
+      }
       throw imageUpdateError;
     }
   } catch (err) {
@@ -1070,10 +1172,10 @@ async function deleteProduct(productId) {
   if (!confirm('Delete this product?')) return;
 
   try {
-    // First, get the product to check if it has an image
+    // First, get the product to check if it has images
     const { data: product, error: fetchError } = await supabase
       .from('products')
-      .select('image_url')
+      .select('image_url, image_urls')
       .eq('id', productId)
       .single();
 
@@ -1083,9 +1185,10 @@ async function deleteProduct(productId) {
     const { error } = await supabase.from('products').delete().eq('id', productId);
     if (error) throw error;
 
-    // If product had an image, delete it from storage
-    if (product?.image_url) {
-      await deleteProductImage(currentSession.user.id, product.image_url);
+    // If product had images, delete them from storage
+    const imageUrls = product?.image_urls || (product?.image_url ? [product.image_url] : []);
+    if (imageUrls.length > 0) {
+      await deleteProductImages(currentSession.user.id, productId, imageUrls);
     }
 
     await loadProducts(currentStore.id);

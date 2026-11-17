@@ -109,6 +109,7 @@ function prefillForm(store) {
     storefrontUrl = store.storefront_image_url;
     $('#storefront-preview').src = storefrontUrl;
     $('#storefront-preview').style.display = 'block';
+    $('#storefront-replace').style.display = 'inline-flex';
     $('#storefront-upload').style.display = 'none';
   }
 
@@ -289,6 +290,7 @@ async function handleFileSelect(type, file) {
   if (type === 'storefront') {
     $('#storefront-preview').src = url;
     $('#storefront-preview').style.display = 'block';
+    $('#storefront-replace').style.display = 'inline-flex';
     uploadEl.style.display = 'none';
   } else {
     showPermitPreview(type, url);

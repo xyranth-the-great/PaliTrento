@@ -258,15 +258,19 @@ export const getActiveFeaturedProducts = products => products
 export const productCard = (p, store) => {
   const c = srp(p);
   const isFeatured = Date.parse(p.featured_until) > Date.now();
+  // Use first image from image_urls array, fallback to image_url
+  const imageUrl = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
+    ? p.image_urls[0]
+    : p.image_url;
   return `<a class="card product-card" href="/product-detail/?id=${encodeURIComponent(p.id)}">
-    <div class="product-card-media">${p.image_url
-      ? `<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
+    <div class="product-card-media">${imageUrl
+      ? `<img src="${esc(imageUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
       : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
     </div>
     <div class="product-card-content">
       ${isFeatured ? '<span class="pill info featured-badge">Featured</span>' : ''}
       <div class="row"><h3>${esc(p.name)}</h3>${p.in_stock ? '' : '<span class="pill bad">Out of stock</span>'}</div>
-      <p class="price">${peso(p.current_price)} <span class="muted">per ${UNITS[p.unit] || 'pc'}</span></p>
+      <p class="price">${peso(p.current_price)} <span class="muted">per ${esc(UNITS[p.unit] || p.unit || 'pc')}</span></p>
       ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
       ${store ? `<p class="muted" style="margin-top:8px">Sold at <span style="color:var(--primary);font-weight:600">${esc(store.business_name)}</span></p>` : ''}
     </div>

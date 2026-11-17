@@ -87,7 +87,7 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
 
     const capped = approvedProducts.filter(p => p.lgu_srp_ceiling != null).slice(0, 6);
     $('#board').innerHTML = capped.map(p => { const c = srp(p); return `<div class="prow">
-  <div>${esc(p.name)}<div class="muted">Cap ${peso(p.lgu_srp_ceiling)} per ${UNITS[p.unit] || 'pc'}</div></div>
+  <div>${esc(p.name)}<div class="muted">Cap ${peso(p.lgu_srp_ceiling)} per ${esc(UNITS[p.unit] || p.unit || 'pc')}</div></div>
   <b>${peso(p.current_price)}</b><span class="pill ${c.cls}">${c.text}</span></div>`; }).join('') || '<p class="muted">No price advisories yet.</p>';
     const featuredCards = stores.slice(0, 6).map(storeCard).join('');
     $('#featured-track').innerHTML = featuredCards + featuredCards;
