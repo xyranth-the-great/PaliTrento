@@ -8,6 +8,8 @@ import {
   messageNotificationsEnabled,
   getReservationNotifications,
   markReservationNotificationRead,
+  getOrderStatusNotifications,
+  markOrderStatusNotificationRead,
   getNotificationDismissals,
   dismissNotifications,
   refreshNotificationBell,
@@ -178,7 +180,39 @@ async function loadAllNotifications() {
       });
     }
 
-    allNotifications = [...advisoryNotifications, ...messageNotifications, ...reservationNotifications]
+    let orderStatusNotifications = [];
+    const statusUpdates = await getOrderStatusNotifications(supabase, userId);
+    if (statusUpdates === null) {
+      console.error('Order status notifications could not be loaded on the all-notifications page.');
+    } else {
+      const statusLabels = {
+        CONFIRMED: 'Confirmed',
+        READY_FOR_PICKUP: 'Ready for pickup',
+        COMPLETED: 'Completed',
+        CANCELLED: 'Cancelled'
+      };
+      orderStatusNotifications = statusUpdates.map(update => {
+        const order = update.orders || {};
+        const product = order.products || {};
+        const store = order.stores || {};
+        const statusLabel = statusLabels[update.new_status] || 'Updated';
+        return {
+          id: update.id,
+          order_id: update.order_id,
+          type: 'order_status',
+          isMessage: false,
+          isReservation: false,
+          isOrderStatus: true,
+          category: 'ORDER_STATUS',
+          title: `Order ${statusLabel}`,
+          body: `Your order${product.name ? ` for ${product.name}` : ''}${store.business_name ? ` from ${store.business_name}` : ''} is now ${statusLabel.toLowerCase()}.`,
+          published_at: update.created_at,
+          isRead: !!update.read_at
+        };
+      });
+    }
+
+    allNotifications = [...advisoryNotifications, ...messageNotifications, ...reservationNotifications, ...orderStatusNotifications]
       .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
     const dismissedKeys = await getNotificationDismissals(supabase, userId, allNotifications);
     if (dismissedKeys === null) {
@@ -255,8 +289,8 @@ function renderPage() {
 
   // Render items
   $('#list').innerHTML = pageItems.map(a => {
-    const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn', MESSAGE: 'info', RESERVATION: 'info' }[a.category] || 'warn';
-    const categoryLabel = a.isMessage ? 'Message' : a.isReservation ? 'Reservation' : a.category.replace('_', ' ');
+    const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn', MESSAGE: 'info', RESERVATION: 'info', ORDER_STATUS: 'info' }[a.category] || 'warn';
+    const categoryLabel = a.isMessage ? 'Message' : a.isReservation ? 'Reservation' : a.isOrderStatus ? 'Order update' : a.category.replace('_', ' ');
     return `
       <div class="notification-row">
         <button class="notification-item ${a.isRead ? 'read' : 'unread'}" data-id="${esc(a.id)}" data-type="${a.type}" role="option" tabindex="0">
@@ -284,6 +318,20 @@ function renderPage() {
       const notification = allNotifications.find(a => a.id === id && a.type === item.dataset.type);
       if (notification?.isMessage) {
         window.location.href = `/chat/?orderId=${encodeURIComponent(notification.order_id)}&messageId=${encodeURIComponent(notification.id)}`;
+      } else if (notification?.isOrderStatus) {
+        const { error: readError } = await markOrderStatusNotificationRead(
+          supabase,
+          notification.id,
+          session.user.id
+        );
+        if (readError) {
+          console.error('Mark order status notification read error:', readError);
+          alert('Could not mark this order update as read.');
+          return;
+        }
+        notification.isRead = true;
+        await refreshNotificationBell();
+        window.location.href = `/orders/?orderId=${encodeURIComponent(notification.order_id)}`;
       } else if (notification?.isReservation) {
         const { error: readError } = await markReservationNotificationRead(
           supabase,

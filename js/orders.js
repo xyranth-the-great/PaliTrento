@@ -56,6 +56,7 @@ async function loadOrders() {
     console.log('Customer orders loaded:', orders?.length);
     currentOrders = orders || [];
     renderOrders();
+    focusOrderFromQuery();
   } catch (err) {
     console.error('Load orders error:', err);
     showMsg('Failed to load orders. Please try again.', 'bad');
@@ -94,7 +95,7 @@ function renderOrders() {
     const label = statusLabels[o.status] || o.status;
 
     return `
-      <div class="card" style="margin-bottom:12px">
+      <div class="card" data-order-id="${esc(o.id)}" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
           <div>
             <h3 style="margin:0 0 4px;font-size:1rem">${esc(product?.name || 'Product')}</h3>
@@ -111,6 +112,19 @@ function renderOrders() {
       </div>
     `;
   }).join('');
+}
+
+function focusOrderFromQuery() {
+  const orderId = new URLSearchParams(window.location.search).get('orderId');
+  if (!orderId) return;
+
+  const orderCard = Array.from(container.querySelectorAll('[data-order-id]'))
+    .find(card => card.dataset.orderId === orderId);
+  if (!orderCard) return;
+
+  orderCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  orderCard.style.outline = '3px solid var(--amber)';
+  setTimeout(() => { orderCard.style.outline = ''; }, 3000);
 }
 
 function showMsg(text, type) {

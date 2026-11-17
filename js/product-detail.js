@@ -125,12 +125,13 @@ function renderProduct() {
     stockEl.innerHTML = '<span class="pill bad">Out of stock</span>';
   }
   $('#p-unit').textContent = UNITS[p.unit] || p.unit;
-  $('#p-quantity').textContent = p.quantity ? p.quantity.toLocaleString() : 'Unlimited';
+  const hasLimitedQuantity = p.quantity != null;
+  $('#p-quantity').textContent = hasLimitedQuantity ? p.quantity.toLocaleString() : 'Unlimited';
 
   // Set max quantity
-  const maxQty = p.quantity || 999;
+  const maxQty = hasLimitedQuantity ? p.quantity : 999;
   qtyInput.max = maxQty;
-  $('#max-qty').textContent = p.quantity ? p.quantity.toLocaleString() : 'Unlimited';
+  $('#max-qty').textContent = hasLimitedQuantity ? p.quantity.toLocaleString() : 'Unlimited';
 
   // Store info
   $('#store-name').textContent = s.business_name;
@@ -240,7 +241,7 @@ reserveForm.addEventListener('submit', async (e) => {
     return;
   }
 
-  const maxQty = currentProduct.quantity || 999;
+  const maxQty = currentProduct.quantity != null ? currentProduct.quantity : 999;
   if (qty > maxQty) {
     showMsg(`Only ${maxQty} available`, 'bad');
     return;

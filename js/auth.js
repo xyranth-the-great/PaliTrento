@@ -605,20 +605,11 @@ export async function startOrderStatusListener(userId) {
     return;
   }
 
-  // Get user's order IDs (as buyer or seller)
-  const { data: stores } = await supabase
-    .from('stores')
+  // Only notify buyers about their own order updates.
+  const { data: orders, error } = await supabase
+    .from('orders')
     .select('id')
-    .eq('user_id', userId);
-
-  const storeIds = (stores || []).map(s => s.id);
-
-  let query = supabase.from('orders').select('id').eq('buyer_id', userId);
-  if (storeIds.length > 0) {
-    query = query.or(`buyer_id.eq.${userId},store_id.in.(${storeIds.join(',')})`);
-  }
-
-  const { data: orders, error } = await query;
+    .eq('buyer_id', userId);
   if (error || !orders || orders.length === 0) {
     console.log('No orders found for order status listener');
     return;
@@ -641,7 +632,7 @@ export async function startOrderStatusListener(userId) {
         const oldOrder = payload.old;
 
         // Only notify on status change to specific states
-        const notifyingStatuses = ['CONFIRMED', 'READY_FOR_PICKUP', 'COMPLETED'];
+        const notifyingStatuses = ['CONFIRMED', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED'];
         if (order.status !== oldOrder.status && notifyingStatuses.includes(order.status)) {
           console.log('[OrderListener] Status changed to:', order.status);
 
@@ -653,7 +644,8 @@ export async function startOrderStatusListener(userId) {
           const statusMessages = {
             CONFIRMED: 'Your order has been confirmed!',
             READY_FOR_PICKUP: 'Your order is ready for pickup!',
-            COMPLETED: 'Your order has been completed!'
+            COMPLETED: 'Your order has been completed!',
+            CANCELLED: 'Your order has been cancelled by the seller.'
           };
 
           const { showOrderStatusToast } = await import('./ui.js');
