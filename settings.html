@@ -196,29 +196,6 @@
         <h2 style="margin:0 0 4px">Your Data</h2>
         <p class="muted" style="margin:0 0 16px">Access or download your personal data.</p>
 
-        <div style="display:grid;gap:12px;margin-bottom:16px">
-          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
-            <label style="display:flex;flex-direction:column;gap:4px;font-size:.9rem">
-              Format
-              <select id="export-format" class="export-format-select" style="padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-md);font:inherit;min-width:160px">
-                <option value="xlsx">Excel (.xlsx) — Recommended</option>
-                <option value="csv">CSV (.csv) — Tabular only</option>
-                <option value="xml">XML (.xml)</option>
-                <option value="json">JSON (.json)</option>
-              </select>
-            </label>
-            <label style="display:flex;flex-direction:column;gap:4px;font-size:.9rem" id="chat-format-label" style="display:none">
-              Chat format
-              <select id="chat-format" class="export-format-select" style="padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-md);font:inherit;min-width:160px">
-                <option value="xlsx">Excel (.xlsx)</option>
-                <option value="csv">CSV (.csv)</option>
-                <option value="xml">XML (.xml)</option>
-                <option value="json">JSON (.json)</option>
-              </select>
-            </label>
-          </div>
-        </div>
-
         <div style="display:flex;gap:12px;flex-wrap:wrap">
           <button type="button" class="btn alt" id="export-data-btn">Export my data</button>
           <button type="button" class="btn alt" id="download-data-btn">Download chat history</button>

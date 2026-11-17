@@ -606,15 +606,7 @@ async function getUserOrderIds(userId) {
   }
 }
 
-// ===== Export/Download Data =====
-
-// Format configurations
-const EXPORT_FORMATS = {
-  xlsx: { ext: 'xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', label: 'Excel' },
-  csv: { ext: 'csv', mime: 'text/csv;charset=utf-8', label: 'CSV' },
-  xml: { ext: 'xml', mime: 'application/xml;charset=utf-8', label: 'XML' },
-  json: { ext: 'json', mime: 'application/json;charset=utf-8', label: 'JSON' }
-};
+// ===== Export/Download Data (Excel Only) =====
 
 // Load SheetJS (xlsx) dynamically from CDN
 let XLSX = null;
@@ -630,201 +622,403 @@ async function loadXLSX() {
   });
 }
 
-// Flatten object for CSV/XML (dot notation for nested)
-function flattenObject(obj, prefix = '') {
-  const result = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const newKey = prefix ? `${prefix}.${key}` : key;
-    if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-      Object.assign(result, flattenObject(value, newKey));
-    } else {
-      result[newKey] = value;
+// Professional Excel export with formatting
+async function exportExcel(data, filename) {
+  const XLSX = await loadXLSX();
+  const wb = XLSX.utils.book_new();
+
+  // Professional style definitions
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+    fill: { fgColor: { rgb: '14351F' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: {
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
     }
-  }
-  return result;
-}
-
-// Convert array of objects to CSV
-function arrayToCSV(arr) {
-  if (!arr.length) return '';
-  const headers = [...new Set(arr.flatMap(obj => Object.keys(flattenObject(obj))))];
-  const rows = arr.map(obj => {
-    const flat = flattenObject(obj);
-    return headers.map(h => {
-      const val = flat[h] ?? '';
-      // Escape quotes and wrap in quotes if contains comma, quote, or newline
-      const str = String(val);
-      if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
-      return str;
-    }).join(',');
-  });
-  return [headers.join(','), ...rows].join('\n');
-}
-
-// Convert array of objects to XML
-function arrayToXML(arr, rootName = 'data', itemName = 'item') {
-  const escape = (str) => String(str)
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
-    .replace(/'/g, '&apos;');
-
-  const objToXML = (obj, indent = 2) => {
-    let xml = '';
-    for (const [key, value] of Object.entries(obj)) {
-      const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const spaces = ' '.repeat(indent);
-      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
-        xml += `${spaces}<${safeKey}>\n${objToXML(value, indent + 2)}${spaces}</${safeKey}>\n`;
-      } else if (Array.isArray(value)) {
-        xml += value.map(v => `${spaces}<${safeKey}>${escape(v)}</${safeKey}>`).join('\n') + '\n';
-      } else {
-        xml += `${spaces}<${safeKey}>${escape(value)}</${safeKey}>\n`;
-      }
-    }
-    return xml;
   };
 
-  const itemsXml = arr.map(item => `  <${itemName}>\n${objToXML(item, 4)}  </${itemName}>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<${rootName}>\n${itemsXml}\n</${rootName}>`;
-}
+  const evenRowStyle = {
+    font: { sz: 10 },
+    fill: { fgColor: { rgb: 'F8FAF9' } },
+    border: {
+      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+    }
+  };
 
-// Export data in selected format
-async function exportData(data, format, filename) {
-  const { ext, mime } = EXPORT_FORMATS[format];
-  let blob;
+  const oddRowStyle = {
+    font: { sz: 10 },
+    fill: { fgColor: { rgb: 'FFFFFF' } },
+    border: {
+      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+    }
+  };
 
-  if (format === 'xlsx') {
-    const XLSX = await loadXLSX();
-    const wb = XLSX.utils.book_new();
+  const currencyStyle = {
+    ...oddRowStyle,
+    numFmt: '#,##0.00_);[Red](#,##0.00)',
+    alignment: { horizontal: 'right', vertical: 'center' }
+  };
 
-    // Profile sheet
-    if (data.profile) {
-      const profileFlat = flattenObject(data.profile);
-      const ws = XLSX.utils.json_to_sheet([profileFlat]);
-      XLSX.utils.book_append_sheet(wb, ws, 'Profile');
+  const currencyEvenStyle = {
+    ...evenRowStyle,
+    numFmt: '#,##0.00_);[Red](#,##0.00)',
+    alignment: { horizontal: 'right', vertical: 'center' }
+  };
+
+  const dateStyle = {
+    ...oddRowStyle,
+    numFmt: 'YYYY-MM-DD HH:MM',
+    alignment: { horizontal: 'center', vertical: 'center' }
+  };
+
+  const dateEvenStyle = {
+    ...evenRowStyle,
+    numFmt: 'YYYY-MM-DD HH:MM',
+    alignment: { horizontal: 'center', vertical: 'center' }
+  };
+
+  const defaultEvenStyle = { ...evenRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
+  const defaultOddStyle = { ...oddRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
+
+  // Helper to apply styles to a worksheet
+  function applyStyles(ws, headers, data, currencyCols = [], dateCols = []) {
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const numRows = range.e.r;
+    const numCols = range.e.c;
+
+    // Apply header styles
+    for (let c = 0; c <= numCols; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+      if (ws[cellRef]) ws[cellRef].s = headerStyle;
     }
 
-    // Orders sheet
-    if (data.orders?.length) {
-      const ws = XLSX.utils.json_to_sheet(data.orders.map(flattenObject));
-      XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-    }
+    // Apply data row styles
+    for (let r = 1; r <= numRows; r++) {
+      const isEven = r % 2 === 0;
+      for (let c = 0; c <= numCols; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (!ws[cellRef]) continue;
 
-    // Messages sheet
-    if (data.messages?.length) {
-      const ws = XLSX.utils.json_to_sheet(data.messages.map(flattenObject));
-      XLSX.utils.book_append_sheet(wb, ws, 'Messages');
-    }
+        const header = headers[c];
+        const isCurrency = currencyCols.includes(header);
+        const isDate = dateCols.includes(header);
+        const cellValue = ws[cellRef].v;
 
-    // Export info sheet
-    const infoWs = XLSX.utils.json_to_sheet([{ exportedAt: data.exportedAt, format: 'xlsx' }]);
-    XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+        // Skip formatting for null/undefined/empty values
+        if (cellValue === null || cellValue === undefined || cellValue === '') {
+          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+          continue;
+        }
 
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    blob = new Blob([wbout], { type: mime });
-
-  } else if (format === 'csv') {
-    // For CSV, combine all data with a type column
-    const combined = [];
-    if (data.profile) combined.push({ ...flattenObject(data.profile), _type: 'profile' });
-    if (data.orders?.length) data.orders.forEach(o => combined.push({ ...flattenObject(o), _type: 'order' }));
-    if (data.messages?.length) data.messages.forEach(m => combined.push({ ...flattenObject(m), _type: 'message' }));
-    combined.push({ _type: 'export_info', exportedAt: data.exportedAt });
-
-    const csv = arrayToCSV(combined);
-    const bom = '﻿'; // UTF-8 BOM
-    blob = new Blob([bom + csv], { type: mime });
-
-  } else if (format === 'xml') {
-    // For XML, create structured document
-    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<export>\n';
-    xml += `  <exportedAt>${data.exportedAt}</exportedAt>\n`;
-    if (data.profile) {
-      xml += `  <profile>\n`;
-      for (const [k, v] of Object.entries(flattenObject(data.profile))) {
-        xml += `    <${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>${String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')}</${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>\n`;
+        if (isCurrency) {
+          ws[cellRef].s = isEven ? currencyEvenStyle : currencyStyle;
+          // Ensure numeric value for currency
+          if (typeof cellValue === 'string') {
+            const num = parseFloat(cellValue.replace(/[^0-9.-]/g, ''));
+            if (!isNaN(num)) ws[cellRef].v = num;
+          } else if (typeof cellValue === 'number' && !isNaN(cellValue)) {
+            // Already a valid number
+          } else {
+            // Invalid value, treat as text
+            ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+          }
+        } else if (isDate) {
+          ws[cellRef].s = isEven ? dateEvenStyle : dateStyle;
+          // Convert date string to Excel serial number (days since 1900-01-01)
+          if (typeof ws[cellRef].v === 'string') {
+            const date = new Date(ws[cellRef].v);
+            if (!isNaN(date.getTime())) {
+              // Excel serial date = days since 1899-12-30 (adjusting for 1900 leap year bug)
+              const excelEpoch = new Date(1899, 11, 30); // 1899-12-30
+              const diffMs = date.getTime() - excelEpoch.getTime();
+              ws[cellRef].v = diffMs / 86400000; // Convert ms to days
+              ws[cellRef].t = 'n';
+            }
+          } else if (ws[cellRef].v instanceof Date) {
+            const excelEpoch = new Date(1899, 11, 30);
+            const diffMs = ws[cellRef].v.getTime() - excelEpoch.getTime();
+            ws[cellRef].v = diffMs / 86400000;
+            ws[cellRef].t = 'n';
+          }
+        } else {
+          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+        }
       }
-      xml += `  </profile>\n`;
     }
-    if (data.orders?.length) {
-      xml += `  <orders>\n`;
-      data.orders.forEach(o => {
-        xml += `    <order>\n`;
-        for (const [k, v] of Object.entries(flattenObject(o))) {
-          xml += `      <${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>${String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')}</${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>\n`;
-        }
-        xml += `    </order>\n`;
-      });
-      xml += `  </orders>\n`;
-    }
-    if (data.messages?.length) {
-      xml += `  <messages>\n`;
-      data.messages.forEach(m => {
-        xml += `    <message>\n`;
-        for (const [k, v] of Object.entries(flattenObject(m))) {
-          xml += `      <${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>${String(v).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>')}</${k.replace(/[^a-zA-Z0-9_-]/g, '_')}>\n`;
-        }
-        xml += `    </message>\n`;
-      });
-      xml += `  </messages>\n`;
-    }
-    xml += `</export>`;
-    const bom = '﻿';
-    blob = new Blob([bom + xml], { type: mime });
 
-  } else { // json
-    const jsonString = JSON.stringify(data, null, 2);
-    const readableJson = jsonString.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-    const bom = '﻿';
-    blob = new Blob([bom + readableJson], { type: mime });
+    // Freeze header row
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomRight' };
+
+    // Auto-fit columns (min 10, max 50 chars)
+    const colWidths = [];
+    for (let c = 0; c <= numCols; c++) {
+      let maxWidth = 10; // minimum
+      // Check header
+      const headerCell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if (headerCell?.v) maxWidth = Math.max(maxWidth, String(headerCell.v).length);
+      // Check data
+      for (let r = 1; r <= numRows; r++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c })];
+        if (cell?.v) maxWidth = Math.max(maxWidth, String(cell.v).length);
+      }
+      colWidths.push({ wch: Math.min(maxWidth + 2, 50) });
+    }
+    ws['!cols'] = colWidths;
   }
 
+  // Sheet 1: Profile (key-value pairs)
+  if (data.profile) {
+    const profileData = [];
+    const profile = data.profile;
+    // Define preferred order for profile fields
+    const fieldOrder = [
+      'id', 'full_name', 'email', 'role', 'barangay', 'phone', 'avatar_url',
+      'created_at', 'updated_at'
+    ];
+    const seen = new Set();
+    fieldOrder.forEach(key => {
+      if (profile[key] !== undefined && profile[key] !== null) {
+        profileData.push({ Field: key, Value: profile[key] });
+        seen.add(key);
+      }
+    });
+    // Add any remaining fields not in the preferred order
+    Object.keys(profile).forEach(key => {
+      if (!seen.has(key) && profile[key] !== undefined && profile[key] !== null) {
+        profileData.push({ Field: key, Value: profile[key] });
+      }
+    });
+
+    if (profileData.length > 0) {
+      const ws = XLSX.utils.json_to_sheet(profileData);
+      applyStyles(ws, ['Field', 'Value'], profileData);
+      XLSX.utils.book_append_sheet(wb, ws, 'Profile');
+    }
+  }
+
+  // Sheet 2: Orders (tabular with currency formatting)
+  if (data.orders?.length) {
+    const orders = data.orders.map(o => ({
+      'Order ID': o.id,
+      'Order #': o.order_number,
+      'Status': o.status,
+      'Total Amount': o.total_amount,
+      'Payment Method': o.payment_method,
+      'Payment Status': o.payment_status,
+      'Buyer ID': o.buyer_id,
+      'Store ID': o.store_id,
+      'Created At': o.created_at,
+      'Updated At': o.updated_at
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(orders);
+    applyStyles(ws, Object.keys(orders[0] || {}), orders, ['Total Amount'], ['Created At', 'Updated At']);
+    XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+  }
+
+  // Sheet 3: Messages (tabular with date formatting)
+  if (data.messages?.length) {
+    const messages = data.messages.map(m => ({
+      'Message ID': m.id,
+      'Order ID': m.order_id,
+      'Sender ID': m.sender_id,
+      'Sender Type': m.sender_type,
+      'Message': m.message,
+      'Type': m.type,
+      'Read': m.read,
+      'Created At': m.created_at
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(messages);
+    applyStyles(ws, Object.keys(messages[0] || {}), messages, [], ['Created At']);
+    XLSX.utils.book_append_sheet(wb, ws, 'Messages');
+  }
+
+  // Sheet 4: Export Info (metadata)
+  const infoData = [
+    { Property: 'Exported At', Value: data.exportedAt },
+    { Property: 'Format', Value: 'Excel (XLSX)' },
+    { Property: 'Profile Included', Value: data.profile ? 'Yes' : 'No' },
+    { Property: 'Orders Count', Value: data.orders?.length || 0 },
+    { Property: 'Messages Count', Value: data.messages?.length || 0 },
+    { Property: 'User ID', Value: currentSession?.user?.id || 'Unknown' },
+    { Property: 'User Email', Value: currentSession?.user?.email || 'Unknown' }
+  ];
+  const infoWs = XLSX.utils.json_to_sheet(infoData);
+  applyStyles(infoWs, ['Property', 'Value'], infoData);
+  XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+
+  // Write and download
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${filename}.${ext}`;
+  a.download = `${filename}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-// Export chat history in selected format
-async function exportChatHistory(messages, format, filename) {
-  const { ext, mime } = EXPORT_FORMATS[format];
-  let blob;
+// Chat history export: single sheet with messages + info sheet
+async function exportChatExcel(messages, filename) {
+  const XLSX = await loadXLSX();
+  const wb = XLSX.utils.book_new();
 
-  if (format === 'xlsx') {
-    const XLSX = await loadXLSX();
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(messages.map(flattenObject));
-    XLSX.utils.book_append_sheet(wb, ws, 'Chat History');
-    const infoWs = XLSX.utils.json_to_sheet([{ exportedAt: new Date().toISOString(), messageCount: messages.length }]);
-    XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    blob = new Blob([wbout], { type: mime });
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+    fill: { fgColor: { rgb: '14351F' } },
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+    border: {
+      bottom: { style: 'thin', color: { rgb: '000000' } },
+      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+    }
+  };
 
-  } else if (format === 'csv') {
-    const csv = arrayToCSV(messages.map(flattenObject));
-    const bom = '﻿';
-    blob = new Blob([bom + csv], { type: mime });
+  const evenRowStyle = {
+    font: { sz: 10 },
+    fill: { fgColor: { rgb: 'F8FAF9' } },
+    border: {
+      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+    }
+  };
 
-  } else if (format === 'xml') {
-    const xml = arrayToXML(messages.map(flattenObject), 'chatHistory', 'message');
-    const bom = '﻿';
-    blob = new Blob([bom + xml], { type: mime });
+  const oddRowStyle = {
+    font: { sz: 10 },
+    fill: { fgColor: { rgb: 'FFFFFF' } },
+    border: {
+      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+    }
+  };
 
-  } else { // json
-    const jsonString = JSON.stringify({ chatHistory: messages, exportedAt: new Date().toISOString() }, null, 2);
-    const readableJson = jsonString.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-    const bom = '﻿';
-    blob = new Blob([bom + readableJson], { type: mime });
+  const dateStyle = { ...oddRowStyle, numFmt: 'YYYY-MM-DD HH:MM', alignment: { horizontal: 'center', vertical: 'center' } };
+  const dateEvenStyle = { ...evenRowStyle, numFmt: 'YYYY-MM-DD HH:MM', alignment: { horizontal: 'center', vertical: 'center' } };
+  const defaultEvenStyle = { ...evenRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
+  const defaultOddStyle = { ...oddRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
+
+  function applyStyles(ws, headers, data, dateCols = []) {
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    const numRows = range.e.r;
+    const numCols = range.e.c;
+
+    for (let c = 0; c <= numCols; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c });
+      if (ws[cellRef]) ws[cellRef].s = headerStyle;
+    }
+
+    for (let r = 1; r <= numRows; r++) {
+      const isEven = r % 2 === 0;
+      for (let c = 0; c <= numCols; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (!ws[cellRef]) continue;
+
+        const header = headers[c];
+        const isDate = dateCols.includes(header);
+        const cellValue = ws[cellRef].v;
+
+        // Skip formatting for null/undefined/empty values
+        if (cellValue === null || cellValue === undefined || cellValue === '') {
+          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+          continue;
+        }
+
+        if (isDate) {
+          ws[cellRef].s = isEven ? dateEvenStyle : dateStyle;
+          if (typeof cellValue === 'string') {
+            const date = new Date(cellValue);
+            if (!isNaN(date.getTime())) {
+              const excelEpoch = new Date(1899, 11, 30);
+              const diffMs = date.getTime() - excelEpoch.getTime();
+              ws[cellRef].v = diffMs / 86400000;
+              ws[cellRef].t = 'n';
+            } else {
+              // Invalid date string, treat as text
+              ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+            }
+          } else if (cellValue instanceof Date) {
+            const excelEpoch = new Date(1899, 11, 30);
+            const diffMs = cellValue.getTime() - excelEpoch.getTime();
+            ws[cellRef].v = diffMs / 86400000;
+            ws[cellRef].t = 'n';
+          } else {
+            // Not a valid date type, treat as text
+            ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+          }
+        } else {
+          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
+        }
+      }
+    }
+
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomRight' };
+
+    const colWidths = [];
+    for (let c = 0; c <= numCols; c++) {
+      let maxWidth = 10;
+      const headerCell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if (headerCell?.v) maxWidth = Math.max(maxWidth, String(headerCell.v).length);
+      for (let r = 1; r <= numRows; r++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c })];
+        if (cell?.v) maxWidth = Math.max(maxWidth, String(cell.v).length);
+      }
+      colWidths.push({ wch: Math.min(maxWidth + 2, 50) });
+    }
+    ws['!cols'] = colWidths;
   }
 
+  // Sheet 1: Chat History
+  if (messages?.length) {
+    const chatData = messages.map(m => ({
+      'Message ID': m.id,
+      'Order ID': m.order_id,
+      'Sender ID': m.sender_id,
+      'Sender Type': m.sender_type,
+      'Message': m.message,
+      'Type': m.type,
+      'Read': m.read,
+      'Created At': m.created_at
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(chatData);
+    applyStyles(ws, Object.keys(chatData[0] || {}), chatData, ['Created At']);
+    XLSX.utils.book_append_sheet(wb, ws, 'Chat History');
+  }
+
+  // Sheet 2: Export Info
+  const infoData = [
+    { Property: 'Exported At', Value: new Date().toISOString() },
+    { Property: 'Format', Value: 'Excel (XLSX)' },
+    { Property: 'Message Count', Value: messages?.length || 0 },
+    { Property: 'User ID', Value: currentSession?.user?.id || 'Unknown' },
+    { Property: 'User Email', Value: currentSession?.user?.email || 'Unknown' }
+  ];
+  const infoWs = XLSX.utils.json_to_sheet(infoData);
+  applyStyles(infoWs, ['Property', 'Value'], infoData);
+  XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+
+  // Write and download
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${filename}.${ext}`;
+  a.download = `${filename}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -839,8 +1033,6 @@ $('#export-data-btn').addEventListener('click', async () => {
   btn.textContent = 'Exporting...';
 
   try {
-    const format = $('#export-format').value;
-
     // Fetch user's order IDs using shared helper
     const orderIds = await getUserOrderIds(currentSession.user.id);
 
@@ -863,7 +1055,7 @@ $('#export-data-btn').addEventListener('click', async () => {
       exportedAt: new Date().toISOString()
     };
 
-    await exportData(data, format, `palitrento-data-${Date.now()}`);
+    await exportExcel(data, `palitrento-data-${Date.now()}`);
   } catch (err) {
     console.error('Export error:', err);
     alert(`Failed to export data: ${err.message || 'Unknown error'}`);
@@ -882,8 +1074,6 @@ $('#download-data-btn').addEventListener('click', async () => {
   btn.textContent = 'Downloading...';
 
   try {
-    const format = $('#chat-format').value || $('#export-format').value;
-
     // Fetch user's order IDs using shared helper
     const orderIds = await getUserOrderIds(currentSession.user.id);
 
@@ -895,7 +1085,7 @@ $('#download-data-btn').addEventListener('click', async () => {
 
     if (error) throw error;
 
-    await exportChatHistory(messages || [], format, `palitrento-chat-${Date.now()}`);
+    await exportChatExcel(messages || [], `palitrento-chat-${Date.now()}`);
   } catch (err) {
     console.error('Download chat error:', err);
     alert(`Failed to download chat history: ${err.message || 'Unknown error'}`);
