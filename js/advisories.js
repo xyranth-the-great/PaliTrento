@@ -5,7 +5,13 @@ import {
   startAdvisoryToastListener,
   openNotificationModal,
   getMessageNotificationOrders,
-  messageNotificationsEnabled
+  messageNotificationsEnabled,
+  getReservationNotifications,
+  markReservationNotificationRead,
+  getNotificationDismissals,
+  dismissNotifications,
+  refreshNotificationBell,
+  getNotificationDismissErrorMessage
 } from './ui.js';
 import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
@@ -91,6 +97,7 @@ async function loadAllNotifications() {
       ...a,
       type: 'advisory',
       isMessage: false,
+      isReservation: false,
       isRead: readIds.has(a.id)
     }));
 
@@ -145,8 +152,42 @@ async function loadAllNotifications() {
       }
     }
 
-    allNotifications = [...advisoryNotifications, ...messageNotifications]
+    let reservationNotifications = [];
+    const role = profile?.role ?? session.user.user_metadata?.role;
+    const reservations = role === 'business_owner'
+      ? await getReservationNotifications(supabase, userId)
+      : [];
+    if (reservations === null) {
+      console.error('Reservation notifications could not be loaded on the all-notifications page.');
+    } else {
+      reservationNotifications = reservations.map(reservation => {
+        const order = reservation.orders || {};
+        const product = order.products || {};
+        return {
+          id: reservation.id,
+          order_id: reservation.order_id,
+          type: 'reservation',
+          isMessage: false,
+          isReservation: true,
+          category: 'RESERVATION',
+          title: `New reservation from ${reservation.buyer_name}`,
+          body: `${order.quantity || 0} × ${product.name || 'Product'} • Order ${reservation.order_id.slice(0, 8)}`,
+          published_at: reservation.created_at,
+          isRead: !!reservation.read_at
+        };
+      });
+    }
+
+    allNotifications = [...advisoryNotifications, ...messageNotifications, ...reservationNotifications]
       .sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    const dismissedKeys = await getNotificationDismissals(supabase, userId, allNotifications);
+    if (dismissedKeys === null) {
+      console.error('Dismissed notifications could not be loaded on the all-notifications page.');
+    } else {
+      allNotifications = allNotifications.filter(
+        notification => !dismissedKeys.has(`${notification.type}:${notification.id}`)
+      );
+    }
     filteredNotifications = [...allNotifications];
   } catch (err) {
     console.error('Load all notifications error:', err);
@@ -186,6 +227,7 @@ function setupFilters() {
 
   catSelect.addEventListener('change', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
+  $('#clear-all-notifications')?.addEventListener('click', clearAllNotifications);
 }
 
 function renderPage() {
@@ -199,6 +241,8 @@ function renderPage() {
   // Update count
   const unreadCount = filteredNotifications.filter(a => !a.isRead).length;
   $('#count').textContent = `${filteredNotifications.length} notification${filteredNotifications.length !== 1 ? 's' : ''} ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`;
+  const clearAllButton = $('#clear-all-notifications');
+  if (clearAllButton) clearAllButton.hidden = allNotifications.length === 0;
 
   if (pageItems.length === 0) {
     $('#list').innerHTML = '';
@@ -211,18 +255,25 @@ function renderPage() {
 
   // Render items
   $('#list').innerHTML = pageItems.map(a => {
-    const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn', MESSAGE: 'info' }[a.category] || 'warn';
-    const categoryLabel = a.isMessage ? 'Message' : a.category.replace('_', ' ');
+    const catColor = { PRICE_CAP: 'ok', ANNOUNCEMENT: 'info', EMERGENCY: 'bad', GENERAL: 'warn', MESSAGE: 'info', RESERVATION: 'info' }[a.category] || 'warn';
+    const categoryLabel = a.isMessage ? 'Message' : a.isReservation ? 'Reservation' : a.category.replace('_', ' ');
     return `
-      <button class="notification-item ${a.isRead ? 'read' : 'unread'}" data-id="${esc(a.id)}" data-type="${a.type}" role="option" tabindex="0">
-        <span class="notification-cat pill ${catColor}">${categoryLabel}</span>
-        <div class="notification-content">
-          <strong>${esc(a.title)}</strong>
-          <p class="muted">${esc(a.body)}</p>
-          <span class="muted">${new Date(a.published_at).toLocaleString('en-PH')}${a.barangay ? ` • ${esc(a.barangay)}` : ''}</span>
-        </div>
-        ${!a.isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
-      </button>
+      <div class="notification-row">
+        <button class="notification-item ${a.isRead ? 'read' : 'unread'}" data-id="${esc(a.id)}" data-type="${a.type}" role="option" tabindex="0">
+          <span class="notification-cat pill ${catColor}">${categoryLabel}</span>
+          <div class="notification-content">
+            <strong>${esc(a.title)}</strong>
+            <p class="muted">${esc(a.body)}</p>
+            <span class="muted">${new Date(a.published_at).toLocaleString('en-PH')}${a.barangay ? ` • ${esc(a.barangay)}` : ''}</span>
+          </div>
+          ${!a.isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
+        </button>
+        <button type="button" class="notification-dismiss" data-id="${esc(a.id)}" data-type="${a.type}" aria-label="Dismiss notification" title="Dismiss notification">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 6h18M8 6V4h8v2m-11 0 1 14h12l1-14M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+      </div>
     `;
   }).join('');
 
@@ -233,6 +284,19 @@ function renderPage() {
       const notification = allNotifications.find(a => a.id === id && a.type === item.dataset.type);
       if (notification?.isMessage) {
         window.location.href = `/chat/?orderId=${encodeURIComponent(notification.order_id)}&messageId=${encodeURIComponent(notification.id)}`;
+      } else if (notification?.isReservation) {
+        const { error: readError } = await markReservationNotificationRead(
+          supabase,
+          notification.id,
+          session.user.id
+        );
+        if (readError) {
+          console.error('Mark reservation notification read error:', readError);
+          alert('Could not mark this reservation notification as read.');
+          return;
+        }
+        notification.isRead = true;
+        window.location.href = `/dashboard/?tab=orders&orderId=${encodeURIComponent(notification.order_id)}`;
       } else if (notification) {
         await openNotificationModal(notification);
         // Update local state and UI
@@ -245,7 +309,53 @@ function renderPage() {
     });
   });
 
+  $('#list').querySelectorAll('.notification-dismiss').forEach(button => {
+    button.addEventListener('click', async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const notification = allNotifications.find(
+        item => item.id === button.dataset.id && item.type === button.dataset.type
+      );
+      if (!notification) return;
+
+      const { error: dismissError } = await dismissNotifications(
+        supabase,
+        session.user.id,
+        [notification]
+      );
+      if (dismissError) {
+        console.error('Dismiss notification error:', dismissError);
+        alert(getNotificationDismissErrorMessage(dismissError));
+        return;
+      }
+
+      allNotifications = allNotifications.filter(item => item !== notification);
+      filteredNotifications = filteredNotifications.filter(item => item !== notification);
+      renderPage();
+      await refreshNotificationBell();
+    });
+  });
+
   renderPagination();
+}
+
+async function clearAllNotifications() {
+  if (!allNotifications.length) return;
+  const confirmed = window.confirm(`Dismiss all ${allNotifications.length} notifications? This will not delete messages, orders, reservations, or advisories.`);
+  if (!confirmed) return;
+
+  const { error } = await dismissNotifications(supabase, session.user.id, allNotifications);
+  if (error) {
+    console.error('Dismiss all notifications error:', error);
+    alert(getNotificationDismissErrorMessage(error, 'clear notifications'));
+    return;
+  }
+
+  allNotifications = [];
+  filteredNotifications = [];
+  currentPage = 1;
+  renderPage();
+  await refreshNotificationBell();
 }
 
 function updateCountDisplay() {

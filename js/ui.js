@@ -758,7 +758,7 @@ export function renderChrome(active, session = null, profile = null, userId = nu
   // Initialize avatar dropdown after DOM update
   if (session) {
     initAvatarDropdown();
-    initNotificationBell(session.user.id);
+    initNotificationBell(session.user.id, isBusinessOwner);
   }
 }
 
@@ -1120,14 +1120,20 @@ let notificationOrderCacheUserId = null;
 let notificationOrderCache = [];
 let messageNotificationChannel = null;
 let messageNotificationUserId = null;
+let notificationStoreCacheUserId = null;
+let notificationStoreCache = [];
+let reservationNotificationChannel = null;
+let reservationNotificationUserId = null;
 
-async function initNotificationBell(userId) {
+async function initNotificationBell(userId, isBusinessOwner) {
   const bell = $('#notification-menu .notification-bell');
   const dropdown = $('#notification-menu .notification-dropdown');
   const list = dropdown?.querySelector('.notification-dropdown-list');
   if (!bell || !dropdown || !list) return;
 
-  startMessageNotificationListener(userId);
+  bell.dataset.businessOwner = String(isBusinessOwner);
+  startMessageNotificationListener(userId, isBusinessOwner);
+  startReservationNotificationListener(userId, isBusinessOwner);
 
   // Toggle dropdown
   bell.addEventListener('click', async (e) => {
@@ -1136,7 +1142,7 @@ async function initNotificationBell(userId) {
     dropdown.hidden = isOpen;
     if (!isOpen) {
       positionDropdown(bell, dropdown);
-      await loadNotifications(list);
+      await loadNotifications(list, isBusinessOwner);
     }
   });
 
@@ -1159,9 +1165,9 @@ async function initNotificationBell(userId) {
   // Mark all read
   dropdown.querySelector('.mark-all-read')?.addEventListener('click', async (e) => {
     e.stopPropagation();
-    await markAllRead();
+    await markAllRead(isBusinessOwner);
     await updateUnreadCount(bell);
-    await loadNotifications(list);
+    await loadNotifications(list, isBusinessOwner);
   });
 
   // Initial load
@@ -1171,16 +1177,8 @@ async function initNotificationBell(userId) {
 export async function getMessageNotificationOrders(supabase, userId) {
   if (notificationOrderCacheUserId === userId) return notificationOrderCache;
 
-  const { data: stores, error: storesError } = await supabase
-    .from('stores')
-    .select('id')
-    .eq('user_id', userId);
-  if (storesError) {
-    console.error('Load message notification stores error:', storesError);
-    return null;
-  }
-
-  const storeIds = (stores || []).map(store => store.id);
+  const storeIds = await getOwnedStoreIds(supabase, userId);
+  if (storeIds === null) return null;
   let query = supabase
     .from('orders')
     .select('id, buyer_id, store_id, stores(business_name, user_id)');
@@ -1201,13 +1199,163 @@ export async function getMessageNotificationOrders(supabase, userId) {
   return notificationOrderCache;
 }
 
+export async function getOwnedStoreIds(supabase, userId) {
+  if (notificationStoreCacheUserId === userId) return notificationStoreCache;
+
+  const { data, error } = await supabase
+    .from('stores')
+    .select('id')
+    .eq('user_id', userId);
+  if (error) {
+    console.error('Load owned stores error:', error);
+    return null;
+  }
+
+  notificationStoreCacheUserId = userId;
+  notificationStoreCache = (data || []).map(store => store.id);
+  return notificationStoreCache;
+}
+
 export async function messageNotificationsEnabled(userId) {
   const { getNotificationPreferences } = await import('./auth.js');
   const preferences = await getNotificationPreferences(userId);
   return preferences.messages !== false;
 }
 
-async function startMessageNotificationListener(userId) {
+async function orderNotificationsEnabled(userId) {
+  const { getNotificationPreferences } = await import('./auth.js');
+  const preferences = await getNotificationPreferences(userId);
+  return preferences.orders !== false;
+}
+
+export async function getReservationNotifications(supabase, userId, limit = null) {
+  if (!await orderNotificationsEnabled(userId)) return [];
+
+  const storeIds = await getOwnedStoreIds(supabase, userId);
+  if (storeIds === null) return null;
+  if (!storeIds.length) return [];
+
+  let query = supabase
+    .from('reservation_notifications')
+    .select('id, order_id, created_at, read_at, orders(id, buyer_id, quantity, products(name))')
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false });
+  if (limit !== null) query = query.limit(limit);
+
+  const { data: notifications, error } = await query;
+  if (error) {
+    console.error('Load reservation notifications error:', error);
+    return null;
+  }
+
+  const orderIds = [...new Set((notifications || []).map(notification => notification.order_id))];
+  const buyerNames = new Map();
+  for (const orderId of orderIds) {
+    const { data: name, error: nameError } = await supabase.rpc(
+      'get_order_customer_name',
+      { p_order_id: orderId }
+    );
+    if (nameError) console.error('Load reservation customer name error:', nameError);
+    buyerNames.set(orderId, name || 'Customer');
+  }
+
+  return (notifications || []).map(notification => ({
+    ...notification,
+    buyer_name: buyerNames.get(notification.order_id) || 'Customer'
+  }));
+}
+
+export async function markReservationNotificationRead(supabase, notificationId, userId) {
+  return supabase
+    .from('reservation_notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', notificationId)
+    .eq('owner_id', userId)
+    .is('read_at', null);
+}
+
+async function getNotificationDismissedIds(supabase, userId, notificationType, notificationIds = null) {
+  const dismissedIds = new Set();
+  const pageSize = 1000;
+
+  if (notificationIds !== null) {
+    const uniqueIds = [...new Set(notificationIds)];
+    for (let index = 0; index < uniqueIds.length; index += 100) {
+      const { data, error } = await supabase
+        .from('notification_dismissals')
+        .select('notification_id')
+        .eq('user_id', userId)
+        .eq('notification_type', notificationType)
+        .in('notification_id', uniqueIds.slice(index, index + 100));
+      if (error) {
+        console.error('Load notification dismissals error:', error);
+        return null;
+      }
+      (data || []).forEach(row => dismissedIds.add(row.notification_id));
+    }
+    return dismissedIds;
+  }
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('notification_dismissals')
+      .select('notification_id')
+      .eq('user_id', userId)
+      .eq('notification_type', notificationType)
+      .order('notification_id')
+      .range(offset, offset + pageSize - 1);
+    if (error) {
+      console.error('Load notification dismissals error:', error);
+      return null;
+    }
+    (data || []).forEach(row => dismissedIds.add(row.notification_id));
+    if (!data || data.length < pageSize) break;
+  }
+  return dismissedIds;
+}
+
+export async function getNotificationDismissals(supabase, userId, notifications) {
+  const idsByType = new Map();
+  for (const notification of notifications) {
+    if (!idsByType.has(notification.type)) idsByType.set(notification.type, []);
+    idsByType.get(notification.type).push(notification.id);
+  }
+
+  const dismissedKeys = new Set();
+  for (const [type, ids] of idsByType) {
+    const dismissedIds = await getNotificationDismissedIds(supabase, userId, type, ids);
+    if (dismissedIds === null) return null;
+    dismissedIds.forEach(id => dismissedKeys.add(`${type}:${id}`));
+  }
+  return dismissedKeys;
+}
+
+export async function dismissNotifications(supabase, userId, notifications) {
+  const rows = notifications.map(notification => ({
+    user_id: userId,
+    notification_type: notification.type,
+    notification_id: notification.id
+  }));
+  if (!rows.length) return { error: null };
+
+  for (let index = 0; index < rows.length; index += 100) {
+    const { error } = await supabase
+      .from('notification_dismissals')
+      .upsert(rows.slice(index, index + 100), { onConflict: 'user_id,notification_type,notification_id' });
+    if (error) return { error };
+  }
+  return { error: null };
+}
+
+export function getNotificationDismissErrorMessage(error, action = 'dismiss this notification') {
+  const setupError = ['PGRST205', 'PGRST204', '42P01', '42501'].includes(error?.code);
+  if (setupError) {
+    return `Could not ${action}. Run the updated supabase/reservation-notifications.sql in Supabase, then reload the app.`;
+  }
+  return `Could not ${action}: ${error?.message || 'Please try again.'}`;
+}
+
+async function startMessageNotificationListener(userId, isBusinessOwner) {
   const { supabase } = await import('./supabase.js');
   if (!supabase || messageNotificationUserId === userId) return;
 
@@ -1238,7 +1386,7 @@ async function startMessageNotificationListener(userId) {
 
       const list = $('#notification-menu .notification-dropdown-list');
       const dropdown = $('#notification-menu .notification-dropdown');
-      if (list && dropdown && !dropdown.hidden) await loadNotifications(list);
+      if (list && dropdown && !dropdown.hidden) await loadNotifications(list, isBusinessOwner);
     })
     .subscribe((status, error) => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -1247,7 +1395,41 @@ async function startMessageNotificationListener(userId) {
     });
 }
 
-async function loadNotifications(listEl) {
+async function startReservationNotificationListener(userId, isBusinessOwner) {
+  if (!isBusinessOwner || reservationNotificationUserId === userId) return;
+
+  const { supabase } = await import('./supabase.js');
+  if (!supabase || !await orderNotificationsEnabled(userId)) return;
+  const storeIds = await getOwnedStoreIds(supabase, userId);
+  if (storeIds === null || !storeIds.length) return;
+
+  if (reservationNotificationChannel) {
+    await reservationNotificationChannel.unsubscribe();
+  }
+  reservationNotificationUserId = userId;
+  reservationNotificationChannel = supabase
+    .channel(`reservation-notifications-${userId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'reservation_notifications',
+      filter: `owner_id=eq.${userId}`
+    }, async () => {
+      const bell = $('#notification-menu .notification-bell');
+      if (bell) await updateUnreadCount(bell);
+
+      const list = $('#notification-menu .notification-dropdown-list');
+      const dropdown = $('#notification-menu .notification-dropdown');
+      if (list && dropdown && !dropdown.hidden) await loadNotifications(list, true);
+    })
+    .subscribe((status, error) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.error('Reservation notification subscription error:', error || status);
+      }
+    });
+}
+
+async function loadNotifications(listEl, isBusinessOwner = false) {
   const { supabase } = await import('./supabase.js');
   const { getSession } = await import('./auth.js');
   const session = await getSession();
@@ -1290,6 +1472,8 @@ async function loadNotifications(listEl) {
       // Store advisory data in map for modal
       advisoryDataMap.set(a.id, a);
       return {
+        id: a.id,
+        type: 'advisory',
         createdAt: a.published_at,
         html: `
           <button class="notification-item advisory-notification ${isRead ? 'read' : 'unread'}" data-advisory-id="${esc(a.id)}" role="option" tabindex="0">
@@ -1304,6 +1488,37 @@ async function loadNotifications(listEl) {
         `
       };
     });
+
+    let reservationItems = [];
+    const reservations = isBusinessOwner
+      ? await getReservationNotifications(supabase, userId, 10)
+      : [];
+    if (reservations === null) {
+      console.error('Reservation notification list could not be loaded.');
+    } else {
+      reservationItems = reservations.map(reservation => {
+        const order = reservation.orders || {};
+        const product = order.products || {};
+        const isRead = !!reservation.read_at;
+        const orderLabel = reservation.order_id.slice(0, 8);
+        return {
+          id: reservation.id,
+          type: 'reservation',
+          createdAt: reservation.created_at,
+          html: `
+            <button class="notification-item reservation-notification ${isRead ? 'read' : 'unread'}" data-reservation-id="${esc(reservation.id)}" data-order-id="${esc(reservation.order_id)}" role="option" tabindex="0">
+              <span class="notification-cat pill info">Reservation</span>
+              <div class="notification-content">
+                <strong>New reservation from ${esc(reservation.buyer_name)}</strong>
+                <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(order.quantity || 0)} × ${esc(product.name || 'Product')} • Order ${esc(orderLabel)}</p>
+                <span class="muted" style="font-size:.7rem">${new Date(reservation.created_at).toLocaleString('en-PH')}</span>
+              </div>
+              ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
+            </button>
+          `
+        };
+      });
+    }
 
     let messageItems = [];
     if (await messageNotificationsEnabled(userId)) {
@@ -1339,6 +1554,8 @@ async function loadNotifications(listEl) {
               : senderNames.get(message.order_id) || 'Customer';
             const orderLabel = message.order_id.slice(0, 8);
             return {
+              id: message.id,
+              type: 'message',
               createdAt: message.created_at,
               html: `
                 <button class="notification-item chat-notification ${isRead ? 'read' : 'unread'}" data-chat-order-id="${esc(message.order_id)}" data-chat-message-id="${esc(message.id)}" role="option" tabindex="0">
@@ -1357,8 +1574,14 @@ async function loadNotifications(listEl) {
       }
     }
 
-    const items = [...advisoryItems, ...messageItems]
+    let items = [...advisoryItems, ...reservationItems, ...messageItems]
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const dismissedKeys = await getNotificationDismissals(supabase, userId, items);
+    if (dismissedKeys === null) {
+      console.error('Dismissed notifications could not be loaded.');
+    } else {
+      items = items.filter(item => !dismissedKeys.has(`${item.type}:${item.id}`));
+    }
     listEl.innerHTML = items.length
       ? items.map(item => item.html).join('')
       : '<div class="muted" style="padding:16px;text-align:center">No notifications</div>';
@@ -1384,6 +1607,29 @@ async function loadNotifications(listEl) {
         window.location.href = `/chat/?orderId=${encodeURIComponent(orderId)}&messageId=${encodeURIComponent(messageId)}`;
       });
     });
+
+    listEl.querySelectorAll('.reservation-notification').forEach(item => {
+      item.addEventListener('click', async () => {
+        const { error: readError } = await markReservationNotificationRead(
+          supabase,
+          item.dataset.reservationId,
+          userId
+        );
+        if (readError) {
+          console.error('Mark reservation notification read error:', readError);
+          alert('Could not mark this reservation notification as read.');
+          return;
+        }
+
+        item.classList.remove('unread');
+        item.classList.add('read');
+        item.querySelector('.notification-dot')?.remove();
+        const bell = $('#notification-menu .notification-bell');
+        if (bell) await updateUnreadCount(bell);
+        window.location.href = `/dashboard/?tab=orders&orderId=${encodeURIComponent(item.dataset.orderId)}`;
+      });
+    });
+
   } catch (err) {
     console.error('Load notifications error:', err);
     listEl.innerHTML = '<div class="pill bad" style="padding:16px;text-align:center">Failed to load</div>';
@@ -1417,6 +1663,12 @@ async function updateUnreadCount(bell) {
       if (readsError) console.error('Load unread advisory read status error:', readsError);
       const readIds = new Set((reads || []).map(r => r.advisory_id));
       advisoryUnread = advisoryIds.filter(id => !readIds.has(id)).length;
+      const dismissedIds = await getNotificationDismissedIds(supabase, userId, 'advisory', advisoryIds);
+      if (dismissedIds === null) {
+        console.error('Unread advisory count could not exclude dismissed notifications.');
+      } else {
+        advisoryUnread = advisoryIds.filter(id => !readIds.has(id) && !dismissedIds.has(id)).length;
+      }
     }
 
     let messageUnread = 0;
@@ -1432,11 +1684,76 @@ async function updateUnreadCount(bell) {
           .neq('sender_id', userId)
           .is('read_at', null);
         if (messageCountError) console.error('Load unread message count error:', messageCountError);
-        else messageUnread = count || 0;
+        else {
+          messageUnread = count || 0;
+          const dismissedIds = await getNotificationDismissedIds(supabase, userId, 'message');
+          if (dismissedIds === null) {
+            console.error('Unread message count could not exclude dismissed notifications.');
+          } else if (dismissedIds.size) {
+            let dismissedUnread = 0;
+            const ids = [...dismissedIds];
+            for (let index = 0; index < ids.length; index += 100) {
+              const { count: dismissedCount, error: dismissedCountError } = await supabase
+                .from('messages')
+                .select('id', { count: 'exact', head: true })
+                .in('id', ids.slice(index, index + 100))
+                .in('order_id', orders.map(order => order.id))
+                .neq('sender_id', userId)
+                .is('read_at', null);
+              if (dismissedCountError) {
+                console.error('Count dismissed unread messages error:', dismissedCountError);
+                dismissedUnread = 0;
+                break;
+              }
+              dismissedUnread += dismissedCount || 0;
+            }
+            messageUnread = Math.max(0, messageUnread - dismissedUnread);
+          }
+        }
       }
     }
 
-    const unread = advisoryUnread + messageUnread;
+    let reservationUnread = 0;
+    if (bell.dataset.businessOwner === 'true' && await orderNotificationsEnabled(userId)) {
+      const storeIds = await getOwnedStoreIds(supabase, userId);
+      if (storeIds === null) {
+        console.error('Unread reservation count could not be loaded because the stores query failed.');
+      } else if (storeIds.length) {
+        const { count, error: reservationCountError } = await supabase
+          .from('reservation_notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId)
+          .is('read_at', null);
+        if (reservationCountError) console.error('Load unread reservation count error:', reservationCountError);
+        else {
+          reservationUnread = count || 0;
+          const dismissedIds = await getNotificationDismissedIds(supabase, userId, 'reservation');
+          if (dismissedIds === null) {
+            console.error('Unread reservation count could not exclude dismissed notifications.');
+          } else if (dismissedIds.size) {
+            let dismissedUnread = 0;
+            const ids = [...dismissedIds];
+            for (let index = 0; index < ids.length; index += 100) {
+              const { count: dismissedCount, error: dismissedCountError } = await supabase
+                .from('reservation_notifications')
+                .select('id', { count: 'exact', head: true })
+                .in('id', ids.slice(index, index + 100))
+                .eq('owner_id', userId)
+                .is('read_at', null);
+              if (dismissedCountError) {
+                console.error('Count dismissed unread reservations error:', dismissedCountError);
+                dismissedUnread = 0;
+                break;
+              }
+              dismissedUnread += dismissedCount || 0;
+            }
+            reservationUnread = Math.max(0, reservationUnread - dismissedUnread);
+          }
+        }
+      }
+    }
+
+    const unread = advisoryUnread + messageUnread + reservationUnread;
     bell.dataset.unread = unread;
     if (unread > 0) {
       let badge = bell.querySelector('.notification-badge');
@@ -1474,7 +1791,7 @@ async function markRead(advisoryId) {
   }
 }
 
-async function markAllRead() {
+async function markAllRead(isBusinessOwner) {
   const { supabase } = await import('./supabase.js');
   const { getSession } = await import('./auth.js');
   const session = await getSession();
@@ -1494,8 +1811,9 @@ async function markAllRead() {
   }
 
   const orders = await getMessageNotificationOrders(supabase, session.user.id);
-  if (orders === null) return;
-  if (orders.length) {
+  if (orders === null) {
+    console.error('Messages could not be marked read because the user orders query failed.');
+  } else if (orders.length) {
     const { error } = await supabase
       .from('messages')
       .update({ read_at: new Date().toISOString() })
@@ -1503,6 +1821,19 @@ async function markAllRead() {
       .neq('sender_id', session.user.id)
       .is('read_at', null);
     if (error) console.error('Mark all messages read error:', error);
+  }
+
+  if (isBusinessOwner) {
+    const storeIds = await getOwnedStoreIds(supabase, session.user.id);
+    if (storeIds === null) return;
+    if (storeIds.length) {
+      const { error } = await supabase
+        .from('reservation_notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('owner_id', session.user.id)
+        .is('read_at', null);
+      if (error) console.error('Mark all reservation notifications read error:', error);
+    }
   }
 }
 

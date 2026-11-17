@@ -337,7 +337,7 @@ function renderOrders() {
     }
 
     return `
-      <div class="card" style="margin-bottom:12px">
+      <div class="card" data-order-id="${esc(o.id)}" style="margin-bottom:12px">
         <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
           <div>
             <h3 style="margin:0 0 4px;font-size:1rem">${esc(product?.name || 'Product')}</h3>
@@ -438,6 +438,21 @@ function bindEvents() {
   $$('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
   });
+
+  const params = new URLSearchParams(window.location.search);
+  const orderId = params.get('orderId');
+  if (params.get('tab') === 'orders' || orderId) {
+    switchTab('orders');
+  }
+  if (orderId) {
+    const orderCard = Array.from($('#orders-list').querySelectorAll('[data-order-id]'))
+      .find(card => card.dataset.orderId === orderId);
+    if (orderCard) {
+      orderCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      orderCard.style.outline = '3px solid var(--amber)';
+      setTimeout(() => { orderCard.style.outline = ''; }, 3000);
+    }
+  }
 
   // Add product
   $('#add-product-btn')?.addEventListener('click', () => openProductModal());
