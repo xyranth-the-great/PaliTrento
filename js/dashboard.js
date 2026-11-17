@@ -417,7 +417,7 @@ function renderProducts() {
           ${s ? `<span class="pill ${s.cls}">${s.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
           <p class="muted" style="margin-top:8px;font-size:.8rem">
             ${p.in_stock ? '<span class="pill ok" style="font-size:.7rem">In stock</span>' : '<span class="pill bad" style="font-size:.7rem">Out of stock</span>'}
-            ${p.quantity ? ` • Qty: ${p.quantity}` : ''}
+            ${p.quantity != null ? ` • Qty: ${p.quantity}` : ''}
           </p>
           <p class="muted" style="font-size:.7rem;margin-top:8px">Category: ${esc(p.category)}</p>
         </div>
@@ -750,7 +750,7 @@ function openProductModal(productId = null) {
       $('#p-price').value = product.current_price;
       $('#p-srp').value = product.lgu_srp_ceiling || '';
       $('#p-stock').value = product.in_stock ? 'true' : 'false';
-      $('#p-quantity').value = product.quantity || '';
+      $('#p-quantity').value = product.quantity ?? '';
 
       // Show existing images if present (support both image_url and image_urls)
       const imageUrls = product.image_urls || (product.image_url ? [product.image_url] : []);
@@ -1160,9 +1160,12 @@ async function updateOrderStatus(orderId, newStatus) {
     if (error) throw error;
 
     await loadOrders(currentStore.id);
+    if (newStatus === 'COMPLETED') await loadProducts(currentStore.id);
   } catch (err) {
     console.error('Update order error:', err);
-    alert('Failed to update. Please try again.');
+    alert(typeof err?.message === 'string' && err.message.includes('Insufficient stock')
+      ? 'Cannot complete this order: there is not enough stock remaining.'
+      : 'Failed to update. Please try again.');
   }
 }
 
