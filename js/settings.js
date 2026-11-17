@@ -606,421 +606,480 @@ async function getUserOrderIds(userId) {
   }
 }
 
-// ===== Export/Download Data (Excel Only) =====
+// ===== Export/Download Data (PDF) =====
 
-// Load SheetJS (xlsx) dynamically from CDN
-let XLSX = null;
-async function loadXLSX() {
-  if (XLSX) return XLSX;
+// Load jsPDF and autoTable dynamically from CDN
+let jsPDF = null;
+async function loadPDF() {
+  if (jsPDF) return { jsPDF };
   return new Promise((resolve, reject) => {
-    if (window.XLSX) { XLSX = window.XLSX; return resolve(XLSX); }
+    // Load jsPDF first
+    if (window.jspdf && window.jspdf.jsPDF) {
+      jsPDF = window.jspdf.jsPDF;
+      // autoTable will be available as doc.autoTable() after plugin loads
+      return resolve({ jsPDF });
+    }
     const script = document.createElement('script');
-    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-    script.onload = () => { XLSX = window.XLSX; resolve(XLSX); };
-    script.onerror = () => reject(new Error('Failed to load SheetJS library'));
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.onload = () => {
+      jsPDF = window.jspdf.jsPDF;
+      // Now load autoTable plugin
+      const autoTableScript = document.createElement('script');
+      autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+      autoTableScript.onload = () => resolve({ jsPDF });
+      autoTableScript.onerror = () => reject(new Error('Failed to load jsPDF autoTable'));
+      document.head.appendChild(autoTableScript);
+    };
+    script.onerror = () => reject(new Error('Failed to load jsPDF library'));
     document.head.appendChild(script);
   });
 }
 
-// Professional Excel export with formatting
-async function exportExcel(data, filename) {
-  const XLSX = await loadXLSX();
-  const wb = XLSX.utils.book_new();
+// Professional PDF export with formatting
+async function exportPDF(data, filename) {
+  const { jsPDF } = await loadPDF();
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  // Professional style definitions
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
-    fill: { fgColor: { rgb: '14351F' } },
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border: {
-      bottom: { style: 'thin', color: { rgb: '000000' } },
-      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+  // Color scheme
+  const primaryColor = [20, 53, 31]; // #14351F - dark green
+  const secondaryColor = [100, 100, 100];
+  const lightGray = [248, 250, 249];
+  const white = [255, 255, 255];
+  const borderColor = [224, 224, 224];
+  const textColor = [51, 51, 51];
+
+  // Helper to add header/footer to each page
+  let pageCount = 0;
+  const totalPagesExp = '{total_pages_count_string}';
+
+  const addHeaderFooter = (doc) => {
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+
+      // Header
+      doc.setFontSize(8);
+      doc.setTextColor(...secondaryColor);
+      doc.text('PaliTrento - Data Export', 14, 10);
+      doc.setDrawColor(...borderColor);
+      doc.setLineWidth(0.3);
+      doc.line(14, 12, 196, 12);
+
+      // Footer
+      doc.setFontSize(7);
+      doc.setTextColor(...secondaryColor);
+      doc.text(`Page ${i} of ${totalPagesExp}`, 100, 285, { align: 'center' });
+      doc.text(`Exported: ${data.exportedAt}`, 14, 285);
+      doc.setDrawColor(...borderColor);
+      doc.line(14, 282, 196, 282);
     }
   };
 
-  const evenRowStyle = {
-    font: { sz: 10 },
-    fill: { fgColor: { rgb: 'F8FAF9' } },
-    border: {
-      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
-    }
-  };
-
-  const oddRowStyle = {
-    font: { sz: 10 },
-    fill: { fgColor: { rgb: 'FFFFFF' } },
-    border: {
-      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
-    }
-  };
-
-  const currencyStyle = {
-    ...oddRowStyle,
-    numFmt: '#,##0.00_);[Red](#,##0.00)',
-    alignment: { horizontal: 'right', vertical: 'center' }
-  };
-
-  const currencyEvenStyle = {
-    ...evenRowStyle,
-    numFmt: '#,##0.00_);[Red](#,##0.00)',
-    alignment: { horizontal: 'right', vertical: 'center' }
-  };
-
-  const dateStyle = {
-    ...oddRowStyle,
-    numFmt: 'YYYY-MM-DD HH:MM',
-    alignment: { horizontal: 'center', vertical: 'center' }
-  };
-
-  const dateEvenStyle = {
-    ...evenRowStyle,
-    numFmt: 'YYYY-MM-DD HH:MM',
-    alignment: { horizontal: 'center', vertical: 'center' }
-  };
-
-  const defaultEvenStyle = { ...evenRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
-  const defaultOddStyle = { ...oddRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
-
-  // Helper to apply styles to a worksheet
-  function applyStyles(ws, headers, data, currencyCols = [], dateCols = []) {
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    const numRows = range.e.r;
-    const numCols = range.e.c;
-
-    // Apply header styles
-    for (let c = 0; c <= numCols; c++) {
-      const cellRef = XLSX.utils.encode_cell({ r: 0, c });
-      if (ws[cellRef]) ws[cellRef].s = headerStyle;
-    }
-
-    // Apply data row styles
-    for (let r = 1; r <= numRows; r++) {
-      const isEven = r % 2 === 0;
-      for (let c = 0; c <= numCols; c++) {
-        const cellRef = XLSX.utils.encode_cell({ r, c });
-        if (!ws[cellRef]) continue;
-
-        const header = headers[c];
-        const isCurrency = currencyCols.includes(header);
-        const isDate = dateCols.includes(header);
-        const cellValue = ws[cellRef].v;
-
-        // Skip formatting for null/undefined/empty values
-        if (cellValue === null || cellValue === undefined || cellValue === '') {
-          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-          continue;
-        }
-
-        if (isCurrency) {
-          ws[cellRef].s = isEven ? currencyEvenStyle : currencyStyle;
-          // Ensure numeric value for currency
-          if (typeof cellValue === 'string') {
-            const num = parseFloat(cellValue.replace(/[^0-9.-]/g, ''));
-            if (!isNaN(num)) ws[cellRef].v = num;
-          } else if (typeof cellValue === 'number' && !isNaN(cellValue)) {
-            // Already a valid number
-          } else {
-            // Invalid value, treat as text
-            ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-          }
-        } else if (isDate) {
-          ws[cellRef].s = isEven ? dateEvenStyle : dateStyle;
-          // Convert date string to Excel serial number (days since 1900-01-01)
-          if (typeof ws[cellRef].v === 'string') {
-            const date = new Date(ws[cellRef].v);
-            if (!isNaN(date.getTime())) {
-              // Excel serial date = days since 1899-12-30 (adjusting for 1900 leap year bug)
-              const excelEpoch = new Date(1899, 11, 30); // 1899-12-30
-              const diffMs = date.getTime() - excelEpoch.getTime();
-              ws[cellRef].v = diffMs / 86400000; // Convert ms to days
-              ws[cellRef].t = 'n';
-            }
-          } else if (ws[cellRef].v instanceof Date) {
-            const excelEpoch = new Date(1899, 11, 30);
-            const diffMs = ws[cellRef].v.getTime() - excelEpoch.getTime();
-            ws[cellRef].v = diffMs / 86400000;
-            ws[cellRef].t = 'n';
-          }
-        } else {
-          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-        }
-      }
-    }
-
-    // Freeze header row
-    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomRight' };
-
-    // Auto-fit columns (min 10, max 50 chars)
-    const colWidths = [];
-    for (let c = 0; c <= numCols; c++) {
-      let maxWidth = 10; // minimum
-      // Check header
-      const headerCell = ws[XLSX.utils.encode_cell({ r: 0, c })];
-      if (headerCell?.v) maxWidth = Math.max(maxWidth, String(headerCell.v).length);
-      // Check data
-      for (let r = 1; r <= numRows; r++) {
-        const cell = ws[XLSX.utils.encode_cell({ r, c })];
-        if (cell?.v) maxWidth = Math.max(maxWidth, String(cell.v).length);
-      }
-      colWidths.push({ wch: Math.min(maxWidth + 2, 50) });
-    }
-    ws['!cols'] = colWidths;
-  }
-
-  // Sheet 1: Profile (key-value pairs)
+  // ---- Sheet 1: Profile ----
   if (data.profile) {
-    const profileData = [];
+    doc.setFontSize(18);
+    doc.setTextColor(...primaryColor);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Profile Information', 14, 25);
+
+    doc.setFontSize(9);
+    doc.setTextColor(...secondaryColor);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`User: ${currentSession?.user?.email || 'Unknown'}`, 14, 31);
+
     const profile = data.profile;
-    // Define preferred order for profile fields
     const fieldOrder = [
       'id', 'full_name', 'email', 'role', 'barangay', 'phone', 'avatar_url',
       'created_at', 'updated_at'
     ];
     const seen = new Set();
+    const profileRows = [];
+
     fieldOrder.forEach(key => {
       if (profile[key] !== undefined && profile[key] !== null) {
-        profileData.push({ Field: key, Value: profile[key] });
+        profileRows.push([key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), String(profile[key])]);
         seen.add(key);
       }
     });
-    // Add any remaining fields not in the preferred order
+
     Object.keys(profile).forEach(key => {
       if (!seen.has(key) && profile[key] !== undefined && profile[key] !== null) {
-        profileData.push({ Field: key, Value: profile[key] });
+        profileRows.push([key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), String(profile[key])]);
       }
     });
 
-    if (profileData.length > 0) {
-      const ws = XLSX.utils.json_to_sheet(profileData);
-      applyStyles(ws, ['Field', 'Value'], profileData);
-      XLSX.utils.book_append_sheet(wb, ws, 'Profile');
+    if (profileRows.length > 0) {
+      doc.autoTable({
+        startY: 38,
+        head: [['Field', 'Value']],
+        body: profileRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: primaryColor,
+          textColor: white,
+          fontStyle: 'bold',
+          fontSize: 9,
+          halign: 'center',
+          lineWidth: 0.2,
+          lineColor: borderColor
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: textColor,
+          lineWidth: 0.1,
+          lineColor: borderColor,
+          cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }
+        },
+        alternateRowStyles: {
+          fillColor: lightGray
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 },
+          1: { cellWidth: 'auto' }
+        },
+        margin: { left: 14, right: 14 },
+        tableWidth: 'auto'
+      });
     }
   }
 
-  // Sheet 2: Orders (tabular with currency formatting)
+  // ---- Sheet 2: Orders ----
   if (data.orders?.length) {
-    const orders = data.orders.map(o => ({
-      'Order ID': o.id,
-      'Order #': o.order_number,
-      'Status': o.status,
-      'Total Amount': o.total_amount,
-      'Payment Method': o.payment_method,
-      'Payment Status': o.payment_status,
-      'Buyer ID': o.buyer_id,
-      'Store ID': o.store_id,
-      'Created At': o.created_at,
-      'Updated At': o.updated_at
-    }));
+    const orders = data.orders.map(o => [
+      o.order_number || 'N/A',
+      o.status || 'N/A',
+      o.total_amount !== undefined && o.total_amount !== null ? `₱${Number(o.total_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A',
+      o.payment_method || 'N/A',
+      o.payment_status || 'N/A',
+      o.created_at ? new Date(o.created_at).toLocaleString() : 'N/A'
+    ]);
 
-    const ws = XLSX.utils.json_to_sheet(orders);
-    applyStyles(ws, Object.keys(orders[0] || {}), orders, ['Total Amount'], ['Created At', 'Updated At']);
-    XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+    // Add new page if needed
+    const currentY = doc.lastAutoTable?.finalY || 38;
+    if (currentY > 220) {
+      doc.addPage();
+    } else if (currentY > 38) {
+      doc.setFontSize(14);
+      doc.setTextColor(...primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Orders', 14, currentY + 12);
+    } else {
+      doc.setFontSize(14);
+      doc.setTextColor(...primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Orders', 14, currentY + 8);
+    }
+
+    const startY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 12 : 50;
+
+    doc.autoTable({
+      startY: startY,
+      head: [['Order #', 'Status', 'Total', 'Payment Method', 'Payment Status', 'Created At']],
+      body: orders,
+      theme: 'striped',
+      headStyles: {
+        fillColor: primaryColor,
+        textColor: white,
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        lineWidth: 0.2,
+        lineColor: borderColor
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: textColor,
+        lineWidth: 0.1,
+        lineColor: borderColor,
+        cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 }
+      },
+      alternateRowStyles: {
+        fillColor: lightGray
+      },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 25, halign: 'center' },
+        4: { cellWidth: 25, halign: 'center' },
+        5: { cellWidth: 40 }
+      },
+      margin: { left: 14, right: 14 },
+      tableWidth: 'wrap'
+    });
   }
 
-  // Sheet 3: Messages (tabular with date formatting)
+  // ---- Sheet 3: Messages ----
   if (data.messages?.length) {
-    const messages = data.messages.map(m => ({
-      'Message ID': m.id,
-      'Order ID': m.order_id,
-      'Sender ID': m.sender_id,
-      'Sender Type': m.sender_type,
-      'Message': m.message,
-      'Type': m.type,
-      'Read': m.read,
-      'Created At': m.created_at
-    }));
+    const messages = data.messages.map(m => [
+      m.order_id ? m.order_id.substring(0, 8) + '...' : 'N/A',
+      m.sender_type || 'N/A',
+      m.message ? (m.message.length > 50 ? m.message.substring(0, 47) + '...' : m.message) : 'N/A',
+      m.type || 'N/A',
+      m.read ? 'Yes' : 'No',
+      m.created_at ? new Date(m.created_at).toLocaleString() : 'N/A'
+    ]);
 
-    const ws = XLSX.utils.json_to_sheet(messages);
-    applyStyles(ws, Object.keys(messages[0] || {}), messages, [], ['Created At']);
-    XLSX.utils.book_append_sheet(wb, ws, 'Messages');
+    const currentY = doc.lastAutoTable?.finalY || 50;
+    if (currentY > 220) {
+      doc.addPage();
+    } else if (currentY > 50) {
+      doc.setFontSize(14);
+      doc.setTextColor(...primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Messages', 14, currentY + 12);
+    } else {
+      doc.setFontSize(14);
+      doc.setTextColor(...primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Messages', 14, currentY + 8);
+    }
+
+    const startY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 12 : 50;
+
+    doc.autoTable({
+      startY: startY,
+      head: [['Order ID', 'Sender', 'Message', 'Type', 'Read', 'Created At']],
+      body: messages,
+      theme: 'striped',
+      headStyles: {
+        fillColor: primaryColor,
+        textColor: white,
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        lineWidth: 0.2,
+        lineColor: borderColor
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: textColor,
+        lineWidth: 0.1,
+        lineColor: borderColor,
+        cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 }
+      },
+      alternateRowStyles: {
+        fillColor: lightGray
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 55 },
+        3: { cellWidth: 20, halign: 'center' },
+        4: { cellWidth: 15, halign: 'center' },
+        5: { cellWidth: 35 }
+      },
+      margin: { left: 14, right: 14 },
+      tableWidth: 'wrap'
+    });
   }
 
-  // Sheet 4: Export Info (metadata)
+  // ---- Sheet 4: Export Info ----
+  const currentY = doc.lastAutoTable?.finalY || 50;
+  if (currentY > 240) {
+    doc.addPage();
+  }
+
+  const infoStartY = doc.lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 12 : 50;
+
+  doc.setFontSize(14);
+  doc.setTextColor(...primaryColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Export Information', 14, infoStartY);
+
   const infoData = [
-    { Property: 'Exported At', Value: data.exportedAt },
-    { Property: 'Format', Value: 'Excel (XLSX)' },
-    { Property: 'Profile Included', Value: data.profile ? 'Yes' : 'No' },
-    { Property: 'Orders Count', Value: data.orders?.length || 0 },
-    { Property: 'Messages Count', Value: data.messages?.length || 0 },
-    { Property: 'User ID', Value: currentSession?.user?.id || 'Unknown' },
-    { Property: 'User Email', Value: currentSession?.user?.email || 'Unknown' }
+    ['Exported At', data.exportedAt],
+    ['Format', 'PDF'],
+    ['Profile Included', data.profile ? 'Yes' : 'No'],
+    ['Orders Count', String(data.orders?.length || 0)],
+    ['Messages Count', String(data.messages?.length || 0)],
+    ['User ID', currentSession?.user?.id || 'Unknown'],
+    ['User Email', currentSession?.user?.email || 'Unknown']
   ];
-  const infoWs = XLSX.utils.json_to_sheet(infoData);
-  applyStyles(infoWs, ['Property', 'Value'], infoData);
-  XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+
+  doc.autoTable({
+    startY: infoStartY + 6,
+    head: [['Property', 'Value']],
+    body: infoData,
+    theme: 'striped',
+    headStyles: {
+      fillColor: primaryColor,
+      textColor: white,
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'center',
+      lineWidth: 0.2,
+      lineColor: borderColor
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: textColor,
+      lineWidth: 0.1,
+      lineColor: borderColor,
+      cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }
+    },
+    alternateRowStyles: {
+      fillColor: lightGray
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 50 },
+      1: { cellWidth: 'auto' }
+    },
+    margin: { left: 14, right: 14 },
+    tableWidth: 'auto'
+  });
+
+  // Add header/footer to all pages
+  addHeaderFooter(doc);
 
   // Write and download
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}.xlsx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  doc.save(`${filename}.pdf`);
 }
 
-// Chat history export: single sheet with messages + info sheet
-async function exportChatExcel(messages, filename) {
-  const XLSX = await loadXLSX();
-  const wb = XLSX.utils.book_new();
+// Chat history export: single PDF with messages + info
+async function exportChatPDF(messages, filename) {
+  const { jsPDF } = await loadPDF();
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  const headerStyle = {
-    font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
-    fill: { fgColor: { rgb: '14351F' } },
-    alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-    border: {
-      bottom: { style: 'thin', color: { rgb: '000000' } },
-      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
+  const primaryColor = [20, 53, 31];
+  const secondaryColor = [100, 100, 100];
+  const lightGray = [248, 250, 249];
+  const white = [255, 255, 255];
+  const borderColor = [224, 224, 224];
+  const textColor = [51, 51, 51];
+
+  // Helper to add header/footer
+  const addHeaderFooter = (doc) => {
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(...secondaryColor);
+      doc.text('PaliTrento - Chat History Export', 14, 10);
+      doc.setDrawColor(...borderColor);
+      doc.setLineWidth(0.3);
+      doc.line(14, 12, 196, 12);
+
+      doc.setFontSize(7);
+      doc.setTextColor(...secondaryColor);
+      doc.text(`Page ${i} of {total_pages_count_string}`, 100, 285, { align: 'center' });
+      doc.text(`Exported: ${new Date().toISOString()}`, 14, 285);
+      doc.setDrawColor(...borderColor);
+      doc.line(14, 282, 196, 282);
     }
   };
 
-  const evenRowStyle = {
-    font: { sz: 10 },
-    fill: { fgColor: { rgb: 'F8FAF9' } },
-    border: {
-      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
-    }
-  };
+  // Title
+  doc.setFontSize(18);
+  doc.setTextColor(...primaryColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Chat History', 14, 25);
 
-  const oddRowStyle = {
-    font: { sz: 10 },
-    fill: { fgColor: { rgb: 'FFFFFF' } },
-    border: {
-      bottom: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      left: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      right: { style: 'thin', color: { rgb: 'E0E0E0' } },
-      top: { style: 'thin', color: { rgb: 'E0E0E0' } }
-    }
-  };
+  doc.setFontSize(9);
+  doc.setTextColor(...secondaryColor);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`User: ${currentSession?.user?.email || 'Unknown'}`, 14, 31);
+  doc.text(`Exported: ${new Date().toISOString()}`, 14, 37);
 
-  const dateStyle = { ...oddRowStyle, numFmt: 'YYYY-MM-DD HH:MM', alignment: { horizontal: 'center', vertical: 'center' } };
-  const dateEvenStyle = { ...evenRowStyle, numFmt: 'YYYY-MM-DD HH:MM', alignment: { horizontal: 'center', vertical: 'center' } };
-  const defaultEvenStyle = { ...evenRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
-  const defaultOddStyle = { ...oddRowStyle, alignment: { horizontal: 'left', vertical: 'center', wrapText: true } };
-
-  function applyStyles(ws, headers, data, dateCols = []) {
-    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
-    const numRows = range.e.r;
-    const numCols = range.e.c;
-
-    for (let c = 0; c <= numCols; c++) {
-      const cellRef = XLSX.utils.encode_cell({ r: 0, c });
-      if (ws[cellRef]) ws[cellRef].s = headerStyle;
-    }
-
-    for (let r = 1; r <= numRows; r++) {
-      const isEven = r % 2 === 0;
-      for (let c = 0; c <= numCols; c++) {
-        const cellRef = XLSX.utils.encode_cell({ r, c });
-        if (!ws[cellRef]) continue;
-
-        const header = headers[c];
-        const isDate = dateCols.includes(header);
-        const cellValue = ws[cellRef].v;
-
-        // Skip formatting for null/undefined/empty values
-        if (cellValue === null || cellValue === undefined || cellValue === '') {
-          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-          continue;
-        }
-
-        if (isDate) {
-          ws[cellRef].s = isEven ? dateEvenStyle : dateStyle;
-          if (typeof cellValue === 'string') {
-            const date = new Date(cellValue);
-            if (!isNaN(date.getTime())) {
-              const excelEpoch = new Date(1899, 11, 30);
-              const diffMs = date.getTime() - excelEpoch.getTime();
-              ws[cellRef].v = diffMs / 86400000;
-              ws[cellRef].t = 'n';
-            } else {
-              // Invalid date string, treat as text
-              ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-            }
-          } else if (cellValue instanceof Date) {
-            const excelEpoch = new Date(1899, 11, 30);
-            const diffMs = cellValue.getTime() - excelEpoch.getTime();
-            ws[cellRef].v = diffMs / 86400000;
-            ws[cellRef].t = 'n';
-          } else {
-            // Not a valid date type, treat as text
-            ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-          }
-        } else {
-          ws[cellRef].s = isEven ? defaultEvenStyle : defaultOddStyle;
-        }
-      }
-    }
-
-    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomRight' };
-
-    const colWidths = [];
-    for (let c = 0; c <= numCols; c++) {
-      let maxWidth = 10;
-      const headerCell = ws[XLSX.utils.encode_cell({ r: 0, c })];
-      if (headerCell?.v) maxWidth = Math.max(maxWidth, String(headerCell.v).length);
-      for (let r = 1; r <= numRows; r++) {
-        const cell = ws[XLSX.utils.encode_cell({ r, c })];
-        if (cell?.v) maxWidth = Math.max(maxWidth, String(cell.v).length);
-      }
-      colWidths.push({ wch: Math.min(maxWidth + 2, 50) });
-    }
-    ws['!cols'] = colWidths;
-  }
-
-  // Sheet 1: Chat History
+  // Messages table
   if (messages?.length) {
-    const chatData = messages.map(m => ({
-      'Message ID': m.id,
-      'Order ID': m.order_id,
-      'Sender ID': m.sender_id,
-      'Sender Type': m.sender_type,
-      'Message': m.message,
-      'Type': m.type,
-      'Read': m.read,
-      'Created At': m.created_at
-    }));
+    const chatData = messages.map(m => [
+      m.order_id ? m.order_id.substring(0, 8) + '...' : 'N/A',
+      m.sender_type || 'N/A',
+      m.message ? (m.message.length > 60 ? m.message.substring(0, 57) + '...' : m.message) : 'N/A',
+      m.type || 'N/A',
+      m.read ? 'Yes' : 'No',
+      m.created_at ? new Date(m.created_at).toLocaleString() : 'N/A'
+    ]);
 
-    const ws = XLSX.utils.json_to_sheet(chatData);
-    applyStyles(ws, Object.keys(chatData[0] || {}), chatData, ['Created At']);
-    XLSX.utils.book_append_sheet(wb, ws, 'Chat History');
+    doc.autoTable({
+      startY: 44,
+      head: [['Order ID', 'Sender', 'Message', 'Type', 'Read', 'Created At']],
+      body: chatData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: primaryColor,
+        textColor: white,
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        lineWidth: 0.2,
+        lineColor: borderColor
+      },
+      bodyStyles: {
+        fontSize: 7,
+        textColor: textColor,
+        lineWidth: 0.1,
+        lineColor: borderColor,
+        cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 2 }
+      },
+      alternateRowStyles: {
+        fillColor: lightGray
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 55 },
+        3: { cellWidth: 20, halign: 'center' },
+        4: { cellWidth: 15, halign: 'center' },
+        5: { cellWidth: 35 }
+      },
+      margin: { left: 14, right: 14 },
+      tableWidth: 'wrap'
+    });
   }
 
-  // Sheet 2: Export Info
-  const infoData = [
-    { Property: 'Exported At', Value: new Date().toISOString() },
-    { Property: 'Format', Value: 'Excel (XLSX)' },
-    { Property: 'Message Count', Value: messages?.length || 0 },
-    { Property: 'User ID', Value: currentSession?.user?.id || 'Unknown' },
-    { Property: 'User Email', Value: currentSession?.user?.email || 'Unknown' }
-  ];
-  const infoWs = XLSX.utils.json_to_sheet(infoData);
-  applyStyles(infoWs, ['Property', 'Value'], infoData);
-  XLSX.utils.book_append_sheet(wb, infoWs, 'Info');
+  // Export Info
+  const currentY = doc.lastAutoTable?.finalY || 44;
+  const infoStartY = currentY > 240 ? (doc.addPage(), 20) : currentY + 12;
 
-  // Write and download
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filename}.xlsx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  doc.setFontSize(14);
+  doc.setTextColor(...primaryColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Export Information', 14, infoStartY);
+
+  const infoData = [
+    ['Exported At', new Date().toISOString()],
+    ['Format', 'PDF'],
+    ['Message Count', String(messages?.length || 0)],
+    ['User ID', currentSession?.user?.id || 'Unknown'],
+    ['User Email', currentSession?.user?.email || 'Unknown']
+  ];
+
+  doc.autoTable({
+    startY: infoStartY + 6,
+    head: [['Property', 'Value']],
+    body: infoData,
+    theme: 'striped',
+    headStyles: {
+      fillColor: primaryColor,
+      textColor: white,
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'center',
+      lineWidth: 0.2,
+      lineColor: borderColor
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: textColor,
+      lineWidth: 0.1,
+      lineColor: borderColor,
+      cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }
+    },
+    alternateRowStyles: {
+      fillColor: lightGray
+    },
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 50 },
+      1: { cellWidth: 'auto' }
+    },
+    margin: { left: 14, right: 14 },
+    tableWidth: 'auto'
+  });
+
+  addHeaderFooter(doc);
+  doc.save(`${filename}.pdf`);
 }
 
 // Event handlers
@@ -1055,7 +1114,7 @@ $('#export-data-btn').addEventListener('click', async () => {
       exportedAt: new Date().toISOString()
     };
 
-    await exportExcel(data, `palitrento-data-${Date.now()}`);
+    await exportPDF(data, `palitrento-data-${Date.now()}`);
   } catch (err) {
     console.error('Export error:', err);
     alert(`Failed to export data: ${err.message || 'Unknown error'}`);
@@ -1085,7 +1144,7 @@ $('#download-data-btn').addEventListener('click', async () => {
 
     if (error) throw error;
 
-    await exportChatExcel(messages || [], `palitrento-chat-${Date.now()}`);
+    await exportChatPDF(messages || [], `palitrento-chat-${Date.now()}`);
   } catch (err) {
     console.error('Download chat error:', err);
     alert(`Failed to download chat history: ${err.message || 'Unknown error'}`);
