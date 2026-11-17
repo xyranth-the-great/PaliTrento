@@ -13,6 +13,11 @@ export const getStores = async () =>
     s.verification_status === 'VERIFIED' || s.approval_status === 'APPROVED'
   );
 export const getProducts = () => load('products', SEED_PRODUCTS, 'name');
+export const hasAvailableQuantity = product => {
+  if (product?.quantity == null) return true;
+  const quantity = Number(product.quantity);
+  return !Number.isFinite(quantity) || quantity > 0;
+};
 export async function getStore(trn) {
   return (await getStores()).find(s => s.trn_code === trn) || null;
 }

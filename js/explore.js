@@ -1,5 +1,5 @@
 import { renderChrome, $, storeCard, initializeFeaturedProductsCarousel, isOpen, CATS, BARANGAYS, startAdvisoryToastListener } from './ui.js';
-import { getStores, getProducts } from './data.js';
+import { getStores, getProducts, hasAvailableQuantity } from './data.js';
 import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 
@@ -22,7 +22,7 @@ if (session) {
 }
 
 const [stores, productsData] = await Promise.all([getStores(), getProducts()]);
-const approvedProducts = productsData.filter(p => stores.some(s => s.id === p.store_id));
+const approvedProducts = productsData.filter(p => stores.some(s => s.id === p.store_id) && hasAvailableQuantity(p));
 
 // Fetch locked product IDs to filter them out from public view
 let lockedProductIds = new Set();

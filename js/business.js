@@ -1,7 +1,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { renderChrome, $, esc, CATS, PAY, badges, openPill, hours, productCard, startAdvisoryToastListener, peso, srp, UNITS, ensureLiquidChromeStill, premiumSellerLabel } from './ui.js';
-import { getStore, getProducts } from './data.js';
+import { getStore, getProducts, hasAvailableQuantity } from './data.js';
 import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 
@@ -69,7 +69,7 @@ if (!s) {
   }
 
   const prods = (s.verification_status === 'VERIFIED' || s.approval_status === 'APPROVED')
-    ? (await getProducts()).filter(p => p.store_id === s.id && !lockedProductIds.has(p.id))
+    ? (await getProducts()).filter(p => p.store_id === s.id && !lockedProductIds.has(p.id) && hasAvailableQuantity(p))
     : [];
   const tel = s.contact_number;
   const description = s.description?.trim();

@@ -1,5 +1,5 @@
 import { renderChrome, $, productCard, storeCard, initializeFeaturedProductsCarousel, startAdvisoryToastListener } from './ui.js';
-import { getStores, getProducts } from './data.js';
+import { getStores, getProducts, hasAvailableQuantity } from './data.js';
 import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 
@@ -98,7 +98,7 @@ function updateFeaturedStoresVisibility() {
 
 // Products still need to be loaded for the main product listing
 const productsData = await getProducts();
-const approvedProducts = productsData.filter(product => byId[product.store_id]);
+const approvedProducts = productsData.filter(product => byId[product.store_id] && hasAvailableQuantity(product));
 
 // Fetch locked product IDs to filter them out from public view
 let lockedProductIds = new Set();
@@ -146,8 +146,9 @@ async function render() {
       });
 
       if (!error && data) {
-        count = data.length;
-        resultsHtml = data.map(x => {
+        const availableResults = data.filter(hasAvailableQuantity);
+        count = availableResults.length;
+        resultsHtml = availableResults.map(x => {
           const store = byId[x.store_id];
           return productCard(x, store, x.is_premium_store);
         }).join('');

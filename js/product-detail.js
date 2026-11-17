@@ -265,7 +265,8 @@ function renderProduct(isPremiumStore = false) {
 
   // Stock
   const stockEl = $('#p-stock');
-  if (p.in_stock) {
+  const hasAvailableQuantity = p.quantity == null || Number(p.quantity) > 0;
+  if (p.in_stock && hasAvailableQuantity) {
     stockEl.innerHTML = '<span class="pill ok">In stock</span>';
   } else {
     stockEl.innerHTML = '<span class="pill bad">Out of stock</span>';
@@ -317,6 +318,8 @@ function renderPaymentOptions(store) {
   const acceptedPayments = Array.isArray(store.accepted_payments)
     ? [...new Set(store.accepted_payments.filter(method => Object.prototype.hasOwnProperty.call(PAY, method)))]
     : [];
+  const outOfStock = !currentProduct?.in_stock
+    || (currentProduct?.quantity != null && Number(currentProduct.quantity) <= 0);
 
   paymentSelect.replaceChildren();
 
@@ -331,7 +334,8 @@ function renderPaymentOptions(store) {
   paymentSelect.add(new Option('Choose a payment method', ''));
   acceptedPayments.forEach(method => paymentSelect.add(new Option(PAY[method], method)));
   paymentSelect.disabled = false;
-  submitButton.disabled = false;
+  submitButton.disabled = outOfStock;
+  if (outOfStock) showMsg('This product is currently out of stock.', 'warn');
 }
 
 function updateTotal() {
@@ -388,14 +392,14 @@ reserveForm.addEventListener('submit', async (e) => {
     return;
   }
 
-  const maxQty = currentProduct.quantity != null ? currentProduct.quantity : 999;
-  if (qty > maxQty) {
-    showMsg(`Only ${maxQty} available`, 'bad');
+  if (!currentProduct.in_stock || (currentProduct.quantity != null && Number(currentProduct.quantity) <= 0)) {
+    showMsg('Product is out of stock', 'bad');
     return;
   }
 
-  if (!currentProduct.in_stock) {
-    showMsg('Product is out of stock', 'bad');
+  const maxQty = currentProduct.quantity != null ? currentProduct.quantity : 999;
+  if (qty > maxQty) {
+    showMsg(`Only ${maxQty} available`, 'bad');
     return;
   }
 

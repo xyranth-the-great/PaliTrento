@@ -1,6 +1,6 @@
 import { renderChrome, $, esc, storeCard, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
 import logoUrl from '../logo.png';
-import { getStores, getProducts } from './data.js';
+import { getStores, getProducts, hasAvailableQuantity } from './data.js';
 import { getSessionWithStatus, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { initPushNotifications } from './push.js';
@@ -135,7 +135,7 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
     // Load stores and products for Bantay Presyo and nearby stores
     const [stores, products] = await Promise.all([getStores(), getProducts()]);
     const storeById = new Map(stores.map(store => [store.id, store]));
-    const approvedProducts = products.filter(product => storeById.has(product.store_id));
+    const approvedProducts = products.filter(product => storeById.has(product.store_id) && hasAvailableQuantity(product));
 
     const capped = approvedProducts.filter(p => p.lgu_srp_ceiling != null).slice(0, 6);
     $('#board').innerHTML = capped.map(p => { const c = srp(p); return `<div class="prow">

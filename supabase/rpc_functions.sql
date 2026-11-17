@@ -507,7 +507,7 @@ create or replace function search_products_with_priority(
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_products jsonb;
-  v_where text := '';
+  v_where text := ' and (p.quantity is null or p.quantity > 0)';
   v_order text := '';
 begin
   -- Build WHERE clause
