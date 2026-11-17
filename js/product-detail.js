@@ -137,6 +137,7 @@ async function loadProduct() {
   renderProduct(isPremiumStore);
   loadingMsg.style.display = 'none';
   contentEl.style.display = 'block';
+  imageCarousel?.updateCarousel();
 }
 
 function renderProduct(isPremiumStore = false) {
@@ -170,6 +171,29 @@ function renderProduct(isPremiumStore = false) {
     // Clear existing content
     track.innerHTML = '';
     indicators.innerHTML = '';
+    let currentSlide = 0;
+    const totalSlides = imageUrls.length;
+
+    function updateCarousel() {
+      const slideWidth = viewport.clientWidth;
+      track.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
+      indicators.querySelectorAll('.carousel-indicator').forEach((ind, i) => {
+        ind.classList.toggle('active', i === currentSlide);
+      });
+    }
+
+    function goToSlide(index) {
+      currentSlide = (index + totalSlides) % totalSlides;
+      updateCarousel();
+    }
+
+    function nextSlide() {
+      goToSlide(currentSlide + 1);
+    }
+
+    function prevSlide() {
+      goToSlide(currentSlide - 1);
+    }
 
     imageUrls.forEach((url, index) => {
       const slide = document.createElement('div');
@@ -195,31 +219,6 @@ function renderProduct(isPremiumStore = false) {
       indicators.style.display = 'flex';
       prevBtn.style.display = 'flex';
       nextBtn.style.display = 'flex';
-
-      let currentSlide = 0;
-      const totalSlides = imageUrls.length;
-
-      function updateCarousel() {
-        const slideWidth = viewport.clientWidth;
-        track.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
-        indicators.querySelectorAll('.carousel-indicator').forEach((ind, i) => {
-          ind.classList.toggle('active', i === currentSlide);
-        });
-      }
-
-      function goToSlide(index) {
-        currentSlide = Math.max(0, Math.min(index, totalSlides - 1));
-        updateCarousel();
-      }
-
-      function nextSlide() {
-        goToSlide(currentSlide + 1);
-      }
-
-      function prevSlide() {
-        goToSlide(currentSlide - 1);
-      }
-
       prevBtn.addEventListener('click', prevSlide);
       nextBtn.addEventListener('click', nextSlide);
 
@@ -248,7 +247,6 @@ function renderProduct(isPremiumStore = false) {
       // Store reference for cleanup
       imageCarousel = { updateCarousel, goToSlide, nextSlide, prevSlide };
     } else {
-      // Single image - no carousel controls needed
       indicators.style.display = 'none';
       prevBtn.style.display = 'none';
       nextBtn.style.display = 'none';
