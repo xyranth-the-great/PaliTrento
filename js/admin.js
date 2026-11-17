@@ -69,24 +69,33 @@ async function loadRecentPending() {
     .order('created_at', { ascending: false })
     .limit(6);
 
-  if (error || !data || data.length === 0) {
-    $('#no-pending').style.display = 'block';
+  const emptyState = $('#no-pending');
+  if (error) {
+    console.error('Load recent pending stores error:', error);
+    emptyState.textContent = 'Could not load submitted stores. Open the verification queue to retry.';
+    emptyState.style.display = 'block';
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    emptyState.textContent = 'No stores are waiting for verification.';
+    emptyState.style.display = 'block';
     return;
   }
 
   const container = $('#recent-pending');
-  container.style.display = 'grid';
+  emptyState.style.display = 'none';
   container.innerHTML = data.map(store => `
-    <div class="card" style="display:flex;flex-direction:column">
-      <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
+    <article class="pending-store">
+      <div class="pending-store-heading">
         <h3 style="margin:0;font-size:1rem">${esc(store.business_name)}</h3>
         <span class="pill warn">Pending</span>
       </div>
       <p class="muted" style="margin:0 0 8px;font-size:.85rem">${esc(CATS[store.trade_category] || store.trade_category)} • ${esc(store.barangay)}, ${esc(store.purok || '—')}</p>
       <p class="muted" style="margin:0 0 8px;font-size:.8rem">${esc(store.proprietor_name)} • ${esc(store.contact_number)}</p>
       <p class="muted" style="margin:0 0 12px;font-size:.75rem">Submitted ${new Date(store.created_at).toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'})}</p>
-      <a href="/admin-verification/?trn=${encodeURIComponent(store.trn_code)}" class="btn" style="width:100%;text-align:center;font-size:.85rem;padding:8px 12px">Review</a>
-    </div>
+      <a href="/admin-verification/?trn=${encodeURIComponent(store.trn_code)}" class="btn">Review store</a>
+    </article>
   `).join('');
 }
 

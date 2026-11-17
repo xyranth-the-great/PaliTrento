@@ -76,29 +76,34 @@ function debounce(fn, ms) {
 }
 
 async function loadStores() {
-  let query = supabase.from('stores').select('*');
-
-  if (currentFilter.status === 'SUSPENDED') {
-    query = query.eq('is_suspended', true);
-  } else if (currentFilter.status !== 'ALL') {
-    query = query.eq('approval_status', currentFilter.status);
-  }
-  if (currentFilter.certificate) {
-    query = query.eq('certificate_status', currentFilter.certificate);
-  }
-  if (currentFilter.barangay) {
-    query = query.eq('barangay', currentFilter.barangay);
-  }
-
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('stores')
+    .select('*')
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Load stores error:', error);
     return;
   }
 
-  // Client-side search filter
-  let filtered = data || [];
+  const allStores = data || [];
+  let filtered = allStores;
+
+  if (currentFilter.status === 'SUSPENDED') {
+    filtered = filtered.filter(store => store.is_suspended === true);
+  } else if (currentFilter.status !== 'ALL') {
+    filtered = filtered.filter(store =>
+      store.approval_status === currentFilter.status && store.is_suspended !== true
+    );
+  }
+  if (currentFilter.certificate) {
+    filtered = filtered.filter(store => store.certificate_status === currentFilter.certificate);
+  }
+  if (currentFilter.barangay) {
+    filtered = filtered.filter(store => store.barangay === currentFilter.barangay);
+  }
+
+  // Search and status filters shape the result list; summary pills stay global.
   if (currentFilter.search) {
     filtered = filtered.filter(s =>
       s.business_name?.toLowerCase().includes(currentFilter.search) ||
@@ -108,7 +113,7 @@ async function loadStores() {
   }
 
   currentStores = filtered;
-  renderStats(filtered);
+  renderStats(allStores);
   renderStores(filtered);
 }
 

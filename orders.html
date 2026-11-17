@@ -9,6 +9,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./styles.css">
+<style>
+  .pickup-countdown { display:grid; gap:2px; margin-top:12px; padding:10px 12px; border:1px solid var(--line); border-radius:var(--r-md); background:var(--muted-bg); }
+  .pickup-countdown-label { color:var(--muted); font-size:.76rem; font-weight:600; }
+  .pickup-countdown-value { color:var(--primary-dark); font-size:.98rem; font-weight:800; font-variant-numeric:tabular-nums; }
+  .pickup-countdown-deadline { color:var(--muted); font-size:.76rem; }
+  .pickup-countdown.is-warning { border-color:#f2d28a; background:var(--warn-bg); }
+  .pickup-countdown.is-warning .pickup-countdown-value { color:var(--warn); }
+  .pickup-countdown.is-expired { border-color:#efb6b6; background:var(--bad-bg); }
+  .pickup-countdown.is-expired .pickup-countdown-value { color:var(--bad); }
+  @media(max-width:480px) { .pickup-countdown { padding:9px 10px; } }
+</style>
 </head>
 <body>
 <div id="chrome-top"></div>

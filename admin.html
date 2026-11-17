@@ -9,87 +9,122 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
+<style>
+  .admin-dashboard .admin-wrap { max-width:1160px; padding-top:32px; padding-bottom:56px; }
+  .admin-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:28px; }
+  .admin-heading h1 { font-size:clamp(2.25rem,5vw,3.5rem); letter-spacing:-.035em; }
+  .admin-heading p { margin:7px 0 0; }
+  .admin-heading .pill { margin-bottom:6px; }
+  .admin-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); overflow:hidden; margin-bottom:32px; background:var(--card); border:1px solid var(--line); border-radius:var(--r-xl); }
+  .admin-stat { display:flex; flex-direction:column; justify-content:center; gap:4px; min-height:94px; padding:16px 22px; }
+  .admin-stat + .admin-stat { border-left:1px solid var(--line); }
+  .admin-stat-value { font-size:2rem; line-height:1.1; font-weight:800; font-variant-numeric:tabular-nums; }
+  .admin-stat-label { color:var(--muted); font-size:.86rem; }
+  .admin-section { margin-top:30px; }
+  .admin-section-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; margin-bottom:14px; }
+  .admin-section-heading h2 { font-size:1.35rem; }
+  .admin-action-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+  .admin-action { display:flex; min-height:52px; align-items:center; justify-content:flex-start; gap:10px; padding:11px 14px; border:1px solid transparent; border-radius:var(--r-md); color:var(--primary-dark); font-size:.9rem; font-weight:700; line-height:1.3; text-decoration:none; transition:background .18s var(--ease),border-color .18s var(--ease),transform .18s var(--ease); }
+  .admin-action svg { flex:none; width:19px; height:19px; }
+  .admin-action-primary { background:var(--amber); }
+  .admin-action-primary:hover { background:#f0a94a; transform:translateY(-1px); }
+  .admin-action-secondary { background:var(--card); border-color:var(--line); }
+  .admin-action-secondary:hover { background:var(--muted-bg); border-color:var(--primary); transform:translateY(-1px); }
+  .admin-pending-section { padding-top:26px; border-top:1px solid var(--line); }
+  .admin-pending-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .pending-store { display:flex; flex-direction:column; min-width:0; min-height:210px; padding:16px; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--card); }
+  .pending-store:hover { border-color:var(--primary); }
+  .pending-store-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .pending-store-heading h3 { font-size:.98rem; overflow-wrap:anywhere; }
+  .pending-store .pill { flex:none; }
+  .pending-store p:nth-of-type(1), .pending-store p:nth-of-type(2) { margin:0 0 7px!important; color:var(--muted); font-size:.82rem!important; line-height:1.45; overflow-wrap:anywhere; }
+  .pending-store p:nth-of-type(3) { margin:auto 0 12px!important; padding-top:12px; color:var(--muted); font-size:.75rem!important; }
+  .pending-store .btn { display:block; width:100%; padding:9px 12px; text-align:center; font-size:.86rem; }
+  .admin-empty-state { padding:28px 16px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:var(--r-lg); background:var(--muted-bg); }
+  .admin-action:focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+  @media (max-width:900px) {
+    .admin-action-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .admin-pending-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  }
+  @media (max-width:640px) {
+    .admin-dashboard .admin-wrap { padding-top:24px; }
+    .admin-heading { align-items:flex-start; }
+    .admin-heading h1 { font-size:clamp(2rem,9vw,2.75rem); }
+    .admin-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .admin-stat { min-height:82px; padding:13px 16px; }
+    .admin-stat + .admin-stat { border-left:0; }
+    .admin-stat:nth-child(even) { border-left:1px solid var(--line); }
+    .admin-stat:nth-child(n+3) { border-top:1px solid var(--line); }
+    .admin-action-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .admin-action { min-height:50px; padding:10px; font-size:.82rem; }
+    .admin-action svg { width:17px; height:17px; }
+    .admin-pending-grid { grid-template-columns:1fr; }
+    .pending-store { min-height:0; }
+    .admin-section-heading { align-items:center; }
+  }
+  @media (max-width:380px) {
+    .admin-action-grid { grid-template-columns:1fr; }
+    .admin-heading .pill { font-size:.7rem; }
+  }
+</style>
 </head>
-<body>
+<body class="admin-dashboard">
 <div id="chrome-top"></div>
 <main>
-<div class="wrap" style="max-width:1200px;padding-top:24px;padding-bottom:48px">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
-    <div>
-      <h1 style="margin:0">Admin Dashboard</h1>
-      <p class="muted">Municipality of Trento, Agusan del Sur</p>
-    </div>
-    <span class="pill info">Admin</span>
-  </div>
+  <div class="wrap admin-wrap">
+    <header class="admin-heading">
+      <div>
+        <h1>Admin Dashboard</h1>
+        <p class="muted">Municipality of Trento, Agusan del Sur</p>
+      </div>
+      <span class="pill info">Admin</span>
+    </header>
 
-  <!-- Stats cards -->
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:32px">
-    <div class="card" style="padding:20px;text-align:center">
-      <div style="font-size:2.5rem;font-weight:800;color:var(--primary)" id="stat-pending">—</div>
-      <div class="muted">Pending Verification</div>
+    <div class="admin-stats" aria-label="Store verification summary">
+      <div class="admin-stat"><span class="admin-stat-value" style="color:var(--warn)" id="stat-pending">—</span><span class="admin-stat-label">Pending verification</span></div>
+      <div class="admin-stat"><span class="admin-stat-value" style="color:var(--ok)" id="stat-verified">—</span><span class="admin-stat-label">Verified stores</span></div>
+      <div class="admin-stat"><span class="admin-stat-value" style="color:var(--warn)" id="stat-rejected">—</span><span class="admin-stat-label">Rejected / clarification</span></div>
+      <div class="admin-stat"><span class="admin-stat-value" style="color:var(--info)" id="stat-total-stores">—</span><span class="admin-stat-label">Total stores</span></div>
     </div>
-    <div class="card" style="padding:20px;text-align:center">
-      <div style="font-size:2.5rem;font-weight:800;color:var(--ok)" id="stat-verified">—</div>
-      <div class="muted">Verified Stores</div>
-    </div>
-    <div class="card" style="padding:20px;text-align:center">
-      <div style="font-size:2.5rem;font-weight:800;color:var(--warn)" id="stat-rejected">—</div>
-      <div class="muted">Rejected / Clarification</div>
-    </div>
-    <div class="card" style="padding:20px;text-align:center">
-      <div style="font-size:2.5rem;font-weight:800;color:var(--info)" id="stat-total-stores">—</div>
-      <div class="muted">Total Stores</div>
-    </div>
-  </div>
 
-  <!-- Quick actions -->
-  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px">
-    <a href="/admin-verification/" class="btn" style="flex:1;min-width:200px;text-align:center">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      Verification Queue
-    </a>
-    <a href="/admin-verification-docs/" class="btn" style="flex:1;min-width:200px;text-align:center">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M16 14H8"/><path d="M16 18H8"/><path d="M10 10H8"/></svg>
-      Document Verification
-    </a>
-    <a href="/admin-reports-management/" class="btn" style="flex:1;min-width:200px;text-align:center">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-      Reports Management
-    </a>
-    <a href="/admin-support/" class="btn" style="flex:1;min-width:200px;text-align:center">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      Support Management
-    </a>
-    <a href="/admin-prices/" class="btn alt" style="flex:1;min-width:200px;text-align:center">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      Price Broadcasts
-    </a>
-    <a href="/admin-reports/" class="btn alt" style="flex:1;min-width:200px;text-align:center">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:8px"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-      Reports
-    </a>
-    <a href="/admin-accounts/" class="btn alt" style="flex:1;min-width:200px;text-align:center">
-      Account moderation
-    </a>
-    <a href="/admin-activity/" class="btn alt" style="flex:1;min-width:200px;text-align:center">
-      User Activity Logs
-    </a>
-    <a href="/admin-pickup-cases/" class="btn alt" style="flex:1;min-width:200px;text-align:center">
-      Pickup No-show Records
-    </a>
-  </div>
+    <section class="admin-section" aria-labelledby="admin-operations-title">
+      <div class="admin-section-heading"><h2 id="admin-operations-title">Operations</h2></div>
+      <div class="admin-action-grid">
+        <a href="/admin-verification/" class="admin-action admin-action-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16h12V8z"/><path d="M14 2v6h6"/></svg><span>Verification Queue</span>
+        </a>
+        <a href="/admin-verification-docs/" class="admin-action admin-action-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16h12V8z"/><path d="M14 2v6h6M8 13h7M8 17h7"/></svg><span>Document Verification</span>
+        </a>
+        <a href="/admin-reports-management/" class="admin-action admin-action-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16h12V8z"/><path d="M14 2v6h6M12 11v5M9.5 13.5h5"/></svg><span>Reports Management</span>
+        </a>
+        <a href="/admin-support/" class="admin-action admin-action-primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 9h9M8 13h6"/></svg><span>Support Management</span>
+        </a>
+      </div>
+    </section>
 
-  <!-- Recent pending stores -->
-  <div class="card" style="padding:20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-      <h2 style="margin:0">Recently Submitted Stores</h2>
-      <a href="/admin-verification/" class="btn alt" style="padding:8px 16px;font-size:.9rem">View all →</a>
-    </div>
-    <div id="recent-pending" class="grid" style="display:none"></div>
-    <p class="muted" id="no-pending" style="display:none;text-align:center;padding:32px">No pending stores.</p>
-  </div>
+    <section class="admin-section" aria-labelledby="admin-tools-title">
+      <div class="admin-section-heading"><h2 id="admin-tools-title">Review &amp; tools</h2></div>
+      <div class="admin-action-grid">
+        <a href="/admin-prices/" class="admin-action admin-action-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 19V5M4 19h17M8 15l4-4 3 2 5-6"/></svg><span>Price Broadcasts</span></a>
+        <a href="/admin-reports/" class="admin-action admin-action-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg><span>Reports</span></a>
+        <a href="/admin-accounts/" class="admin-action admin-action-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21v-2a7 7 0 0 1 14 0v2M19 8v6M22 11h-6"/></svg><span>Account Moderation</span></a>
+        <a href="/admin-activity/" class="admin-action admin-action-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5"/></svg><span>User Activity Logs</span></a>
+        <a href="/admin-pickup-cases/" class="admin-action admin-action-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M8 2h8"/></svg><span>Pickup No-show Records</span></a>
+      </div>
+    </section>
 
-</div>
+    <section class="admin-section admin-pending-section" aria-labelledby="recent-stores-title">
+      <div class="admin-section-heading">
+        <div><h2 id="recent-stores-title">Recently Submitted Stores</h2><p class="muted" style="margin:5px 0 0">Review the latest businesses awaiting verification.</p></div>
+        <a href="/admin-verification/" class="btn alt" style="padding:8px 14px;font-size:.86rem;white-space:nowrap">View queue <span aria-hidden="true">→</span></a>
+      </div>
+      <div id="recent-pending" class="admin-pending-grid"></div>
+      <p class="admin-empty-state" id="no-pending">Loading submitted stores…</p>
+    </section>
+  </div>
 </main>
 <div id="chrome-foot"></div>
 <script type="module" src="/js/admin.js"></script>

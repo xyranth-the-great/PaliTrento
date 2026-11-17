@@ -9,6 +9,7 @@ const msgEl = $('#orders-message');
 let currentSession = null;
 let currentOrders = [];
 let orderChangesChannel = null;
+let pickupCountdownInterval = null;
 
 async function loadOrders() {
   if (!isSupabaseConfigured()) {
@@ -93,6 +94,7 @@ function renderOrders() {
   if (!container) return;
 
   if (currentOrders.length === 0) {
+    clearInterval(pickupCountdownInterval);
     container.innerHTML = '<p class="muted" style="text-align:center;padding:24px">No orders yet. <a href="/products/">Start shopping</a></p>';
     return;
   }
@@ -119,6 +121,19 @@ function renderOrders() {
     const store = o.stores;
     const color = statusColors[o.status] || 'warn';
     const label = statusLabels[o.status] || o.status;
+    const pickupDeadline = o.status === 'READY_FOR_PICKUP' && o.ready_at
+      ? Date.parse(o.ready_at) + 72 * 60 * 60 * 1000
+      : null;
+    const pickupDeadlineDate = Number.isFinite(pickupDeadline)
+      ? new Date(pickupDeadline).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
+      : null;
+    const pickupCountdown = o.status !== 'READY_FOR_PICKUP' ? '' : pickupDeadlineDate
+      ? `<div class="pickup-countdown" data-pickup-countdown data-deadline-ms="${pickupDeadline}">
+          <span class="pickup-countdown-label">Pickup time remaining</span>
+          <strong class="pickup-countdown-value" data-countdown-value></strong>
+          <span class="pickup-countdown-deadline">Pick up by ${esc(pickupDeadlineDate)}. The reservation will be automatically cancelled after 72 hours.</span>
+        </div>`
+      : `<div class="pickup-countdown"><span class="pickup-countdown-label">Pickup time remaining</span><strong class="pickup-countdown-value">Deadline unavailable</strong><span class="pickup-countdown-deadline">Please contact the store to confirm pickup.</span></div>`;
 
     return `
       <div class="card" data-order-id="${esc(o.id)}" style="margin-bottom:12px">
@@ -130,6 +145,7 @@ function renderOrders() {
           </div>
           <span class="pill ${color}" style="font-size:.75rem;white-space:nowrap">${label}</span>
         </div>
+        ${pickupCountdown}
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
           <a href="/chat/?orderId=${o.id}" class="btn alt" style="padding:6px 12px;font-size:.8rem;text-decoration:none">Chat</a>
           ${o.status === 'PENDING' ? `<button type="button" class="btn bad" style="padding:6px 12px;font-size:.8rem" data-cancel-order="${esc(o.id)}">Cancel reservation</button>` : ''}
@@ -143,6 +159,44 @@ function renderOrders() {
 
   container.querySelectorAll('[data-cancel-order]').forEach(button => {
     button.addEventListener('click', () => cancelOrder(button.dataset.cancelOrder));
+  });
+  updatePickupCountdowns();
+  clearInterval(pickupCountdownInterval);
+  if (container.querySelector('[data-pickup-countdown]')) {
+    pickupCountdownInterval = setInterval(updatePickupCountdowns, 60 * 1000);
+  }
+}
+
+function updatePickupCountdowns() {
+  container?.querySelectorAll('[data-pickup-countdown]').forEach(countdown => {
+    const deadline = Number(countdown.dataset.deadlineMs);
+    const remaining = deadline - Date.now();
+    const value = countdown.querySelector('[data-countdown-value]');
+
+    if (!Number.isFinite(deadline) || !value) return;
+    if (remaining <= 0) {
+      value.textContent = 'Pickup window passed';
+      countdown.classList.remove('is-warning');
+      countdown.classList.add('is-expired');
+      return;
+    }
+
+    const totalMinutes = Math.ceil(remaining / (60 * 1000));
+    const days = Math.floor(totalMinutes / (24 * 60));
+    const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+    const minutes = totalMinutes % 60;
+    let label;
+    if (days > 0) {
+      label = `${days} day${days === 1 ? '' : 's'}${hours ? `, ${hours} hour${hours === 1 ? '' : 's'}` : ''} left`;
+    } else if (hours > 0) {
+      label = `${hours} hour${hours === 1 ? '' : 's'}${minutes ? `, ${minutes} minute${minutes === 1 ? '' : 's'}` : ''} left`;
+    } else {
+      label = `${minutes} minute${minutes === 1 ? '' : 's'} left`;
+    }
+
+    value.textContent = label;
+    countdown.classList.toggle('is-warning', remaining <= 12 * 60 * 60 * 1000);
+    countdown.classList.remove('is-expired');
   });
 }
 
