@@ -281,7 +281,7 @@ function renderProduct(isPremiumStore = false) {
 
   // Store info
   const storePremiumBadge = isPremiumStore ? premiumSellerLabel('pill premium premium-heading-label') : '';
-  $('#store-name').innerHTML = `${esc(s.business_name)}${storePremiumBadge}`;
+  $('#store-name').innerHTML = `<span>${esc(s.business_name)}</span>${storePremiumBadge}`;
   $('#store-location').textContent = `${s.barangay}, ${s.purok || '—'}`;
   $('#store-hours').textContent = `${hours(s)} • ${isOpen(s) ? 'Open now' : 'Closed'}`;
   $('#store-badges').innerHTML = badges(s);

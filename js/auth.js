@@ -142,28 +142,31 @@ export async function getSessionWithStatus() {
   }
 
   let premiumDetails = null;
-  let isPremium = null;
-  const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
-  if (cached) {
-    try {
-      const { data, timestamp, userId: cachedUserId } = JSON.parse(cached);
-      if (
-        cachedUserId === session.user.id
-        && Date.now() - timestamp < CACHE_TTL
-        && typeof data?.is_premium === 'boolean'
-        && (!data.is_premium || data.premium_details)
-      ) {
-        isPremium = data.is_premium;
-        premiumDetails = data.premium_details || null;
+  let isPremium = false;
+  if (profile.role === 'business_owner') {
+    isPremium = null;
+    const cached = sessionStorage.getItem(PROFILE_CACHE_KEY);
+    if (cached) {
+      try {
+        const { data, timestamp, userId: cachedUserId } = JSON.parse(cached);
+        if (
+          cachedUserId === session.user.id
+          && Date.now() - timestamp < CACHE_TTL
+          && typeof data?.is_premium === 'boolean'
+          && (!data.is_premium || data.premium_details)
+        ) {
+          isPremium = data.is_premium;
+          premiumDetails = data.premium_details || null;
+        }
+      } catch {
+        // Ignore malformed cached profile data and refresh the status.
       }
-    } catch {
-      // Ignore malformed cached profile data and refresh the status.
     }
-  }
 
-  if (isPremium === null) {
-    premiumDetails = await getPremiumDetails(session.user.id);
-    isPremium = premiumDetails?.is_premium === true && premiumDetails?.status === 'ACTIVE';
+    if (isPremium === null) {
+      premiumDetails = await getPremiumDetails(session.user.id);
+      isPremium = premiumDetails?.is_premium === true && premiumDetails?.status === 'ACTIVE';
+    }
   }
 
   profile = { ...profile, is_premium: isPremium, premium_details: premiumDetails };

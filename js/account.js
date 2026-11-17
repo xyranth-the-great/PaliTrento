@@ -50,15 +50,18 @@ async function loadAccount() {
 
   currentSession = session;
 
-  renderChrome('/account/', session, profile);
+  // Subscription and store-promotion features belong to seller accounts only.
+  currentProfile = await getCachedProfile(session.user.id) || profile;
+  const role = currentProfile?.role ?? session.user.user_metadata?.role ?? 'customer';
+  const isSeller = role === 'business_owner';
+  $('#tab-subscription').style.display = isSeller ? 'block' : 'none';
+  renderChrome('/account/', session, getAccountDisplayProfile(currentProfile, role));
 
   await loadWarnings(session.user.id);
 
-  // Fetch fresh profile for the form
-  currentProfile = await getCachedProfile(session.user.id);
-
-  // Load subscription data
-  await loadSubscriptionData(session.user.id);
+  if (isSeller) {
+    await loadSubscriptionData(session.user.id);
+  }
 
   // Populate barangay dropdown
   const brgySelect = $('#acc-barangay');
@@ -68,7 +71,6 @@ async function loadAccount() {
   // Fill form fields
   $('#acc-name').value = currentProfile?.full_name ?? session.user.user_metadata?.full_name ?? '';
   $('#acc-email').value = currentProfile?.email ?? session.user.email ?? '';
-  const role = currentProfile?.role ?? session.user.user_metadata?.role ?? 'customer';
   $('#acc-role').value = role.replace('_', ' ');
   $('#account-role-badge').textContent = role.replace('_', ' ');
   if (currentProfile?.barangay) brgySelect.value = currentProfile.barangay;
@@ -77,6 +79,11 @@ async function loadAccount() {
   updateAvatarPreview(currentProfile?.avatar_url ?? null);
 
   contentEl.style.display = 'block';
+}
+
+function getAccountDisplayProfile(profile, role = profile?.role) {
+  if (role === 'business_owner') return profile;
+  return { ...profile, is_premium: false, premium_details: null };
 }
 
 async function loadWarnings(userId) {
@@ -160,7 +167,7 @@ avatarInput.addEventListener('change', async (e) => {
       timestamp: Date.now(),
       userId: currentSession.user.id
     }));
-    renderChrome('/account/', currentSession, currentProfile);
+    renderChrome('/account/', currentSession, getAccountDisplayProfile(currentProfile));
 
     showAvatarMsg('Photo updated', 'ok');
   } catch (err) {
@@ -202,7 +209,7 @@ avatarRemove.addEventListener('click', async () => {
       timestamp: Date.now(),
       userId: currentSession.user.id
     }));
-    renderChrome('/account/', currentSession, currentProfile);
+    renderChrome('/account/', currentSession, getAccountDisplayProfile(currentProfile));
 
     showAvatarMsg('Photo removed', 'ok');
   } catch (err) {
@@ -256,7 +263,7 @@ form.addEventListener('submit', async (e) => {
     }));
 
     showMsg('Saved', 'ok');
-    renderChrome('/account/', currentSession, currentProfile);
+    renderChrome('/account/', currentSession, getAccountDisplayProfile(currentProfile));
   } catch (err) {
     console.error('Profile update exception:', err);
     showMsg('Something went wrong. Please try again.', 'bad');

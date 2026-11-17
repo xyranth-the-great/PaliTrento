@@ -499,6 +499,13 @@ function renderProductsListingUsage() {
   card.style.display = 'block';
 
   const data = subscriptionData;
+  if (!data) {
+    renderFeaturedPromotions([], false, true);
+  } else {
+    const isPremium = data.subscription?.is_premium === true && data.subscription?.status === 'ACTIVE';
+    renderFeaturedPromotions(data.featured_promotions, isPremium);
+  }
+
   if (!data?.entitlement || !data?.plan_details) {
     $('#products-listing-usage-count').textContent = 'Usage unavailable';
     $('#products-listing-usage-caption').textContent = 'Your listing allowance could not be loaded. Refresh to try again.';
@@ -653,7 +660,7 @@ async function loadSubscriptionData(userId) {
 }
 
 function renderSubscriptionDashboard(data) {
-  const { subscription, plan_details, entitlement, locks, featured_promotions, stores } = data;
+  const { subscription, plan_details, entitlement, locks } = data;
 
   // Show/hide plan status sections
   const premiumStatus = $('#sub-premium-status');
@@ -741,11 +748,6 @@ function renderSubscriptionDashboard(data) {
   $('#entitlement-free-used').textContent = entitlement.free_listings_used;
   $('#entitlement-paid-count').textContent = entitlement.paid_listings_count;
   $('#entitlement-remaining').textContent = entitlement.remaining_free === 999999 ? '∞' : entitlement.remaining_free;
-
-  // Render featured promotions
-  const isPremiumActive = subscription?.is_premium === true && subscription?.status === 'ACTIVE';
-  // Show loading state first, then render with actual data
-  renderFeaturedPromotions(featured_promotions, isPremiumActive);
 
   // Render locked products
   renderLockedProducts(locks);
