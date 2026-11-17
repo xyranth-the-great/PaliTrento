@@ -1,5 +1,5 @@
-import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, isOpen, hours, badges } from './ui.js';
-import { getSessionWithStatus, checkAuthErrorParams } from './auth.js';
+import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, isOpen, hours, badges, updatePremiumIndicator, ensureLiquidChromeStill, premiumSellerLabel } from './ui.js';
+import { getSessionWithStatus, checkAuthErrorParams, getCachedProfile } from './auth.js';
 import { supabase } from './supabase.js';
 import { isSupabaseConfigured } from './auth.js';
 
@@ -66,6 +66,22 @@ async function loadProduct() {
 
   currentProduct = product;
 
+  // Check if product is locked (for non-owners)
+  const isOwner = currentSession && currentSession.user.id === product.store_id; // Will check properly after loading store
+  if (!isOwner) {
+    const { data: lock } = await supabase
+      .from('product_lock_states')
+      .select('is_locked')
+      .eq('product_id', productId)
+      .eq('is_locked', true)
+      .maybeSingle();
+
+    if (lock?.is_locked) {
+      showError('Product not available');
+      return;
+    }
+  }
+
   // Load store
   const { data: store, error: storeError } = await supabase
     .from('stores')
@@ -78,23 +94,63 @@ async function loadProduct() {
     return;
   }
 
+  // Check ownership properly
+  const isStoreOwner = currentSession && currentSession.user.id === store.user_id;
+
   currentStore = store;
-  renderProduct();
+
+  // Check if store has Premium subscription
+  let isPremiumStore = false;
+  if (supabase && store.user_id) {
+    try {
+      const { data: sub } = await supabase.rpc('get_user_subscription', { p_user_id: store.user_id });
+      if (sub && sub.length > 0) {
+        const { data: plan } = await supabase
+          .from('subscription_plans')
+          .select('code')
+          .eq('id', sub[0].plan_id)
+          .single();
+        if (plan && plan.code === 'PREMIUM' && sub[0].status === 'ACTIVE') {
+          isPremiumStore = true;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not check premium status:', err);
+    }
+  }
+
+  // Re-check lock with ownership
+  if (!isStoreOwner) {
+    const { data: lock } = await supabase
+      .from('product_lock_states')
+      .select('is_locked')
+      .eq('product_id', productId)
+      .eq('is_locked', true)
+      .maybeSingle();
+
+    if (lock?.is_locked) {
+      showError('Product not available');
+      return;
+    }
+  }
+
+  renderProduct(isPremiumStore);
   loadingMsg.style.display = 'none';
   contentEl.style.display = 'block';
-  imageCarousel?.updateCarousel();
 }
 
-function renderProduct() {
+function renderProduct(isPremiumStore = false) {
   const p = currentProduct;
   const s = currentStore;
+  if (isPremiumStore) ensureLiquidChromeStill();
   const srpInfo = srp(p);
   const isOwnStoreProduct = !!currentSession && currentSession.user.id === s.user_id;
   $('#reserve-card').style.display = isOwnStoreProduct ? 'none' : '';
   $('#owner-product-note').style.display = isOwnStoreProduct ? 'block' : 'none';
 
-  // Product info
-  $('#p-name').textContent = p.name;
+  // Product info with Premium badge
+  const premiumBadge = isPremiumStore ? premiumSellerLabel('pill premium premium-heading-label') : '';
+  $('#p-name').innerHTML = `${esc(p.name)}${premiumBadge}`;
   $('#p-category').textContent = `${CATS[p.category] || p.category} • ${UNITS[p.unit] || p.unit}`;
   $('#p-price').textContent = peso(p.current_price);
 
@@ -114,29 +170,6 @@ function renderProduct() {
     // Clear existing content
     track.innerHTML = '';
     indicators.innerHTML = '';
-    let currentSlide = 0;
-    const totalSlides = imageUrls.length;
-
-    function updateCarousel() {
-      const slideWidth = viewport.clientWidth;
-      track.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
-      indicators.querySelectorAll('.carousel-indicator').forEach((ind, i) => {
-        ind.classList.toggle('active', i === currentSlide);
-      });
-    }
-
-    function goToSlide(index) {
-      currentSlide = (index + totalSlides) % totalSlides;
-      updateCarousel();
-    }
-
-    function nextSlide() {
-      goToSlide(currentSlide + 1);
-    }
-
-    function prevSlide() {
-      goToSlide(currentSlide - 1);
-    }
 
     imageUrls.forEach((url, index) => {
       const slide = document.createElement('div');
@@ -162,6 +195,31 @@ function renderProduct() {
       indicators.style.display = 'flex';
       prevBtn.style.display = 'flex';
       nextBtn.style.display = 'flex';
+
+      let currentSlide = 0;
+      const totalSlides = imageUrls.length;
+
+      function updateCarousel() {
+        const slideWidth = viewport.clientWidth;
+        track.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
+        indicators.querySelectorAll('.carousel-indicator').forEach((ind, i) => {
+          ind.classList.toggle('active', i === currentSlide);
+        });
+      }
+
+      function goToSlide(index) {
+        currentSlide = Math.max(0, Math.min(index, totalSlides - 1));
+        updateCarousel();
+      }
+
+      function nextSlide() {
+        goToSlide(currentSlide + 1);
+      }
+
+      function prevSlide() {
+        goToSlide(currentSlide - 1);
+      }
+
       prevBtn.addEventListener('click', prevSlide);
       nextBtn.addEventListener('click', nextSlide);
 
@@ -190,6 +248,7 @@ function renderProduct() {
       // Store reference for cleanup
       imageCarousel = { updateCarousel, goToSlide, nextSlide, prevSlide };
     } else {
+      // Single image - no carousel controls needed
       indicators.style.display = 'none';
       prevBtn.style.display = 'none';
       nextBtn.style.display = 'none';
@@ -221,7 +280,8 @@ function renderProduct() {
   $('#max-qty').textContent = hasLimitedQuantity ? p.quantity.toLocaleString() : 'Unlimited';
 
   // Store info
-  $('#store-name').textContent = s.business_name;
+  const storePremiumBadge = isPremiumStore ? premiumSellerLabel('pill premium premium-heading-label') : '';
+  $('#store-name').innerHTML = `${esc(s.business_name)}${storePremiumBadge}`;
   $('#store-location').textContent = `${s.barangay}, ${s.purok || '—'}`;
   $('#store-hours').textContent = `${hours(s)} • ${isOpen(s) ? 'Open now' : 'Closed'}`;
   $('#store-badges').innerHTML = badges(s);

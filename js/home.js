@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, storeCard, productCard, getActiveFeaturedProducts, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
+import { renderChrome, $, esc, storeCard, initializeFeaturedProductsCarousel, initializeStoresCarousel, srp, peso, UNITS, CATS, startAdvisoryToastListener } from './ui.js';
 import logoUrl from '../logo.png';
 import { getStores, getProducts } from './data.js';
 import { getSessionWithStatus, getCachedProfile, getPostLoginPath, isNewGoogleAccount, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
@@ -72,25 +72,64 @@ if (session && isAuthCallback && !needsGoogleRoleChoice && postLoginPath !== '/'
     $('#home-tagline').innerHTML = `Tara, Palit <img class="tagline-logo" src="${logoUrl}" alt="T">a sa Trento!`;
 
     $('#chips').innerHTML = Object.entries(CATS).map(([k, v]) => `<a class="chip" href="/explore/?cat=${encodeURIComponent(k)}">${v}</a>`).join('');
+
+    // Load featured stores and premium status in one request.
+    let featuredStores = [];
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('get_public_featured_stores', { p_limit: 20 });
+        if (error) {
+          console.warn('Could not load featured stores:', error);
+        } else if (Array.isArray(data)) {
+          featuredStores = data;
+        }
+      } catch (err) {
+        console.warn('Could not load featured stores:', err);
+      }
+    }
+
+    // Initialize the featured stores carousel.
+    const featuredStoresSection = $('#featured-stores-section');
+    if (featuredStoresSection && featuredStores.length) {
+      featuredStoresSection.innerHTML = `
+        <div class="wrap">
+          <div class="sec-head">
+            <div>
+              <h2 id="featured-stores-title">Featured Stores</h2>
+              <p class="muted">Discover businesses worth checking out in Trento.</p>
+            </div>
+          </div>
+        </div>
+        <div class="featured-products-carousel featured-stores-carousel" data-featured-carousel role="region" aria-roledescription="carousel" aria-label="Featured stores">
+          <div class="featured-products-viewport">
+            <div class="featured-products-grid" id="featured-stores-grid"></div>
+          </div>
+        </div>
+      `;
+      const grid = featuredStoresSection.querySelector('#featured-stores-grid');
+      grid.innerHTML = featuredStores.slice(0, 10)
+        .map(store => storeCard(store, store.is_premium))
+        .join('');
+      featuredStoresSection.style.display = 'block';
+      initializeFeaturedProductsCarousel(featuredStoresSection);
+    } else if (featuredStoresSection) {
+      featuredStoresSection.style.display = 'none';
+    }
+
+    // Load stores and products for Bantay Presyo and Stores near the center
     const [stores, products] = await Promise.all([getStores(), getProducts()]);
     const storeById = new Map(stores.map(store => [store.id, store]));
     const approvedProducts = products.filter(product => storeById.has(product.store_id));
-    const promotedProducts = getActiveFeaturedProducts(approvedProducts)
-      .filter(product => storeById.has(product.store_id));
-    if (promotedProducts.length) {
-      $('#featured-products').innerHTML = promotedProducts
-        .map(product => productCard(product, storeById.get(product.store_id)))
-        .join('');
-      $('#featured-products-section').style.display = 'block';
-      initializeFeaturedProductsCarousel($('#featured-products-section'));
-    }
 
     const capped = approvedProducts.filter(p => p.lgu_srp_ceiling != null).slice(0, 6);
     $('#board').innerHTML = capped.map(p => { const c = srp(p); return `<div class="prow">
   <div>${esc(p.name)}<div class="muted">Cap ${peso(p.lgu_srp_ceiling)} per ${esc(UNITS[p.unit] || p.unit || 'pc')}</div></div>
   <b>${peso(p.current_price)}</b><span class="pill ${c.cls}">${c.text}</span></div>`; }).join('') || '<p class="muted">No price advisories yet.</p>';
-    const featuredCards = stores.slice(0, 6).map(storeCard).join('');
-    $('#featured-track').innerHTML = featuredCards + featuredCards;
+    const premiumStoreIds = new Set(
+      featuredStores.filter(store => store.is_premium).map(store => store.id)
+    );
+    const featuredCards = stores.slice(0, 6).map(s => storeCard(s, premiumStoreIds.has(s.id))).join('');
+    $('#featured-track').innerHTML = featuredCards;
     initializeStoresCarousel($('#featured-carousel'));
   }
 }

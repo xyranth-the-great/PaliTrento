@@ -23,6 +23,7 @@ const directoryPages = new Set([
 
 // Build input object for rollupOptions
 const input = {};
+  input.supabase = resolve(__dirname, 'js/supabase.js');
 for (const page of pages) {
   input[page] = resolve(__dirname, `${page}.html`);
 }
@@ -92,10 +93,16 @@ export default defineConfig({
     ]
   },
   esbuild: {
-    target: 'es2022' },
+    target: 'es2022',
+    treeShaking: false
+  },
   build: {
     target: 'es2022',
     outDir: '/tmp/palitrento-build',
-    rollupOptions: { input }
+    treeshake: false,
+    rollupOptions: {
+      input,
+      treeshake: false
+    }
   }
 });

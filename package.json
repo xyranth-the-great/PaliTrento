@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "sideEffects": [
+    "./js/ui.js"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build && node post-build.js /tmp/palitrento-build",
