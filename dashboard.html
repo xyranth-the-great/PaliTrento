@@ -54,7 +54,10 @@
     <div id="product-approval-notice" class="pill warn" role="status" style="display:none;margin-bottom:16px;white-space:normal"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
       <h3 style="margin:0">Your Products</h3>
-      <button class="btn" id="add-product-btn">Add product</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn alt" id="bulk-add-products-btn" type="button">Bulk add products</button>
+        <button class="btn" id="add-product-btn" type="button">Add product</button>
+      </div>
     </div>
     <div id="products-listing-usage" class="card" style="display:none;padding:14px 16px;margin-bottom:16px" aria-label="Product listing allowance">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
@@ -399,6 +402,46 @@
     </form>
   </div>
 </div>
+
+<!-- Batch add products -->
+<div id="bulk-add-products-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="bulk-add-products-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1050;align-items:center;justify-content:center;padding:20px">
+  <div class="card" style="width:100%;max-width:820px;max-height:90vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
+      <div>
+        <h3 id="bulk-add-products-title" style="margin:0">Bulk add products</h3>
+        <p class="muted" style="margin:4px 0 0">Add multiple items together. Each product needs one photo.</p>
+      </div>
+      <button type="button" class="btn alt" id="bulk-add-products-close" style="padding:8px;line-height:1">&times;</button>
+    </div>
+    <form id="bulk-add-products-form" style="padding:20px;display:grid;gap:16px">
+      <div id="bulk-product-rows" style="display:grid;gap:12px"></div>
+      <button type="button" class="btn alt" id="bulk-add-product-row">Add another product</button>
+      <p id="bulk-add-products-cost" class="muted" style="margin:0">First 15 listings are free; additional listings cost ₱1 each.</p>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        <button type="button" class="btn alt" id="bulk-add-products-cancel">Cancel</button>
+        <button type="submit" class="btn" id="bulk-add-products-submit">Add products</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<template id="bulk-product-row-template">
+  <fieldset class="card bulk-product-row" style="padding:14px;margin:0;display:grid;gap:10px;min-width:0">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <strong data-bulk-product-label>Product</strong>
+      <button type="button" class="btn alt" data-remove-bulk-product style="padding:4px 8px">Remove</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      <label>Name <span class="bad">*</span><input data-field="name" type="text" required maxlength="120" placeholder="Product name"></label>
+      <label>Category <span class="bad">*</span><input data-field="category" type="text" required maxlength="80" placeholder="e.g. Rice"></label>
+      <label>Unit <span class="bad">*</span><input data-field="unit" type="text" required maxlength="40" placeholder="e.g. kg, pc"></label>
+      <label>Price (₱) <span class="bad">*</span><input data-field="price" type="number" min="0" step="0.01" required placeholder="0.00"></label>
+      <label>Admin price cap (₱)<input data-field="srp" type="number" min="0" step="0.01" placeholder="Optional"></label>
+      <label>Available quantity<input data-field="quantity" type="number" min="0" step="1" placeholder="Optional"></label>
+      <label>Product photo <span class="bad">*</span><input data-field="image" type="file" accept="image/jpeg,image/png,image/webp" required></label>
+    </div>
+  </fieldset>
+</template>
 
 <!-- Simulated GCash checkout for the school demo. -->
 <div id="demo-payment-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="demo-payment-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1100;align-items:center;justify-content:center;padding:20px">

@@ -7,6 +7,9 @@ import { isSupabaseConfigured } from './auth.js';
 const modal = $('#product-modal');
 const productForm = $('#product-form');
 const demoPaymentModal = $('#demo-payment-modal');
+const bulkAddProductsModal = $('#bulk-add-products-modal');
+const bulkProductRows = $('#bulk-product-rows');
+const bulkProductRowTemplate = $('#bulk-product-row-template');
 const CUSTOM_UNIT_VALUE = 'OTHER';
 let currentStore = null;
 let currentProducts = [];
@@ -75,6 +78,7 @@ async function loadStore(userId) {
     $('#store-card').style.display = 'none';
     $('#store-status').textContent = 'No store found. Complete setup first.';
     $('#add-product-btn').disabled = true;
+    $('#bulk-add-products-btn').disabled = true;
     return;
   }
 
@@ -128,6 +132,9 @@ function updateStoreStatusDisplay(status) {
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
   addProductButton.title = canManageProducts ? '' : 'Available after store approval';
+  const bulkAddProductsButton = $('#bulk-add-products-btn');
+  bulkAddProductsButton.disabled = !canManageProducts;
+  bulkAddProductsButton.title = canManageProducts ? '' : 'Available after store approval';
   const approvalNotice = $('#product-approval-notice');
   if (!messageHtml) {
     approvalNotice.style.display = canManageProducts ? 'none' : 'block';
@@ -190,6 +197,9 @@ function renderStoreCard(store) {
   const addProductButton = $('#add-product-btn');
   addProductButton.disabled = !canManageProducts;
   addProductButton.title = canManageProducts ? '' : 'Available after store approval';
+  const bulkAddProductsButton = $('#bulk-add-products-btn');
+  bulkAddProductsButton.disabled = !canManageProducts;
+  bulkAddProductsButton.title = canManageProducts ? '' : 'Available after store approval';
   const approvalNotice = $('#product-approval-notice');
   approvalNotice.style.display = canManageProducts ? 'none' : 'block';
 
@@ -579,6 +589,21 @@ function bindEvents() {
 
   // Add product
   $('#add-product-btn')?.addEventListener('click', () => openProductModal());
+  $('#bulk-add-products-btn')?.addEventListener('click', openBulkAddProductsModal);
+  $('#bulk-add-product-row')?.addEventListener('click', () => addBulkProductRow());
+  $('#bulk-product-rows')?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-remove-bulk-product]')) {
+      event.target.closest('.bulk-product-row')?.remove();
+      renumberBulkProductRows();
+      updateBulkListingCost();
+    }
+  });
+  $('#bulk-add-products-form')?.addEventListener('submit', saveBulkProducts);
+  $('#bulk-add-products-close')?.addEventListener('click', closeBulkAddProductsModal);
+  $('#bulk-add-products-cancel')?.addEventListener('click', closeBulkAddProductsModal);
+  bulkAddProductsModal?.addEventListener('click', (event) => {
+    if (event.target === bulkAddProductsModal) closeBulkAddProductsModal();
+  });
   $('#p-category')?.addEventListener('change', updateOtherCategoryField);
   $('#p-unit')?.addEventListener('change', updateOtherUnitField);
 
@@ -1361,6 +1386,178 @@ function switchTab(tab) {
   }
 }
 
+function openBulkAddProductsModal() {
+  const canManageProducts = currentStore?.approval_status === 'APPROVED'
+    || currentStore?.verification_status === 'VERIFIED';
+  if (!canManageProducts) {
+    alert('Products can be added after your store is approved by Admin.');
+    return;
+  }
+
+  bulkProductRows.replaceChildren();
+  addBulkProductRow();
+  addBulkProductRow();
+  updateBulkListingCost();
+  bulkAddProductsModal.style.display = 'flex';
+  bulkProductRows.querySelector('[data-field="name"]')?.focus();
+}
+
+function closeBulkAddProductsModal() {
+  bulkAddProductsModal.style.display = 'none';
+}
+
+function addBulkProductRow() {
+  const fragment = bulkProductRowTemplate.content.cloneNode(true);
+  bulkProductRows.appendChild(fragment);
+  renumberBulkProductRows();
+  updateBulkListingCost();
+}
+
+function renumberBulkProductRows() {
+  const rows = Array.from(bulkProductRows.querySelectorAll('.bulk-product-row'));
+  rows.forEach((row, index) => {
+    row.querySelector('[data-bulk-product-label]').textContent = `Product ${index + 1}`;
+    row.querySelector('[data-remove-bulk-product]').disabled = rows.length <= 2;
+  });
+}
+
+function updateBulkListingCost() {
+  const count = bulkProductRows.querySelectorAll('.bulk-product-row').length;
+  const label = $('#bulk-add-products-cost');
+  const isPremium = subscriptionData?.subscription?.is_premium === true
+    && subscriptionData?.subscription?.status === 'ACTIVE';
+  if (isPremium) {
+    label.textContent = `${count} product${count === 1 ? '' : 's'} will be added with no listing fees (Premium).`;
+    return;
+  }
+
+  const used = getEffectiveFreeListingUsage();
+  const freeSlots = Math.max(0, 15 - used);
+  const paidCount = Math.max(0, count - freeSlots);
+  label.textContent = paidCount
+    ? `${Math.min(count, freeSlots)} free listing${Math.min(count, freeSlots) === 1 ? '' : 's'} + ${paidCount} additional listing${paidCount === 1 ? '' : 's'} = ₱${paidCount}.`
+    : `${count} product${count === 1 ? '' : 's'} will use your remaining free listings.`;
+}
+
+function readBulkProductRows() {
+  const rows = Array.from(bulkProductRows.querySelectorAll('.bulk-product-row'));
+  if (rows.length < 2) throw new Error('Add at least two products to use bulk add.');
+
+  return rows.map((row, index) => {
+    const value = (field) => row.querySelector(`[data-field="${field}"]`).value.trim();
+    const image = row.querySelector('[data-field="image"]').files?.[0];
+    const name = value('name');
+    const category = value('category');
+    const unit = value('unit');
+    const price = Number(value('price'));
+    const srpValue = value('srp');
+    const quantityValue = value('quantity');
+
+    if (!name || !category || !unit || !Number.isFinite(price) || !image) {
+      throw new Error(`Complete the required fields and choose a photo for Product ${index + 1}.`);
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(image.type)) {
+      throw new Error(`Product ${index + 1} photo must be JPG, PNG, or WebP.`);
+    }
+    if (image.size > 5 * 1024 * 1024) {
+      throw new Error(`Product ${index + 1} photo must be under 5 MB.`);
+    }
+
+    return {
+      data: {
+        store_id: currentStore.id,
+        name,
+        category,
+        unit,
+        current_price: price,
+        lgu_srp_ceiling: srpValue ? Number(srpValue) : null,
+        in_stock: true,
+        quantity: quantityValue ? Number(quantityValue) : null,
+      },
+      image: [image],
+    };
+  });
+}
+
+async function saveBulkProducts(event) {
+  event.preventDefault();
+  const submitButton = $('#bulk-add-products-submit');
+  let products;
+  try {
+    products = readBulkProductRows();
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+
+  const isPremium = subscriptionData?.subscription?.is_premium === true
+    && subscriptionData?.subscription?.status === 'ACTIVE';
+  const freeUsed = getEffectiveFreeListingUsage();
+  const paidFlags = products.map((_, index) => !isPremium && freeUsed + index >= 15);
+  const paidCount = paidFlags.filter(Boolean).length;
+  const completedIndexes = new Set();
+
+  const createBatch = async () => {
+    for (let index = 0; index < products.length; index += 1) {
+      if (completedIndexes.has(index)) continue;
+      try {
+        await createNewProduct(products[index].data, products[index].image, paidFlags[index]);
+        completedIndexes.add(index);
+      } catch (error) {
+        throw new Error(`Added ${completedIndexes.size} of ${products.length} products. ${error.message || 'Please retry the remaining items.'}`);
+      }
+    }
+
+    closeBulkAddProductsModal();
+    await loadProducts(currentStore.id);
+    await loadSubscriptionData(currentStore.user_id);
+  };
+
+  if (paidCount > 0) {
+    submitButton.disabled = true;
+    submitButton.textContent = 'Waiting for payment...';
+    closeBulkAddProductsModal();
+    startDemoPayment({
+      amount: paidCount,
+      title: 'Bulk product listings',
+      description: `${products.length} products will be added. ${paidCount} are beyond your 15 free listings and cost ₱${paidCount}.`,
+      successMessage: `${products.length} products have been added successfully.`,
+      onCancel: async () => {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Add products';
+        if (completedIndexes.size > 0) {
+          closeBulkAddProductsModal();
+          await loadProducts(currentStore.id);
+          await loadSubscriptionData(currentStore.user_id);
+          alert(`${completedIndexes.size} product${completedIndexes.size === 1 ? ' was' : 's were'} saved. Add the remaining products again when ready.`);
+          return;
+        }
+        bulkAddProductsModal.style.display = 'flex';
+      },
+      onSuccess: createBatch,
+    });
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Adding products...';
+  try {
+    await createBatch();
+  } catch (error) {
+    if (completedIndexes.size > 0) {
+      closeBulkAddProductsModal();
+      await loadProducts(currentStore.id);
+      await loadSubscriptionData(currentStore.user_id);
+      alert(`${completedIndexes.size} product${completedIndexes.size === 1 ? ' was' : 's were'} saved. Add the remaining products again when ready.`);
+    } else {
+      alert(error.message || 'Could not add all products. Please retry.');
+    }
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Add products';
+  }
+}
+
 function openProductModal(productId = null) {
   // Check if store can manage products (APPROVED or VERIFIED)
   const canManageProducts = currentStore?.approval_status === 'APPROVED' || currentStore?.verification_status === 'VERIFIED';
@@ -1651,19 +1848,6 @@ async function createNewProduct(productData, imageFiles, isPaidListing = false) 
 
   if (insertError) throw insertError;
 
-  // Record product listing entitlement
-  if (supabase && currentSession) {
-    try {
-      const { error: entitlementError } = await supabase.rpc('record_product_listing', {
-        p_user_id: currentSession.user.id,
-        p_is_paid: isPaidListing
-      });
-      if (entitlementError) throw entitlementError;
-    } catch (entitlementError) {
-      console.warn('Could not record product listing entitlement:', entitlementError);
-    }
-  }
-
   try {
     // Upload multiple images (up to 3)
     const { error: uploadError, urls } = await uploadProductImages(currentSession.user.id, newProduct.id, imageFiles);
@@ -1691,6 +1875,19 @@ async function createNewProduct(productData, imageFiles, isPaidListing = false) 
       .eq('store_id', currentStore.id);
     if (rollbackError) console.error('Could not roll back incomplete product:', rollbackError);
     throw err;
+  }
+
+  // Record usage only after the product and its photo have saved successfully.
+  if (supabase && currentSession) {
+    try {
+      const { error: entitlementError } = await supabase.rpc('record_product_listing', {
+        p_user_id: currentSession.user.id,
+        p_is_paid: isPaidListing
+      });
+      if (entitlementError) throw entitlementError;
+    } catch (entitlementError) {
+      console.warn('Could not record product listing entitlement:', entitlementError);
+    }
   }
 }
 
