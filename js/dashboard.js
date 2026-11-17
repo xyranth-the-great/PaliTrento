@@ -19,6 +19,7 @@ let paymentCountdownInterval = null;
 let orderChangesChannel = null;
 let subscriptionData = null;
 let selectedLockedProducts = new Set();
+let lockedProductIds = new Set();
 
 async function init() {
   if (!isSupabaseConfigured()) return;
@@ -426,7 +427,8 @@ function renderProducts() {
   list.style.display = 'grid';
 
   // Show upgrade banner for Free plan users who have used 15+ free listings
-  const isPremium = subscriptionData?.subscription?.is_premium || false;
+  const isPremium = subscriptionData?.subscription?.is_premium === true
+    && subscriptionData?.subscription?.status === 'ACTIVE';
   const freeUsed = getEffectiveFreeListingUsage();
   const showUpgradeBanner = !isPremium && freeUsed >= 15;
 
@@ -436,7 +438,7 @@ function renderProducts() {
       <div style="grid-column:1/-1;margin-bottom:16px;padding:16px;background:linear-gradient(135deg,rgba(91,33,182,0.1),rgba(139,92,246,0.1));border:1px solid rgba(139,92,246,0.3);border-radius:var(--r-lg);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
         <div>
           <strong style="color:var(--premium-violet)">Need unlimited product listings?</strong>
-          <p class="muted" style="margin:4px 0 0;font-size:.9rem">You've used the 15 listing allowance. Product listings have no additional fee.</p>
+          <p class="muted" style="margin:4px 0 0;font-size:.9rem">Additional listings cost ₱1 each, or upgrade to Premium for unlimited listings.</p>
         </div>
         <button class="btn" id="upgrade-banner-btn" style="white-space:nowrap">Upgrade to Premium – ₱49/month</button>
       </div>
@@ -445,6 +447,7 @@ function renderProducts() {
 
   list.innerHTML = upgradeBannerHtml + currentProducts.map(p => {
     const s = srp(p);
+    const isLocked = lockedProductIds.has(p.id);
     // Use first image from image_urls array, fallback to image_url
     const imageUrl = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
       ? p.image_urls[0]
@@ -459,7 +462,10 @@ function renderProducts() {
         ${imageHtml}
         <div style="padding:12px;display:flex;flex-direction:column;flex:1">
           <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
-            <h3 style="margin:0;font-size:1rem">${esc(p.name)}</h3>
+            <div>
+              <h3 style="margin:0;font-size:1rem">${esc(p.name)}</h3>
+              ${isLocked ? '<span class="pill warn" style="font-size:.7rem">Hidden from marketplace · ₱1 to unlock</span>' : ''}
+            </div>
             <div style="display:flex;gap:4px">
               ${currentStore?.verification_status === 'VERIFIED' ? `
                 <button class="btn alt" style="padding:4px 8px;font-size:.75rem" data-edit="${p.id}">Edit</button>
@@ -547,7 +553,7 @@ function renderProductsListingUsage() {
   $('#products-listing-usage-fill').style.width = `${quota ? (usedForProgress / quota) * 100 : 0}%`;
   caption.textContent = remaining > 0
     ? `${remaining} free listing${remaining === 1 ? '' : 's'} left.`
-    : 'You’ve used the 15 listing allowance. Product listings have no additional fee.';
+    : 'Additional product listings cost ₱1 each. Upgrade to Premium for unlimited listings.';
 }
 
 function bindEvents() {
@@ -711,7 +717,7 @@ function renderSubscriptionDashboard(data) {
       freeStatus.style.display = 'grid';
       setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
       planName.textContent = 'Free Plan';
-      planDescription.textContent = '15 product listings included. No product listing fees.';
+      planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
       renderFreePlanUsage(entitlement, plan_details);
       entitlementCard.style.display = 'block';
       featuredPromoCard.style.display = 'block';
@@ -733,7 +739,7 @@ function renderSubscriptionDashboard(data) {
       expiredStatus.style.display = 'block';
       setPlanBadge(planBadge, 'Expired', 'pill bad');
       planName.textContent = isPremium ? 'Premium Plan (Expired)' : 'Free Plan';
-      planDescription.textContent = 'Your subscription has expired. Products are locked.';
+      planDescription.textContent = 'Your first 15 listings remain active. Additional products are locked until paid for or Premium is renewed.';
       entitlementCard.style.display = 'block';
       featuredPromoCard.style.display = 'block';
       lockedProductsCard.style.display = 'block';
@@ -743,7 +749,7 @@ function renderSubscriptionDashboard(data) {
     freeStatus.style.display = 'grid';
     setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
     planName.textContent = 'Free Plan';
-    planDescription.textContent = '15 product listings included. No product listing fees.';
+    planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
     renderFreePlanUsage(entitlement, plan_details);
     entitlementCard.style.display = 'block';
     featuredPromoCard.style.display = 'block';
@@ -756,6 +762,7 @@ function renderSubscriptionDashboard(data) {
   $('#entitlement-remaining').textContent = entitlement.remaining_free === 999999 ? '∞' : entitlement.remaining_free;
 
   // Render locked products
+  if ((locks?.total_locked || 0) > 0) lockedProductsCard.style.display = 'block';
   renderLockedProducts(locks);
 }
 
@@ -825,6 +832,7 @@ function renderLockedProducts(locks) {
   $('#lock-expired').textContent = `Expired Sub: ${expired}`;
 
   if (total === 0) {
+    lockedProductIds = new Set();
     summaryContainer.style.display = 'none';
     listContainer.style.display = 'none';
     noLockedContainer.style.display = 'block';
@@ -859,10 +867,15 @@ async function loadLockedProductsDetails() {
     const actionsContainer = $('#locked-products-actions');
 
     if (!data || data.length === 0) {
+      lockedProductIds = new Set();
       listContainer.innerHTML = '';
       actionsContainer.style.display = 'none';
+      renderProducts();
       return;
     }
+
+    lockedProductIds = new Set(data.map(lock => lock.product_id));
+    renderProducts();
 
     listContainer.innerHTML = data.map(lock => {
       const product = lock.products;
@@ -965,6 +978,7 @@ async function confirmBulkUnlock() {
 
   const totalPrice = productIds.length * 100; // cents
 
+  closeBulkUnlockModal();
   startDemoPayment({
     amount: totalPrice / 100,
     title: 'Bulk Unlock Products',
@@ -1110,6 +1124,8 @@ async function confirmFeaturedPromo() {
   }
 
   // Free plan - paid promotion
+  // Hide the confirmation modal before opening checkout so the two dialogs do not stack.
+  $('#featured-promo-modal').style.display = 'none';
   startDemoPayment({
     amount: 10,
     title: 'Feature Store Promotion',
@@ -1406,11 +1422,17 @@ function openProductModal(productId = null) {
     }
   } else {
     $('#modal-title').textContent = 'Add Product';
-    $('#modal-save').textContent = 'Add product';
+
+    const isPremium = subscriptionData?.subscription?.is_premium === true
+      && subscriptionData?.subscription?.status === 'ACTIVE';
+    const freeUsed = getEffectiveFreeListingUsage();
+    $('#modal-save').textContent = isPremium
+      ? 'Add product (Premium)'
+      : freeUsed >= 15
+        ? 'Pay ₱1 & add product'
+        : `Add product (Free - ${freeUsed + 1} of 15)`;
 
     // Offer the Premium upgrade after the free listing allowance is used.
-    const isPremium = subscriptionData?.subscription?.is_premium || false;
-    const freeUsed = getEffectiveFreeListingUsage();
     const showUpgradeBanner = !isPremium && freeUsed >= 15;
     const upgradeBannerEl = $('#upgrade-banner-modal');
     if (showUpgradeBanner) {
@@ -1419,7 +1441,7 @@ function openProductModal(productId = null) {
         <div style="padding:12px;background:linear-gradient(135deg,rgba(91,33,182,0.1),rgba(139,92,246,0.1));border:1px solid rgba(139,92,246,0.3);border-radius:var(--r-md);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>
             <strong style="color:var(--premium-violet)">You've used all 15 free listings</strong>
-            <p class="muted" style="margin:4px 0 0;font-size:.8rem">Product listings have no additional fee. Upgrade to Premium for unlimited listings.</p>
+            <p class="muted" style="margin:4px 0 0;font-size:.8rem">Additional listings cost ₱1 each, or upgrade to Premium for unlimited listings.</p>
           </div>
           <button class="btn" id="upgrade-modal-btn" style="white-space:nowrap">Upgrade to Premium – ₱49/month</button>
         </div>
@@ -1520,6 +1542,34 @@ async function saveProduct(e) {
   if (!editingProductId) {
     const saveBtn = $('#modal-save');
     saveBtn.disabled = true;
+
+    const isPremium = subscriptionData?.subscription?.is_premium === true
+      && subscriptionData?.subscription?.status === 'ACTIVE';
+    const isPaidListing = !isPremium && getEffectiveFreeListingUsage() >= 15;
+
+    if (isPaidListing) {
+      saveBtn.textContent = 'Waiting for payment...';
+      startDemoPayment({
+        amount: 1,
+        title: 'Additional product listing',
+        description: `You've used all 15 free listings. Add “${productData.name}” for ₱1, or upgrade to Premium for unlimited listings.`,
+        successMessage: 'Your product has been added successfully.',
+        onCancel: () => {
+          modal.style.display = 'flex';
+          saveBtn.disabled = false;
+          saveBtn.textContent = 'Pay ₱1 & add product';
+          $('#p-name').focus();
+        },
+        onSuccess: async () => {
+          await createNewProduct(productData, imageFiles, true);
+          closeModal();
+          await loadProducts(currentStore.id);
+          await loadSubscriptionData(currentStore.user_id);
+        },
+      });
+      return;
+    }
+
     saveBtn.textContent = 'Saving...';
 
     try {
@@ -1586,7 +1636,7 @@ async function saveProduct(e) {
   }
 }
 
-async function createNewProduct(productData, imageFiles) {
+async function createNewProduct(productData, imageFiles, isPaidListing = false) {
   // Check if store can manage products (APPROVED or VERIFIED)
   const canManageProducts = currentStore?.approval_status === 'APPROVED' || currentStore?.verification_status === 'VERIFIED';
   if (!canManageProducts) {
@@ -1595,7 +1645,7 @@ async function createNewProduct(productData, imageFiles) {
 
   const { data: newProduct, error: insertError } = await supabase
     .from('products')
-    .insert(productData)
+    .insert({ ...productData, is_paid_listing: isPaidListing })
     .select('id')
     .single();
 
@@ -1606,7 +1656,7 @@ async function createNewProduct(productData, imageFiles) {
     try {
       const { error: entitlementError } = await supabase.rpc('record_product_listing', {
         p_user_id: currentSession.user.id,
-        p_is_paid: false
+        p_is_paid: isPaidListing
       });
       if (entitlementError) throw entitlementError;
     } catch (entitlementError) {

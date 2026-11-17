@@ -124,7 +124,7 @@ export function renderFreePlanUsage(entitlement, planDetails) {
 
   const caption = $('#sub-free-caption');
   if (remaining === 0) {
-    caption.textContent = `You’ve used the ${quota} listing allowance. Product listings have no additional fee.`;
+    caption.textContent = `You’ve used all ${quota} free listings. Extra listings are ₱1 each.`;
   } else if (quota > 0 && usedForProgress / quota >= 0.8) {
     caption.innerHTML = `Only <strong>${remaining}</strong> free listings left.`;
   } else {

@@ -373,7 +373,7 @@ function renderSubscriptionData(data) {
       freeStatus.style.display = 'grid';
       setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
       planName.textContent = 'Free Plan';
-      planDescription.textContent = '15 product listings included. No product listing fees.';
+      planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
       renderFreePlanUsage(entitlement, plan_details);
     } else if (status === 'PAST_DUE') {
       // Grace Period
@@ -397,7 +397,7 @@ function renderSubscriptionData(data) {
     freeStatus.style.display = 'grid';
     setPlanBadge(planBadge, 'Free', 'pill free-plan-badge');
     planName.textContent = 'Free Plan';
-    planDescription.textContent = '15 product listings included. No product listing fees.';
+    planDescription.textContent = '15 free listings, then ₱1 per additional listing.';
     renderFreePlanUsage(entitlement, plan_details);
   }
 

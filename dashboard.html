@@ -134,7 +134,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
         <div>
           <h4 style="margin:0 0 4px" id="sub-plan-name">Free Plan</h4>
-          <p class="muted" id="sub-plan-description">15 product listings included. No product listing fees.</p>
+          <p class="muted" id="sub-plan-description">15 free listings, then ₱1 per additional listing.</p>
         </div>
         <span id="sub-plan-badge" class="pill free-plan-badge">Free</span>
       </div>
@@ -185,7 +185,7 @@
 
       <div id="sub-expired-status" style="display:none;padding:16px;background:#fee2e2;border:1px solid #b91c1c;border-radius:var(--r-lg)">
         <h4 style="margin:0 0 8px;color:#b91c1c">Subscription Expired</h4>
-        <p style="margin:0 0 12px;color:#7f1d1d">Your Premium subscription has expired. Products are locked.</p>
+        <p style="margin:0 0 12px;color:#7f1d1d">Your Premium subscription has expired. Your first 15 listings remain active; additional products are locked until you pay ₱1 each or resubscribe.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="sub-renew-btn">Renew Premium (₱49/mo)</button>
           <button class="btn alt" id="sub-unlock-products-btn">Unlock Products (₱1 each)</button>
@@ -194,7 +194,7 @@
 
       <div id="sub-grace-status" style="display:none;padding:16px;background:#fef3c7;border:1px solid #b45309;border-radius:var(--r-lg)">
         <h4 style="margin:0 0 8px;color:#b45309">Grace Period Active</h4>
-        <p style="margin:0 0 12px;color:#78350f">You have <strong id="sub-grace-days">5</strong> days to renew before products are locked.</p>
+        <p style="margin:0 0 12px;color:#78350f">You have <strong id="sub-grace-days">5</strong> days to renew. Your first 15 listings stay active; additional listings cost ₱1 each to unlock.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="sub-renew-grace-btn">Renew Now (₱49/mo)</button>
         </div>
@@ -257,7 +257,7 @@
     <!-- Locked Products Card -->
     <div class="card" id="locked-products-card" style="padding:20px;margin-bottom:24px;display:none">
       <h4 style="margin:0 0 16px">Locked Products</h4>
-      <p class="muted" style="margin-bottom:16px;font-size:.9rem">These products are hidden from the marketplace. Unlock individually or in bulk (₱1 per product).</p>
+      <p class="muted" style="margin-bottom:16px;font-size:.9rem">Products beyond your first 15 free listings are hidden from the marketplace. Unlock them individually or in bulk for ₱1 per product, or resubscribe to Premium.</p>
       <div id="locked-products-summary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px;font-size:.9rem">
         <span class="pill warn" id="lock-total">Total Locked: 0</span>
         <span class="pill info" id="lock-grace">Grace Period: 0</span>
@@ -457,9 +457,10 @@
         <li><strong>Premium</strong> neon-liquid visual highlighting</li>
         <li><strong>Priority</strong> search and category placement</li>
         <li><strong>Automatic</strong> Featured Store eligibility</li>
+        <li>No additional product listing fees</li>
       </ul>
       <div style="padding:12px;background:var(--muted-bg);border-radius:var(--r-md);font-size:.85rem">
-        <strong>Current Free Plan:</strong> 15 product listings included. Featured Store: ₱10/week.
+        <strong>Current Free Plan:</strong> 15 free listings, then ₱1 each. Featured Store: ₱10/week.
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn alt" id="sub-upgrade-cancel-btn" style="flex:1">Cancel</button>

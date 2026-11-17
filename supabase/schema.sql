@@ -70,6 +70,7 @@ create table if not exists products (
   image_url text,
   image_urls text[],                              -- array of up to 3 image URLs
   featured_until timestamptz,
+  is_paid_listing boolean not null default false,
   created_at timestamptz not null default now()
 );
 alter table products drop constraint if exists products_unit_check;
@@ -77,7 +78,8 @@ alter table products
   add column if not exists quantity integer,
   add column if not exists image_url text,
   add column if not exists image_urls text[],
-  add column if not exists featured_until timestamptz;
+  add column if not exists featured_until timestamptz,
+  add column if not exists is_paid_listing boolean not null default false;
 create index if not exists products_store_idx on products(store_id);
 create index if not exists products_featured_until_idx on products(featured_until) where featured_until is not null;
 create index if not exists stores_barangay_idx on stores(barangay);

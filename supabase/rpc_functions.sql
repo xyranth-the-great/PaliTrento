@@ -195,13 +195,29 @@ begin
   end if;
 
   v_count := array_length(p_product_ids, 1);
-  v_total_price_cents := v_count * 100; -- ₱1 per product
-
-  -- Bulk unlock
+  -- Bulk unlock and persist each paid product so it remains available if
+  -- Premium is later cancelled or expires.
   v_count := bulk_unlock_products(p_product_ids, p_user_id, p_payment_reference);
+  if v_count = 0 then
+    return jsonb_build_object('success', false, 'error', 'No locked products were found');
+  end if;
 
-  -- Record paid listings in entitlement
-  perform record_product_listing(p_user_id, true);
+  update products p
+  set is_paid_listing = true
+  where p.id = any(p_product_ids)
+    and exists (
+      select 1 from product_lock_states pls
+      where pls.product_id = p.id
+        and pls.user_id = p_user_id
+        and pls.is_locked = false
+        and pls.payment_reference = p_payment_reference
+    );
+
+  for i in 1..v_count loop
+    perform record_product_listing(p_user_id, true);
+  end loop;
+
+  v_total_price_cents := v_count * 100; -- ₱1 per product
 
   v_result := jsonb_build_object(
     'success', true,
