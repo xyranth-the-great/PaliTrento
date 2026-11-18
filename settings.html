@@ -207,20 +207,20 @@
     <div id="tab-security" role="tabpanel" aria-labelledby="security-tab" style="display:none;margin-top:24px">
       <div class="card" style="padding:24px">
         <h2 style="margin:0 0 4px">Security</h2>
-        <p class="muted" style="margin:0 0 24px">Manage your password and login security.</p>
+        <p class="muted" id="password-form-description" style="margin:0 0 24px">Manage your password and login security.</p>
 
         <div style="display:grid;gap:16px;max-width:480px">
-          <div>
+          <div id="current-password-field">
             <label for="set-current-password">Current password</label>
             <input id="set-current-password" name="current_password" type="password" autocomplete="current-password">
           </div>
           <div>
-            <label for="set-new-password">New password</label>
+            <label id="new-password-label" for="set-new-password">New password</label>
             <input id="set-new-password" name="new_password" type="password" autocomplete="new-password" minlength="8">
             <div id="password-strength-container"></div>
           </div>
           <div>
-            <label for="set-confirm-password">Confirm new password</label>
+            <label id="confirm-password-label" for="set-confirm-password">Confirm new password</label>
             <input id="set-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8">
           </div>
         </div>

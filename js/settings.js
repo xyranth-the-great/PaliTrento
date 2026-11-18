@@ -11,6 +11,21 @@ const msgEl = $('#settings-message');
 let currentProfile = null;
 let currentSession = null;
 let accountDeletionInProgress = false;
+let passwordSetupRequired = false;
+
+function configurePasswordForm() {
+  const isGoogleAccount = currentSession?.user?.app_metadata?.provider === 'google';
+  passwordSetupRequired = isGoogleAccount
+    && currentSession.user.user_metadata?.password_setup_completed !== true;
+
+  $('#current-password-field').hidden = passwordSetupRequired;
+  $('#password-form-description').textContent = passwordSetupRequired
+    ? 'Add a password so you can also sign in with your email and password. Google sign-in will keep working.'
+    : 'Manage your password and login security.';
+  $('#new-password-label').textContent = passwordSetupRequired ? 'Create password' : 'New password';
+  $('#confirm-password-label').textContent = passwordSetupRequired ? 'Confirm password' : 'Confirm new password';
+  $('#save-password-btn').textContent = passwordSetupRequired ? 'Set password' : 'Change password';
+}
 
 // ===== Tab Navigation =====
 const tabBtns = $$('.settings-tabs .settings-tab-btn');
@@ -83,6 +98,7 @@ async function loadSettings() {
   }
 
   currentSession = session;
+  configurePasswordForm();
   currentProfile = profile || await getCachedProfile(session.user.id);
   renderChrome('/settings/', session, currentProfile);
 
@@ -490,7 +506,7 @@ $('#save-password-btn').addEventListener('click', async () => {
   const newPass = $('#set-new-password').value;
   const confirm = $('#set-confirm-password').value;
 
-  if (!current || !newPass || !confirm) {
+  if ((!passwordSetupRequired && !current) || !newPass || !confirm) {
     securityMsg.textContent = 'Please fill in all fields';
     securityMsg.className = 'pill bad';
     securityMsg.style.display = 'block';
@@ -521,23 +537,34 @@ $('#save-password-btn').addEventListener('click', async () => {
 
   const btn = $('#save-password-btn');
   btn.disabled = true;
-  btn.textContent = 'Changing...';
+  btn.textContent = passwordSetupRequired ? 'Setting up...' : 'Changing...';
 
   try {
-    // Verify current password by trying to sign in
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: currentSession.user.email,
-      password: current
-    });
-    if (signInError) throw new Error('Current password is incorrect');
+    if (!passwordSetupRequired) {
+      // Verify the current password before replacing it.
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: currentSession.user.email,
+        password: current
+      });
+      if (signInError) throw new Error('Current password is incorrect');
+    }
 
-    // Update password
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPass
-    });
+    const update = { password: newPass };
+    if (passwordSetupRequired) {
+      update.data = {
+        ...currentSession.user.user_metadata,
+        password_setup_completed: true
+      };
+    }
+    const { data: updatedUser, error: updateError } = await supabase.auth.updateUser(update);
     if (updateError) throw updateError;
 
-    securityMsg.textContent = 'Password changed successfully';
+    if (updatedUser?.user) currentSession.user = updatedUser.user;
+    const wasPasswordSetup = passwordSetupRequired;
+    if (wasPasswordSetup) configurePasswordForm();
+    securityMsg.textContent = wasPasswordSetup
+      ? 'Password set. You can now sign in with Google or with your email and password.'
+      : 'Password changed successfully';
     securityMsg.className = 'pill ok';
     securityMsg.style.display = 'block';
     $('#set-current-password').value = '';
@@ -550,7 +577,7 @@ $('#save-password-btn').addEventListener('click', async () => {
     securityMsg.style.display = 'block';
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Change password';
+    btn.textContent = passwordSetupRequired ? 'Set password' : 'Change password';
   }
 });
 
