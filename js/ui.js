@@ -411,6 +411,34 @@ export const storeCard = (s, isPremium = false) => {
   </a>`;
 };
 
+export const FIRE_PRODUCT_IDS = ['55b671e1-b9b5-4109-acc7-73f7b61b7d0f'];
+
+const FIRE_EMBERS = [
+  ['8%','6px','0s','2.6s','-10px'],
+  ['30%','5px','.9s','3s','12px'],
+  ['52%','7px','1.7s','2.8s','-6px'],
+  ['74%','5px','.4s','3.2s','14px'],
+  ['90%','6px','1.3s','2.7s','8px'],
+  ['18%','4px','2.1s','3.4s','-14px'],
+  ['63%','4px','2.6s','2.9s','-12px'],
+  ['40%','5px','.2s','3.1s','10px'],
+  ['82%','4px','1.9s','2.5s','-8px'],
+  ['12%','5px','1.1s','3.3s','9px'],
+  ['58%','6px','.7s','2.6s','13px'],
+  ['95%','4px','2.3s','3s','-9px']
+];
+
+export function isFireProduct(p) {
+  return !!p && FIRE_PRODUCT_IDS.indexOf(String(p.id)) !== -1;
+}
+
+export function fireDecorHtml() {
+  return '<span class="pt-fire-ring" aria-hidden="true"></span>' +
+    FIRE_EMBERS.map(function (e) {
+      return '<span class="pt-ember" aria-hidden="true" style="--x:' + e[0] + ';--s:' + e[1] + ';--d:' + e[2] + ';--dur:' + e[3] + ';--dx:' + e[4] + '"></span>';
+    }).join('');
+}
+
 export const productCard = (p, store, isPremiumStore = false) => {
   if (isPremiumStore) ensureLiquidChromeStill();
   const c = srp(p);
@@ -440,6 +468,23 @@ export const productCard = (p, store, isPremiumStore = false) => {
       ${c ? `<span class="pill ${c.cls}">${c.text}</span><span class="muted">Cap ${peso(p.lgu_srp_ceiling)}</span>` : ''}
       ${soldAt}
     </div>`;
+
+  const fireProduct = isFireProduct(p);
+
+  if (fireProduct) {
+    const fireDecoration = fireDecorHtml();
+    if (!isPremiumStore) {
+      return `<a class="card product-card product-card--fire" href="${productHref}">${fireDecoration}${media}${content}</a>`;
+    }
+    return `<article class="card product-card premium premium-frame product-card--fire">${fireDecoration}
+    <canvas class="tube-bg" aria-hidden="true"></canvas>
+    <a class="premium-frame-link" href="${productHref}" aria-label="View ${esc(p.name)}"></a>
+    <div class="premium-frame-inner">
+      ${media}
+      ${content}
+    </div>
+  </article>`;
+  }
 
   if (!isPremiumStore) {
     return `<a class="card product-card" href="${productHref}">${media}${content}</a>`;
