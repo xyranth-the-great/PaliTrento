@@ -215,7 +215,7 @@ export function getStoreStatusBadge(status) {
 export function getStoreStatusMessage(status) {
   if (!status || !status.message) return '';
   const cls = status.badge_class === 'bad' ? 'bad' : status.badge_class === 'ok' ? 'ok' : 'warn';
-  return `<p class="pill ${cls}" style="margin-top:8px;font-size:.8rem">${esc(status.message)}</p>`;
+  return `<span class="pill status-message ${cls}" style="margin-top:8px;font-size:.8rem">${esc(status.message)}</span>`;
 }
 
 // ===== Password Strength Validation =====
@@ -483,22 +483,6 @@ export function initializeFeaturedProductsCarousel(section) {
   const uniqueCount = uniqueCards.length;
   console.log('[FeaturedCarousel] Initializing with', uniqueCount, 'unique stores (total cards:', allCards.length, ')');
 
-  // Determine mode
-  const isStaticMode = uniqueCount < 5 || reduceMotion.matches;
-
-  // Clear track and wrap unique cards in slides
-  track.innerHTML = '';
-  const originalSlides = uniqueCards.map((card, index) => {
-    const slide = document.createElement('div');
-    slide.className = 'featured-products-slide';
-    slide.setAttribute('role', 'group');
-    slide.setAttribute('aria-roledescription', 'slide');
-    slide.setAttribute('aria-label', `${index + 1} of ${uniqueCount}`);
-    track.appendChild(slide);
-    slide.appendChild(card);
-    return slide;
-  });
-
   const originalCount = uniqueCards.length;
 
   // Create pause/play button
@@ -549,24 +533,6 @@ export function initializeFeaturedProductsCarousel(section) {
 
   pausePlayBtn.addEventListener('click', () => setPaused(!isPaused));
 
-  // ---- STATIC MODE ----
-  if (uniqueCount < 5) {
-    track.style.animation = 'none';
-    track.style.width = 'max-content';
-    track.style.gap = '24px';
-    viewport.style.overflowX = 'auto';
-    viewport.style.scrollSnapType = 'x mandatory';
-    viewport.style.webkitOverflowScrolling = 'touch';
-    viewport.style.scrollbarWidth = 'thin';
-    viewport.style.scrollbarWidth = 'thin';
-    viewport.style.paddingBottom = '8px'; /* space for scrollbar */
-    originalSlides.forEach(slide => {
-      slide.style.scrollSnapAlign = 'start';
-    });
-    pausePlayBtn.style.display = 'none';
-    return;
-  }
-
   // ---- MARQUEE MODE ----
   // Wrap unique cards in slides
   track.innerHTML = '';
@@ -597,7 +563,7 @@ export function initializeFeaturedProductsCarousel(section) {
   }
 
   function rebuildLoop() {
-    if (reduceMotion.matches || uniqueCount < 5) return;
+    if (reduceMotion.matches) return;
 
     // Remove old clones
     unregisterCloneFrames();
@@ -606,13 +572,11 @@ export function initializeFeaturedProductsCarousel(section) {
     const viewportWidth = viewport.clientWidth;
     if (viewportWidth <= 0) return;
 
-    // Measure setWidth from original slides only (including gap as right margin)
-    const slideStyle = getComputedStyle(originalSlidesArray[0]);
-    const slideMarginRight = parseFloat(slideStyle.marginRight) || 0;
-    let setWidth = 0;
-    originalSlidesArray.forEach(slide => {
-      setWidth += slide.offsetWidth + slideMarginRight;
-    });
+    // Include each track gap so the wrap point lands on the next set's first card.
+    const trackStyle = getComputedStyle(track);
+    const trackGap = parseFloat(trackStyle.columnGap || trackStyle.gap) || 0;
+    const setWidth = originalSlidesArray.reduce((width, slide) => width + slide.offsetWidth, 0)
+      + trackGap * originalSlidesArray.length;
 
     if (setWidth <= 0) return;
 
@@ -761,7 +725,14 @@ export function initializeFeaturedProductsCarousel(section) {
       viewport.style.scrollSnapType = 'x mandatory';
       viewport.style.webkitOverflowScrolling = 'touch';
       viewport.style.scrollbarWidth = 'thin';
-    } else if (uniqueCount >= 5) {
+    } else if (uniqueCount > 0) {
+      track.style.animation = '';
+      track.style.width = '';
+      track.style.gap = '';
+      viewport.style.overflowX = '';
+      viewport.style.scrollSnapType = '';
+      viewport.style.scrollbarWidth = '';
+      viewport.scrollLeft = 0;
       pausePlayBtn.style.display = 'flex';
       rebuildLoop();
     }
@@ -807,7 +778,7 @@ export function initializeFeaturedProductsCarousel(section) {
   // Debug
   setTimeout(() => {
     const computed = getComputedStyle(track);
-    console.log('[FeaturedCarousel] Mode:', uniqueCount < 5 ? 'static' : 'marquee', '| Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'), '| --marquee-duration:', track.style.getPropertyValue('--marquee-duration'), '| Unique stores:', uniqueCount);
+    console.log('[FeaturedCarousel] Mode:', reduceMotion.matches ? 'static' : 'marquee', '| Animation:', computed.animation, '| --marquee-shift:', track.style.getPropertyValue('--marquee-shift'), '| --marquee-duration:', track.style.getPropertyValue('--marquee-duration'), '| Unique stores:', uniqueCount);
   }, 1000);
 }
 
@@ -1293,8 +1264,8 @@ export function renderChrome(active, session = null, profile = null, userId = nu
         </div>
       </div>`;
   } else {
-    authLinks = `<a href="/login/"${active === '/login/' ? ' aria-current="page"' : ''}>Log in</a>
-       <a href="/register/"${active === '/register/' ? ' aria-current="page"' : ''}>Register</a>`;
+    authLinks = `<a class="top-auth-link" href="/login/"${active === '/login/' ? ' aria-current="page"' : ''}>Log in</a>
+       <a class="top-auth-link" href="/register/"${active === '/register/' ? ' aria-current="page"' : ''}>Register</a>`;
   }
 
   const top = $('#chrome-top');
@@ -1302,7 +1273,8 @@ export function renderChrome(active, session = null, profile = null, userId = nu
     <a class="logo" href="/" aria-label="PaliTrento home">
       <span class="logo-word"><span class="logo-pali">Pali</span><span class="logo-inline-mark"><img class="logo-mark" src="${logoUrl}" alt="" aria-hidden="true"></span><span class="logo-rento">rento</span></span>
     </a>
-    <nav aria-label="Main">${links.map(([h, t]) => `<a href="${h}"${h === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}${authLinks}</nav></div></header>`;
+    <nav id="primary-navigation" aria-label="Main">${links.map(([h, t]) => `<a href="${h}"${h === active ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
+    <div class="top-actions">${authLinks}</div></div></header>`;
   const f = $('#chrome-foot');
   if (f) f.outerHTML = `<footer id="chrome-foot"><div class="wrap"><p><strong>PaliTrento</strong>. Tara, Palit Ta sa Trento!</p>
     <p>A local directory for the Municipality of Trento, Agusan del Sur. Price caps shown follow Admin advisories and may change weekly.</p></div></footer>`;

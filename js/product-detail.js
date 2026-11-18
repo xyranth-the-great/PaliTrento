@@ -397,9 +397,11 @@ reserveForm.addEventListener('submit', async (e) => {
     return;
   }
 
-  const qty = parseInt(qtyInput.value) || 1;
-  if (qty < 1) {
-    showMsg('Enter valid quantity', 'bad');
+  const qtyValue = qtyInput.value.trim();
+  const qty = Number(qtyValue);
+  if (!qtyValue || !Number.isInteger(qty) || qty < 1) {
+    showMsg('Enter a valid quantity before reserving.', 'bad');
+    qtyInput.focus();
     return;
   }
 
@@ -417,6 +419,7 @@ reserveForm.addEventListener('submit', async (e) => {
   const paymentMethod = reserveForm.payment_method.value;
   if (!Array.isArray(currentStore.accepted_payments) || !currentStore.accepted_payments.includes(paymentMethod)) {
     showMsg('Choose a payment method accepted by this store.', 'bad');
+    reserveForm.payment_method.focus();
     return;
   }
 
@@ -463,6 +466,7 @@ reserveForm.addEventListener('submit', async (e) => {
 function showMsg(text, type) {
   reserveMsg.textContent = text;
   reserveMsg.className = `pill ${type}`;
+  reserveMsg.style.display = 'inline-block';
 }
 
 function showError(text) {

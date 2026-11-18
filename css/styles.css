@@ -79,6 +79,10 @@ section{padding:48px 0}
 .home-page .top nav a:hover{background:var(--primary-dark)}
 .top nav a[aria-current]{background:var(--amber);color:var(--primary-dark)}
 .home-page .top nav a[aria-current]:hover{background:var(--primary-dark);color:var(--amber-light)}
+.top-actions{display:flex;align-items:center;gap:4px;flex:0 0 auto;margin-left:-20px}
+.top-auth-link{color:#e9f2ec;text-decoration:none;padding:8px 10px;border-radius:var(--r-md);font-size:.9rem;font-weight:600;white-space:nowrap}
+.top-auth-link:hover{background:var(--primary-dark)}
+.home-page .top-auth-link{color:var(--amber-light)}
 .avatar-btn{display:flex;align-items:center;justify-content:center;gap:4px;width:36px;height:36px;border-radius:50%;background:var(--primary-dark);color:var(--amber);text-decoration:none;flex-shrink:0;white-space:nowrap}
 .avatar-btn:hover{background:rgba(255,255,255,.15)}
 .home-page .avatar-btn{background:var(--primary-dark);color:var(--amber-light)}
@@ -102,11 +106,11 @@ section{padding:48px 0}
 .avatar-dropdown-header{padding:12px 16px;border-bottom:1px solid var(--line);background:var(--muted-bg)}
 .avatar-dropdown-name{display:block;font-weight:600;font-size:.9rem;color:var(--ink)}
 .avatar-dropdown-email{display:block;font-size:.75rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.top nav #avatar-menu .avatar-dropdown-item{display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:.9rem;font-weight:600;background:var(--primary);border:none;border-radius:0;width:100%;margin:0;text-align:left;cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease)}
-.top nav #avatar-menu .avatar-dropdown-item:hover{background:var(--card);color:var(--primary)}
-.top nav #avatar-menu .avatar-dropdown-item:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
-.top nav #avatar-menu .avatar-dropdown-logout{color:var(--bad);background:var(--card)}
-.top nav #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad);color:#fff}
+.top #avatar-menu .avatar-dropdown-item{display:block;padding:10px 16px;color:#fff;text-decoration:none;font-size:.9rem;font-weight:600;background:var(--primary);border:none;border-radius:0;width:100%;margin:0;text-align:left;cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease)}
+.top #avatar-menu .avatar-dropdown-item:hover{background:var(--card);color:var(--primary)}
+.top #avatar-menu .avatar-dropdown-item:focus-visible{outline:3px solid var(--amber);outline-offset:-3px}
+.top #avatar-menu .avatar-dropdown-logout{color:var(--bad);background:var(--card)}
+.top #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad);color:#fff}
 
 /* Unread message badge on avatar */
 .avatar-btn{position:relative}
@@ -1640,30 +1644,53 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
 @media (max-width:760px) {
   html { scroll-padding-top: 76px; }
 
-  /* Keep the header compact while allowing every navigation link to remain reachable. */
+  /* Compact brand/actions row, then a single-line navigation rail. */
+  .top .wrap {
+    display:flex;
+    align-items:center;
+    gap:0 10px;
+    min-height:0;
+    padding:8px var(--pad) 0;
+  }
+  .top .logo { margin:0 auto 0 0; font-size:1.4rem; flex:0 0 auto; }
+  .top-actions { gap:4px; margin-left:auto; }
+  .top-auth-link { padding:7px 8px; font-size:.82rem; }
   .top nav {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    position:relative;
+    order:3;
+    flex:0 0 calc(100% + var(--pad) * 2);
+    width:calc(100% + var(--pad) * 2);
+    margin:0 calc(var(--pad) * -1);
+    padding:4px var(--pad) 8px;
+    flex-wrap:nowrap;
+    justify-content:flex-start;
+    gap:4px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    scroll-snap-type:x proximity;
+    mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 22px),transparent 100%);
+    -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 22px),transparent 100%);
   }
+  .top nav::-webkit-scrollbar { display:none; }
   .top nav a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    white-space: nowrap;
+    display:inline-flex;
+    align-items:center;
+    flex:0 0 auto;
+    min-height:38px;
+    padding:7px 10px;
+    font-size:.84rem;
+    white-space:nowrap;
+    touch-action:manipulation;
+    scroll-snap-align:start;
   }
+  .top-actions .avatar-btn { width:40px; height:40px; padding:0; }
+  .top-actions .avatar-chevron { display:none; }
+  .top-actions .avatar-dropdown { top:calc(100% + 6px); }
 
-  /* Avoid iOS focus zoom and make frequent controls easier to tap. */
-  input, select, textarea { font-size: 16px; }
-  .btn, button, .tab-btn, .settings-tab-btn, .carousel-pause-play-btn {
-    touch-action: manipulation;
-  }
-  .btn, .tab-btn, .settings-tab-btn { min-height: 44px; }
-  .tab-btn, .settings-tab-btn { display: inline-flex; align-items: center; justify-content: center; }
-
+  /* Keep the rest of the horizontal scrollers native to touch. */
   .carousel-viewport,
   .featured-products-viewport,
   .settings-tabs {
@@ -1679,10 +1706,17 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
   .upgrade-modal { overflow-y: auto; }
   .upgrade-shell { max-height: calc(100dvh - 24px); }
   .notification-modal-content { max-height: 90dvh; }
+
+  /* Avoid iOS focus zoom and make frequent controls easier to tap. */
+  input, select, textarea { font-size: 16px; }
+  .btn, button, .tab-btn, .settings-tab-btn, .carousel-pause-play-btn {
+    touch-action: manipulation;
+  }
+  .btn, .tab-btn, .settings-tab-btn { min-height: 44px; }
+  .tab-btn, .settings-tab-btn { display: inline-flex; align-items: center; justify-content: center; }
 }
 
 @media (max-width:760px) and (hover:none) {
-  /* Keep touch feedback on press without leaving hover styling stuck after a tap. */
   .btn:hover { background: var(--amber); }
   .btn.alt:hover { background: var(--card); }
   a.card:hover { transform: none; box-shadow: none; }
@@ -1786,10 +1820,10 @@ html.dark .avatar-btn{background:var(--primary);color:var(--amber-light)}
 html.dark .avatar-btn:hover{background:var(--primary-dark)}
 html.dark .avatar-dropdown{background:var(--card);border-color:var(--line)}
 html.dark .avatar-dropdown-header{background:var(--muted-bg);border-color:var(--line)}
-html.dark .top nav #avatar-menu .avatar-dropdown-item{background:var(--primary);color:#fff}
-html.dark .top nav #avatar-menu .avatar-dropdown-item:hover{background:var(--card);color:var(--primary)}
-html.dark .top nav #avatar-menu .avatar-dropdown-logout{color:var(--bad);background:var(--card)}
-html.dark .top nav #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad);color:#fff}
+html.dark .top #avatar-menu .avatar-dropdown-item{background:var(--primary);color:#fff}
+html.dark .top #avatar-menu .avatar-dropdown-item:hover{background:var(--card);color:var(--primary)}
+html.dark .top #avatar-menu .avatar-dropdown-logout{color:var(--bad);background:var(--card)}
+html.dark .top #avatar-menu .avatar-dropdown-logout:hover{background:var(--bad);color:#fff}
 html.dark footer{background:var(--primary-dark);color:#cfe0d5}
 html.dark .home-page footer{background:var(--bg);color:var(--ink);border-color:var(--line)}
 html.dark .settings-tab-btn{color:var(--muted)}
@@ -2342,10 +2376,59 @@ html.dark .side .card[aria-pressed=true]{border-color:var(--primary);box-shadow:
 @media (max-width:479px) {
   .upgrade-benefits { grid-template-columns:1fr; }
   .upgrade-benefit-wide { grid-column:auto; }
+
+  .upgrade-modal {
+    padding:max(8px,env(safe-area-inset-top)) 10px max(8px,env(safe-area-inset-bottom));
+    overflow-y:auto;
+  }
+  .upgrade-shell {
+    width:min(440px,calc(100vw - 20px));
+    max-height:calc(100vh - 16px);
+    max-height:calc(100dvh - 16px);
+    border-radius:18px;
+  }
+  .upgrade-hero { min-height:126px; padding:12px; }
+  .upgrade-hero-content { gap:8px; }
+  .upgrade-price-panel { padding:10px 12px; }
+  .upgrade-price-line strong { font-size:34px; }
+  .upgrade-body { padding:14px 16px; }
+  .upgrade-body h3 { margin-bottom:8px; }
+  .upgrade-benefits { gap:8px; }
+  .upgrade-benefits li {
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    font-size:.86rem;
+    line-height:1.3;
+  }
+  .upgrade-check { width:20px; height:20px; }
+  .upgrade-comparison { margin-top:12px; padding:10px; }
+  .upgrade-comparison table { font-size:12px; }
+  .upgrade-comparison th,
+  .upgrade-comparison td { padding:6px 4px; }
+  .upgrade-comparison thead th { font-size:11px; }
+  .upgrade-usage { font-size:12px; }
+  .upgrade-footer { padding:10px 12px; }
+  .upgrade-footer-buttons { gap:8px; }
+  .upgrade-not-now,
+  .upgrade-modal-cta { min-height:44px; font-size:.9rem; }
 }
 @media (max-width:359px) {
   .upgrade-footer-buttons { grid-template-columns:1fr; }
   .upgrade-modal-cta { order:-1; }
+}
+@media (max-width:760px) {
+  /* Keep the mobile upgrade dialog above the sticky site header. */
+  .upgrade-modal { z-index:2100; }
+}
+@media (max-width:760px) {
+  #verification-card .status-message {
+    display:inline-block;
+    max-width:100%;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    line-height:1.4;
+  }
 }
 @media (prefers-reduced-motion:reduce) {
   .upgrade-shell { animation:none; }
