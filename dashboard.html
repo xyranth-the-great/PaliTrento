@@ -2,6 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+(function () {
+  var d = document.documentElement;
+  var mode = 'quick';
+  try {
+    if (!sessionStorage.getItem('pt-splash-seen')) {
+      sessionStorage.setItem('pt-splash-seen', '1');
+      mode = 'full';
+    }
+  } catch (e) {}
+  d.setAttribute('data-splash', mode);
+  d.classList.add('pt-splash-active');
+})();
+</script>
+<style>
+.pt-splash{position:fixed;inset:0;z-index:99999;display:grid;place-content:center;justify-items:center;gap:14px;background:#fcf9f2;opacity:0;visibility:hidden}
+html.dark .pt-splash{background:#1c2a20}
+html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
+</style>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard | PaliTrento</title>
 <meta name="description" content="Manage your store, products, and orders.">
@@ -11,6 +30,29 @@
 <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+<div class="pt-splash" aria-hidden="true">
+  <svg class="pt-splash__logo" width="150" height="166" viewBox="35 15 465 515" focusable="false">
+    <defs>
+      <filter id="pt-outline" filterUnits="userSpaceOnUse" x="0" y="-120" width="540" height="720" color-interpolation-filters="sRGB">
+        <feMorphology in="SourceAlpha" operator="dilate" radius="7" result="grow"/>
+        <feFlood flood-color="#ffffff"/>
+        <feComposite in2="grow" operator="in" result="white"/>
+        <feMerge><feMergeNode in="white"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <g filter="url(#pt-outline)">
+      <ellipse class="pt-splash__base" cx="267.5" cy="490" rx="82" ry="22" fill="#1f4c47"/>
+      <path class="pt-splash__pole" d="M225 150H310V440L267.5 474L225 440Z" fill="#70401a"/>
+      <path class="pt-splash__scallop" style="--i:0" d="M55 46Q55 32 69 32H140V150A42.5 42.5 0 0 1 55 150Z" fill="#1e4b46"/>
+      <path class="pt-splash__scallop" style="--i:1" d="M140 32H225V150A42.5 42.5 0 0 1 140 150Z" fill="#fdc147"/>
+      <path class="pt-splash__scallop" style="--i:2" d="M225 32H310V150A42.5 42.5 0 0 1 225 150Z" fill="#1e4b46"/>
+      <path class="pt-splash__scallop" style="--i:3" d="M310 32H395V150A42.5 42.5 0 0 1 310 150Z" fill="#fdc147"/>
+      <path class="pt-splash__scallop" style="--i:4" d="M395 32H466Q480 32 480 46V150A42.5 42.5 0 0 1 395 150Z" fill="#1e4b46"/>
+    </g>
+  </svg>
+  <p class="pt-splash__word">PaliTrento</p>
+  <p class="pt-splash__tag">Tara, Palit Ta sa Trento!</p>
+</div>
 <div id="chrome-top"></div>
 <main>
 <div class="wrap" style="max-width:1000px;padding-top:24px;padding-bottom:48px">

@@ -2492,3 +2492,32 @@ html.dark .side .card[aria-pressed=true]{border-color:var(--primary);box-shadow:
   #sub-free-status .free-upgrade-btn .liquid-chrome-canvas { display: none; }
   #sub-free-status .free-upgrade-btn .free-upgrade-label::before { display: none; }
 }
++
+/* ===== PaliTrento splash ===== */
+.pt-splash{
+  text-align:center;padding-inline:16px;
+  font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  pointer-events:none;
+  transition:opacity .4s ease, visibility 0s .4s;
+}
+html[data-splash="quick"] .pt-splash{transition:opacity .2s ease, visibility 0s .2s}
+html.pt-splash-active .pt-splash{pointer-events:auto;transition:opacity 0s}
+html.pt-splash-active.pt-splash-leaving .pt-splash{transition:opacity .18s ease}
+.pt-splash__logo{display:block;width:150px;height:auto;overflow:visible}
+.pt-splash__word{margin:0;font-size:30px;line-height:1;font-weight:800;letter-spacing:-.02em;color:var(--primary,#1f4d2e)}
+.pt-splash__tag{margin:0;font-size:14px;font-weight:500;color:var(--muted,#5b675f)}
+html.dark .pt-splash__word{color:var(--ink)}
+.pt-splash__pole{transform-box:fill-box;transform-origin:50% 0}
+.pt-splash__base{transform-box:fill-box;transform-origin:50% 50%}
+html[data-splash="full"].pt-splash-active .pt-splash__scallop{animation:pt-drop .6s cubic-bezier(.22,1,.36,1) calc(var(--i) * 70ms) both}
+html[data-splash="full"].pt-splash-active .pt-splash__pole{animation:pt-grow .5s cubic-bezier(.22,1,.36,1) .45s both}
+html[data-splash="full"].pt-splash-active .pt-splash__base{animation:pt-pop .45s cubic-bezier(.22,1,.36,1) .85s both}
+html[data-splash="full"].pt-splash-active .pt-splash__word{animation:pt-rise .5s cubic-bezier(.22,1,.36,1) 1s both}
+html[data-splash="full"].pt-splash-active .pt-splash__tag{animation:pt-rise .5s cubic-bezier(.22,1,.36,1) 1.15s both}
+@keyframes pt-drop{from{opacity:0;transform:translateY(-70px)}to{opacity:1;transform:none}}
+@keyframes pt-grow{from{transform:scaleY(0)}to{transform:none}}
+@keyframes pt-pop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+@keyframes pt-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){
+  html .pt-splash *{animation:none !important}
+}

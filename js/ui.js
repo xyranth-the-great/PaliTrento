@@ -1,3 +1,4 @@
+import './splash.js';
 import '../css/styles.css';
 import logoUrl from '../logo.png';
 import {
