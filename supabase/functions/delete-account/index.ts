@@ -185,6 +185,17 @@ serve(async (req) => {
     }
     if (advisoryError) console.warn('Skipping advisory cleanup because the optional schema is missing')
 
+    // Moderation actions target accounts with ON DELETE CASCADE, but actions
+    // authored by an account must also be removed before deleting its Auth user.
+    const { error: moderationActionsError } = await adminClient
+      .from('account_moderation_actions')
+      .delete()
+      .eq('actor_user_id', user.id)
+    if (moderationActionsError && !hasErrorCode(moderationActionsError, ['PGRST205', '42P01'])) {
+      throw new Error(`Failed to delete moderation history: ${moderationActionsError.message}`)
+    }
+    if (moderationActionsError) console.warn('Skipping moderation history cleanup because the optional table is missing')
+
     if (user.email) {
       const { error: otpError } = await adminClient
         .from('email_otp_codes')

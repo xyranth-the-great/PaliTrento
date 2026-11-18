@@ -8,7 +8,7 @@ alter table public.profiles
 create table if not exists public.account_moderation_actions (
   id uuid primary key default gen_random_uuid(),
   target_user_id uuid not null references auth.users(id) on delete cascade,
-  actor_user_id uuid not null references auth.users(id) on delete restrict,
+  actor_user_id uuid not null references auth.users(id) on delete cascade,
   action text not null check (action in ('warn', 'suspend_temporary', 'suspend_permanent', 'restore')),
   reason text not null,
   expires_at timestamptz,
