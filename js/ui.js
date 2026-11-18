@@ -55,6 +55,7 @@ export function attachPremiumLiquidShader(surface, options = {}) {
   ensureLiquidChromeStill();
   const chrome = new LiquidChrome(surface, {
     radius: options.radius ?? 'inherit',
+    zoom: options.zoom ?? 3.4,
     live: options.live ?? true
   });
   premiumChromeInstances.set(surface, chrome);

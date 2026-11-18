@@ -87,6 +87,17 @@ serve(async (req) => {
         .order('created_at', { ascending: false })
       if (profilesError) throw profilesError
 
+      const { data: subscriptions, error: subscriptionsError } = await service
+        .from('user_subscriptions')
+        .select('user_id, status, current_period_end, plan:subscription_plans(code)')
+        .in('status', ['ACTIVE', 'PAST_DUE'])
+      if (subscriptionsError) throw subscriptionsError
+      const premiumByUserId = new Map(
+        (subscriptions ?? [])
+          .filter((subscription) => subscription.plan?.code === 'PREMIUM')
+          .map((subscription) => [subscription.user_id, subscription]),
+      )
+
       // Fetch all auth users for emails
       const users = []
       for (let page = 1; page <= 100; page++) {
@@ -127,6 +138,8 @@ serve(async (req) => {
             ...profile,
             email: authUser?.email ?? '',
             auth_banned: Boolean(authUser?.banned_until && Date.parse(authUser.banned_until) > Date.now()),
+            is_premium: premiumByUserId.has(profile.id),
+            premium_ends_at: premiumByUserId.get(profile.id)?.current_period_end ?? null,
             recent_actions: (historyById.get(profile.id) ?? []).map(action => ({
               ...action,
               actor_name: actorNameById.get(action.actor_user_id) ?? 'Unknown admin',
@@ -134,6 +147,27 @@ serve(async (req) => {
           }
         }),
       })
+    }
+
+    if (body.action === 'remove_premium') {
+      const { targetUserId, reason } = body
+      if (typeof targetUserId !== 'string' || typeof reason !== 'string' || !reason.trim()) {
+        return respond({ error: 'A target account and reason are required' }, 400)
+      }
+      if (targetUserId === userData.user.id) {
+        return respond({ error: 'You cannot remove Premium from your own account' }, 400)
+      }
+
+      const { data: result, error: removalError } = await service.rpc('admin_remove_premium', {
+        p_actor_id: userData.user.id,
+        p_target_user_id: targetUserId,
+        p_reason: reason.trim(),
+      })
+      if (removalError) {
+        console.error('Premium removal RPC failed:', removalError)
+        return respond({ error: removalError.message }, 400)
+      }
+      return respond({ result })
     }
 
     if (body.action === 'moderate') {
@@ -216,6 +250,7 @@ serve(async (req) => {
     return respond({ error: 'Unsupported request' }, 400)
   } catch (error) {
     console.error('Account moderation error:', error)
-    return respond({ error: 'Account moderation request failed' }, 500)
+    const detail = error instanceof Error ? error.message : 'Unknown server error'
+    return respond({ error: `Account moderation request failed: ${detail}` }, 500)
   }
 })

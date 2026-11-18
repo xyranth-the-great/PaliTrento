@@ -1,4 +1,4 @@
-import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, getStoreStatusBadge, getStoreStatusMessage, startAdvisoryToastListener, updatePremiumIndicator, setPlanBadge, renderFreePlanUsage, attachPremiumLiquidShader, removePremiumLiquidShader } from './ui.js';
+import { renderChrome, $, esc, CATS, UNITS, PAY, peso, srp, getStoreStatusBadge, getStoreStatusMessage, startAdvisoryToastListener, updatePremiumIndicator, setPlanBadge, renderFreePlanUsage, attachPremiumLiquidShader, setPremiumLiquidLive, removePremiumLiquidShader } from './ui.js';
 import { getSessionWithStatus, clearProfileCache, startOrderStatusListener, checkAuthErrorParams } from './auth.js';
 import { supabase } from './supabase.js';
 import { uploadStoreImage, deleteStoreImage, uploadProductImages, deleteProductImages } from './storage.js';
@@ -18,11 +18,14 @@ let editingProductId = null;
 let currentSession = null;
 let demoPaymentAction = null;
 let demoPaymentCancelAction = null;
+let demoPaymentAfterSuccessAction = null;
 let paymentCountdownInterval = null;
 let orderChangesChannel = null;
 let subscriptionData = null;
 let selectedLockedProducts = new Set();
 let lockedProductIds = new Set();
+let upgradeModalOpener = null;
+let upgradeModalPreviousOverflow = '';
 
 async function init() {
   if (!isSupabaseConfigured()) return;
@@ -64,6 +67,8 @@ async function init() {
     if (new URLSearchParams(window.location.search).get('upgrade') === '1') {
       $('#sub-upgrade-btn')?.click();
     }
+  } else if (window.location.hash === '#tab-products') {
+    switchTab('products');
   }
 }
 
@@ -678,7 +683,7 @@ async function acknowledgeApprovalNotice(button) {
 // ===== Subscription Functions =====
 
 async function loadSubscriptionData(userId) {
-  if (!supabase) return;
+  if (!supabase) return null;
 
   try {
     const { data, error } = await supabase.rpc('get_subscription_dashboard_data', { p_user_id: userId });
@@ -698,13 +703,15 @@ async function loadSubscriptionData(userId) {
         userId
       }));
     }
-    updatePremiumIndicator(currentSession, { ...(profile || {}), is_premium: isPremium, premium_details: data?.subscription ?? null });
-
     renderSubscriptionDashboard(data);
     renderProducts();
+    const freshProfile = { ...(profile || {}), is_premium: isPremium, premium_details: data?.subscription ?? null };
+    updatePremiumIndicator(currentSession, freshProfile);
+    return data;
   } catch (err) {
     console.error('Load subscription data error:', err);
     renderProductsListingUsage();
+    return null;
   }
 }
 
@@ -723,6 +730,7 @@ function renderSubscriptionDashboard(data) {
   const entitlementCard = $('#entitlement-card');
   const featuredPromoCard = $('#featured-promo-card');
   const lockedProductsCard = $('#locked-products-card');
+  const upgradeButton = $('#sub-upgrade-btn');
 
   // Reset all
   [premiumStatus, freeStatus, expiredStatus, graceStatus].forEach(el => el.style.display = 'none');
@@ -791,6 +799,21 @@ function renderSubscriptionDashboard(data) {
     renderFreePlanUsage(displayEntitlement, plan_details);
     entitlementCard.style.display = 'block';
     featuredPromoCard.style.display = 'block';
+  }
+
+  if (freeStatus.style.display !== 'none') {
+    if (upgradeButton.dataset.liquidChromeAttached !== 'true') {
+      const saveData = Boolean(navigator.connection && navigator.connection.saveData);
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const forcedColors = window.matchMedia('(forced-colors: active)').matches;
+      const LIVE = !saveData && !reducedMotion && !forcedColors;
+      attachPremiumLiquidShader(upgradeButton, { radius: 12, zoom: 0.7, live: LIVE });
+      upgradeButton.dataset.liquidChromeAttached = 'true';
+    }
+    setPremiumLiquidLive(upgradeButton, isSubscriptionTabVisible() && getFreeUpgradeLivePreference());
+  } else {
+    removePremiumLiquidShader(upgradeButton);
+    delete upgradeButton.dataset.liquidChromeAttached;
   }
 
   // Render entitlement
@@ -1058,60 +1081,331 @@ async function confirmBulkUnlock() {
   });
 }
 
+function getDialogFocusables(dialogElement) {
+  return Array.from(dialogElement.querySelectorAll(
+    'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+  )).filter(element => element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden');
+}
+
+function trapDialogFocus(event, dialogElement = event.currentTarget) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    if (dialogElement.id === 'sub-upgrade-modal') closeUpgradeModal();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const focusables = getDialogFocusables(dialogElement);
+  const first = focusables[0];
+  const last = focusables.at(-1);
+  if (!first) {
+    event.preventDefault();
+  } else if (event.shiftKey && (document.activeElement === first || !focusables.includes(document.activeElement) || !dialogElement.contains(document.activeElement))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !focusables.includes(document.activeElement) || !dialogElement.contains(document.activeElement))) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function trapUpgradeModalFocus(event) {
+  const upgradeModal = $('#sub-upgrade-modal');
+  if (upgradeModal?.style.display === 'flex') trapDialogFocus(event, upgradeModal);
+}
+
+function openUpgradeModal() {
+  const upgradeModal = $('#sub-upgrade-modal');
+  const hero = $('#upgrade-modal-hero');
+  const upgradeButton = $('#sub-upgrade-btn');
+  if (!upgradeModal || upgradeModal.style.display === 'flex') return;
+
+  upgradeModalOpener = document.activeElement instanceof HTMLElement ? document.activeElement : upgradeButton;
+  upgradeModalPreviousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  upgradeModal.style.display = 'flex';
+  document.addEventListener('keydown', trapUpgradeModalFocus);
+  $('#sub-upgrade-error').hidden = true;
+
+  const usageLine = $('#sub-upgrade-usage');
+  if (subscriptionData?.entitlement && subscriptionData?.plan_details) {
+    const quota = Number($('#sub-free-quota').textContent);
+    const used = Number($('#sub-free-used').textContent);
+    if (Number.isFinite(quota) && Number.isFinite(used)) {
+      usageLine.textContent = `You’ve used ${used} of ${quota} free listings.`;
+      usageLine.hidden = false;
+    } else {
+      usageLine.hidden = true;
+    }
+  } else {
+    usageLine.hidden = true;
+  }
+
+  setPremiumLiquidLive(upgradeButton, false);
+  const LIVE = !(navigator.connection && navigator.connection.saveData)
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && !window.matchMedia('(forced-colors: active)').matches;
+  attachPremiumLiquidShader(hero, { radius: 0, zoom: 3.4, live: LIVE });
+  $('#sub-upgrade-cancel-btn').focus();
+}
+
+function closeUpgradeModal(returnFocus = true) {
+  const upgradeModal = $('#sub-upgrade-modal');
+  if (!upgradeModal || upgradeModal.style.display === 'none') return;
+  upgradeModal.style.display = 'none';
+  document.removeEventListener('keydown', trapUpgradeModalFocus);
+  removePremiumLiquidShader($('#upgrade-modal-hero'));
+  document.body.style.overflow = upgradeModalPreviousOverflow;
+  setPremiumLiquidLive(
+    $('#sub-upgrade-btn'),
+    isSubscriptionTabVisible() && getFreeUpgradeLivePreference()
+  );
+  if (returnFocus && upgradeModalOpener?.isConnected) upgradeModalOpener.focus();
+}
+
+function resetUpgradeButton(button) {
+  button.disabled = false;
+  button.removeAttribute('aria-busy');
+  button.querySelector('.upgrade-button-label').textContent = 'Upgrade now · ₱49/month';
+  button.querySelector('.upgrade-button-spinner').classList.remove('is-visible');
+}
+
+function showPremiumActivationNotice() {
+  let notice = $('#premium-activation-notice');
+  if (!notice) {
+    notice = document.createElement('p');
+    notice.id = 'premium-activation-notice';
+    notice.className = 'premium-activation-notice';
+    notice.setAttribute('role', 'status');
+    $('#tab-subscription').prepend(notice);
+  }
+  notice.textContent = 'We’re activating your Premium plan. This can take a moment. Please refresh in a minute.';
+  notice.tabIndex = -1;
+  notice.focus();
+}
+
+function clearPremiumActivationNotice() {
+  $('#premium-activation-notice')?.remove();
+}
+
+async function confirmPremiumAndShowSplash(userId, paymentReference, wasPremiumBeforePayment = false) {
+  if (wasPremiumBeforePayment) {
+    $('#subscription-tab-heading')?.focus();
+    return;
+  }
+
+  let confirmedData = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    confirmedData = await loadSubscriptionData(userId);
+    const subscription = confirmedData?.subscription;
+    if (subscription?.is_premium === true && subscription?.status === 'ACTIVE') {
+      clearPremiumActivationNotice();
+      const splashKeyValue = subscription.current_period_end || paymentReference;
+      if (!splashKeyValue || sessionStorage.getItem('premium-splash-shown') === splashKeyValue) {
+        $('#subscription-tab-heading')?.focus();
+        return;
+      }
+      sessionStorage.setItem('premium-splash-shown', splashKeyValue);
+      if (!isSubscriptionTabVisible()) switchTab('subscription');
+      showPremiumSplash(subscription);
+      return;
+    }
+    if (attempt < 4) await new Promise(resolve => setTimeout(resolve, 1500));
+  }
+
+  showPremiumActivationNotice();
+}
+
+const PREMIUM_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
+let activePremiumSplash = null;
+
+function showPremiumSplash(subscription) {
+  if (activePremiumSplash) return;
+  const renewalDate = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
+  const hasRenewalDate = renewalDate && !Number.isNaN(renewalDate.getTime());
+  const renewalMarkup = hasRenewalDate
+    ? `<p class="premium-splash-renewal">Next renewal · <strong>${esc(renewalDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))}</strong></p>`
+    : '';
+  const overlay = document.createElement('div');
+  overlay.className = 'premium-splash-overlay';
+  overlay.id = 'premium-splash-overlay';
+  overlay.innerHTML = `
+    <section class="premium-splash-card" role="dialog" aria-modal="true" aria-labelledby="premium-splash-title">
+      <div class="premium-splash-content">
+        <div class="premium-splash-emblem-wrap" aria-hidden="true">
+          <span class="premium-splash-ring"></span>
+          <span class="premium-splash-emblem">✦</span>
+        </div>
+        <div class="premium-splash-heading-panel">
+          <h2 id="premium-splash-title" tabindex="-1">Welcome to Premium</h2>
+          <p class="premium-splash-subtitle">Your Premium plan is now active.</p>
+        </div>
+        <div class="premium-splash-benefits">
+          ${[
+            'Unlimited product listings',
+            'Highlighted product & store cards',
+            'Priority placement in search',
+            'Your store, automatically featured',
+          ].map((benefit, index) => `<div class="premium-splash-benefit" style="--row-delay:${1150 + index * 110}ms;--check-delay:${1320 + index * 110}ms">${PREMIUM_CHECK_SVG}<span>${benefit}</span></div>`).join('')}
+        </div>
+        ${renewalMarkup}
+        <div class="premium-splash-actions">
+          <button type="button" class="premium-splash-add">Add a product</button>
+          <button type="button" class="premium-splash-continue">Continue</button>
+        </div>
+        <span class="sr-only" role="status">Premium plan activated</span>
+      </div>
+    </section>`;
+  document.body.append(overlay);
+
+  const card = overlay.querySelector('.premium-splash-card');
+  const LIVE = !(navigator.connection && navigator.connection.saveData)
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    && !window.matchMedia('(forced-colors: active)').matches;
+  const pausedChrome = Array.from(document.querySelectorAll('.liquid-chrome-live'));
+  pausedChrome.forEach(surface => setPremiumLiquidLive(surface, false));
+  attachPremiumLiquidShader(card, { radius: 24, zoom: 3.4, live: LIVE });
+
+  const previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  const timers = [];
+  const cleanup = (returnFocus = true) => {
+    if (!activePremiumSplash) return;
+    timers.forEach(timer => clearTimeout(timer));
+    overlay.querySelectorAll('.splash-spark').forEach(spark => spark.remove());
+    document.removeEventListener('keydown', onKeydown);
+    removePremiumLiquidShader(card);
+    overlay.remove();
+    document.body.style.overflow = previousOverflow;
+    pausedChrome.forEach(surface => {
+      if (surface.isConnected) setPremiumLiquidLive(surface, true);
+    });
+    activePremiumSplash = null;
+    if (returnFocus) $('#subscription-tab-heading')?.focus();
+  };
+  const onKeydown = event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cleanup();
+    } else if (event.key === 'Tab') {
+      trapDialogFocus(event, overlay);
+    }
+  };
+  activePremiumSplash = { close: cleanup, overlay };
+  overlay.querySelector('.premium-splash-continue').addEventListener('click', () => cleanup());
+  overlay.querySelector('.premium-splash-add').addEventListener('click', () => {
+    cleanup(false);
+    switchTab('products');
+    window.history.replaceState(null, '', '/dashboard/#tab-products');
+    const heading = $('#tab-products h3');
+    if (heading) {
+      heading.tabIndex = -1;
+      heading.focus();
+    }
+  });
+  document.addEventListener('keydown', onKeydown);
+  $('#premium-splash-title').focus();
+
+  timers.push(setTimeout(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.matchMedia('(forced-colors: active)').matches) return;
+    const wrapper = overlay.querySelector('.premium-splash-emblem-wrap');
+    for (let index = 0; index < 18; index += 1) {
+      const angle = index * 20 * Math.PI / 180;
+      const distance = 120 + (index % 3) * 45;
+      const spark = document.createElement('span');
+      spark.className = 'splash-spark';
+      spark.setAttribute('aria-hidden', 'true');
+      spark.style.setProperty('--dx', `${Math.round(Math.cos(angle) * distance)}px`);
+      spark.style.setProperty('--dy', `${Math.round(Math.sin(angle) * distance)}px`);
+      const size = 6 + (index % 3) * 3;
+      spark.style.width = `${size}px`;
+      spark.style.height = `${size}px`;
+      spark.style.margin = '-3px 0 0 -3px';
+      spark.style.animationDelay = `${(index % 6) * 40}ms`;
+      spark.style.background = index % 2 === 0 ? '#ffe3a5' : '#cba67a';
+      wrapper.append(spark);
+    }
+    timers.push(setTimeout(() => overlay.querySelectorAll('.splash-spark').forEach(spark => spark.remove()), 1800));
+  }, 380));
+}
+
 // Bind subscription tab events
 function bindSubscriptionEvents() {
   // Upgrade to Premium
-  $('#sub-upgrade-btn')?.addEventListener('click', () => {
-    $('#sub-upgrade-modal').style.display = 'flex';
-    $('#sub-upgrade-cancel-btn').focus();
+  const upgradeModal = $('#sub-upgrade-modal');
+  const upgradeButton = $('#sub-upgrade-btn');
+  upgradeButton?.addEventListener('click', openUpgradeModal);
+  $('#sub-upgrade-close')?.addEventListener('click', closeUpgradeModal);
+  $('#sub-upgrade-cancel-btn')?.addEventListener('click', closeUpgradeModal);
+  upgradeModal?.addEventListener('click', (event) => {
+    if (event.target === upgradeModal) closeUpgradeModal();
   });
 
-  $('#sub-upgrade-close')?.addEventListener('click', () => {
-    $('#sub-upgrade-modal').style.display = 'none';
-  });
-
-  $('#sub-upgrade-cancel-btn')?.addEventListener('click', () => {
-    $('#sub-upgrade-modal').style.display = 'none';
-  });
-
-  $('#sub-upgrade-confirm-btn')?.addEventListener('click', async () => {
-    const btn = $('#sub-upgrade-confirm-btn');
+  $('#sub-upgrade-confirm-btn')?.addEventListener('click', async (event) => {
+    const btn = event.currentTarget;
+    if (btn.disabled) return;
+    const errorLine = $('#sub-upgrade-error');
+    const buttonLabel = btn.querySelector('.upgrade-button-label');
+    let paymentFailed = false;
+    let paymentReference = null;
+    const wasPremiumBeforePayment = subscriptionData?.subscription?.is_premium === true
+      && subscriptionData?.subscription?.status === 'ACTIVE';
+    errorLine.hidden = true;
     btn.disabled = true;
-    btn.textContent = 'Processing...';
+    btn.setAttribute('aria-busy', 'true');
+    buttonLabel.textContent = 'Opening payment…';
+    btn.querySelector('.upgrade-button-spinner').classList.add('is-visible');
+    closeUpgradeModal(false);
 
-    startDemoPayment({
+    try {
+      startDemoPayment({
       amount: 49,
       title: 'Upgrade to Premium',
       description: 'Activate Premium subscription for ₱49/month. Unlimited listings, premium highlighting, priority search, and automatic Featured Store eligibility.',
       successMessage: 'Premium subscription activated!',
+      onAfterSuccess: async () => {
+        try {
+          await confirmPremiumAndShowSplash(currentSession.user.id, paymentReference, wasPremiumBeforePayment);
+        } finally {
+          resetUpgradeButton(btn);
+        }
+      },
       onCancel: () => {
-        $('#sub-upgrade-modal').style.display = 'none';
-        btn.disabled = false;
-        btn.textContent = 'Upgrade Now (₱49)';
+        resetUpgradeButton(btn);
+        if (paymentFailed) {
+          openUpgradeModal();
+          upgradeModalOpener = upgradeButton;
+          errorLine.hidden = false;
+        }
       },
       onSuccess: async () => {
         try {
+          paymentReference = `demo-premium-${Date.now()}`;
           const { data, error } = await supabase.rpc('verify_payment_and_activate_subscription', {
             p_user_id: currentSession.user.id,
             p_plan_code: 'PREMIUM',
-            p_payment_reference: `demo-premium-${Date.now()}`,
+            p_payment_reference: paymentReference,
             p_period_days: 30
           });
 
           if (error) throw error;
           if (!data.success) throw new Error(data.error || 'Failed to activate subscription');
-
-          $('#sub-upgrade-modal').style.display = 'none';
-          await loadSubscriptionData(currentStore.user_id);
         } catch (err) {
           console.error('Premium upgrade error:', err);
-          alert('Failed to upgrade. Please try again.');
-        } finally {
-          btn.disabled = false;
-          btn.textContent = 'Upgrade Now (₱49)';
+          paymentFailed = true;
+          errorLine.hidden = false;
+          resetUpgradeButton(btn);
+          throw err;
         }
       }
-    });
+      });
+    } catch (err) {
+      console.error('Could not open Premium payment:', err);
+      errorLine.hidden = false;
+      resetUpgradeButton(btn);
+      openUpgradeModal();
+      upgradeModalOpener = upgradeButton;
+      errorLine.hidden = false;
+    }
   });
 
   // Renew during grace period
@@ -1410,11 +1704,35 @@ function switchTab(tab) {
   $$('[role="tabpanel"]').forEach(p => {
     p.style.display = p.id === `tab-${tab}` ? 'block' : 'none';
   });
+  setPremiumLiquidLive($('#sub-upgrade-btn'), tab === 'subscription' && getFreeUpgradeLivePreference());
 
   // Load subscription data when subscription tab is activated
   if (tab === 'subscription' && currentSession) {
     loadSubscriptionData(currentSession.user.id);
   }
+}
+
+function isSubscriptionTabVisible() {
+  return $('#tab-subscription')?.style.display !== 'none';
+}
+
+function getFreeUpgradeLivePreference() {
+  const saveData = Boolean(navigator.connection && navigator.connection.saveData);
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const forcedColors = window.matchMedia('(forced-colors: active)').matches;
+  const LIVE = !saveData && !reducedMotion && !forcedColors;
+  return LIVE;
+}
+
+const freeUpgradeButton = $('#sub-upgrade-btn');
+if (freeUpgradeButton && typeof MutationObserver === 'function') {
+  const freeUpgradeRemovalObserver = new MutationObserver(() => {
+    if (freeUpgradeButton.isConnected) return;
+    removePremiumLiquidShader(freeUpgradeButton);
+    delete freeUpgradeButton.dataset.liquidChromeAttached;
+    freeUpgradeRemovalObserver.disconnect();
+  });
+  freeUpgradeRemovalObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 function openBulkAddProductsModal() {
@@ -1922,9 +2240,10 @@ async function createNewProduct(productData, imageFiles, isPaidListing = false) 
   }
 }
 
-function startDemoPayment({ amount, title, description, successMessage, onSuccess, onCancel }) {
+function startDemoPayment({ amount, title, description, successMessage, onSuccess, onCancel, onAfterSuccess }) {
   demoPaymentAction = onSuccess;
   demoPaymentCancelAction = onCancel || null;
+  demoPaymentAfterSuccessAction = onAfterSuccess || null;
   $('#demo-payment-title').textContent = title;
   $('#demo-payment-description').textContent = description;
   $('#demo-payment-amount').textContent = peso(amount);
@@ -1953,7 +2272,10 @@ function closeDemoPayment(cancelled = false) {
   const onCancel = demoPaymentCancelAction;
   demoPaymentAction = null;
   demoPaymentCancelAction = null;
-  if (cancelled) onCancel?.();
+  if (cancelled) {
+    demoPaymentAfterSuccessAction = null;
+    onCancel?.();
+  }
 }
 
 function runPaymentCountdown(element, seconds, onComplete) {
@@ -1978,7 +2300,14 @@ function completeDemoPayment() {
     try {
       await demoPaymentAction();
       showDemoPaymentStep('demo-payment-success');
-      runPaymentCountdown($('#demo-payment-success-count'), 5, () => closeDemoPayment());
+      runPaymentCountdown($('#demo-payment-success-count'), 5, () => {
+        const afterSuccess = demoPaymentAfterSuccessAction;
+        demoPaymentAfterSuccessAction = null;
+        closeDemoPayment();
+        Promise.resolve(afterSuccess?.()).catch(err => {
+          console.error('Post-payment Premium activation check failed:', err);
+        });
+      });
     } catch (err) {
       console.error('Demo payment completion error:', err);
       $('#demo-payment-error-message').textContent = err?.message

@@ -83,7 +83,8 @@ begin
   insert into notification_queue (user_id, type, title, message, priority, related_entity_type, related_entity_id)
   values (p_user_id, 'PAYMENT_CONFIRMED', 'Payment Confirmed',
           format('Your %s subscription is now active until %s', v_plan.name, to_char(v_period_end, 'Mon DD, YYYY')),
-          'NORMAL', 'SUBSCRIPTION', v_sub.id);
+          'NORMAL', 'SUBSCRIPTION', v_sub.id)
+  on conflict do nothing;
 
   -- Unlock any locked products due to grace period
   update product_lock_states

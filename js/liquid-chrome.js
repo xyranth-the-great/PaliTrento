@@ -256,13 +256,14 @@ function refreshActiveLive() {
 }
 
 export class LiquidChrome {
-  constructor(surface, { radius = 'inherit', live = false } = {}) {
+  constructor(surface, { radius = 'inherit', zoom = 3.4, live = false } = {}) {
     if (!(surface instanceof HTMLElement)) {
       throw new TypeError('LiquidChrome requires an HTML element surface.');
     }
 
     this.surface = surface;
     this.radius = typeof radius === 'number' ? `${radius}px` : radius;
+    this.zoom = zoom;
     this.liveRequested = false;
     this.isActive = false;
     this.isVisible = true;
@@ -328,7 +329,7 @@ export class LiquidChrome {
     this.canvas.className = 'liquid-chrome-canvas premium-shader-canvas';
     this.canvas.setAttribute('aria-hidden', 'true');
     this.surface.prepend(this.canvas);
-    this.renderer = createRenderer(this.canvas);
+    this.renderer = createRenderer(this.canvas, { zoom: this.zoom });
     if (!this.renderer) {
       this.canvas.remove();
       this.canvas = null;

@@ -129,7 +129,7 @@
 
   <!-- Subscription tab -->
   <div id="tab-subscription" role="tabpanel" style="display:none">
-    <h3 style="margin-bottom:8px">Subscription & Product Listings</h3>
+    <h3 id="subscription-tab-heading" tabindex="-1" style="margin-bottom:8px">Subscription & Product Listings</h3>
     <p class="muted" style="margin-bottom:24px">Manage your plan, product listing allowance, and Featured Store promotions.</p>
 
     <!-- Current Plan Card -->
@@ -179,7 +179,7 @@
             <li>Manage listings from your dashboard</li>
           </ul>
           <div class="free-upgrade-actions">
-            <button type="button" class="chrome-pill free-upgrade-btn" id="sub-upgrade-btn"><span class="chrome-pill-text">Upgrade to Premium · ₱49/month</span></button>
+            <button type="button" class="chrome-pill free-upgrade-btn" id="sub-upgrade-btn"><span class="free-upgrade-shine" aria-hidden="true"></span><span class="chrome-pill-text free-upgrade-label">Upgrade to Premium · ₱49/month</span></button>
             <button type="button" class="btn alt" id="sub-featured-promo-btn" aria-describedby="sub-feature-promo-caption">Feature Store · ₱10/week</button>
             <p class="free-feature-caption" id="sub-feature-promo-caption">Get your store featured for a week.</p>
           </div>
@@ -484,33 +484,55 @@
 </div>
 
 <!-- Subscription Upgrade Modal -->
-<div id="sub-upgrade-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sub-upgrade-title" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:1100;align-items:center;justify-content:center;padding:20px">
-  <div class="card" style="width:100%;max-width:480px">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:20px;border-bottom:1px solid var(--line)">
-      <h3 id="sub-upgrade-title" style="margin:0">Upgrade to Premium</h3>
-      <button type="button" class="btn alt" id="sub-upgrade-close" style="padding:8px;line-height:1">&times;</button>
-    </div>
-    <div style="padding:20px;display:grid;gap:16px">
-      <div style="padding:16px;background:var(--primary);border-radius:var(--r-lg);color:#fff;text-align:center">
-        <div style="font-size:2rem;font-weight:800">₱49/month</div>
-        <div class="muted" style="color:#fef3e2">Billed monthly</div>
+<div id="sub-upgrade-modal" class="modal upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title" style="display:none">
+  <section class="upgrade-shell">
+    <header class="upgrade-hero" id="upgrade-modal-hero">
+      <div class="upgrade-hero-content">
+        <h2 id="upgrade-modal-title" class="sr-only">Upgrade to Premium</h2>
+        <div class="upgrade-hero-topline">
+          <span class="upgrade-premium-chip"><span aria-hidden="true">✦</span> Premium</span>
+          <button type="button" class="upgrade-close" id="sub-upgrade-close" aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m18 6-12 12M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="upgrade-price-panel">
+          <div class="upgrade-price-line"><strong>₱49</strong><span>/ month</span></div>
+          <p>Billed monthly</p>
+        </div>
       </div>
-      <ul style="margin:0;padding-left:20px;display:grid;gap:8px">
-        <li><strong>Unlimited</strong> product listings</li>
-        <li><strong>Premium</strong> neon-liquid visual highlighting</li>
-        <li><strong>Priority</strong> search and category placement</li>
-        <li><strong>Automatic</strong> Featured Store eligibility</li>
-        <li>No additional product listing fees</li>
+    </header>
+
+    <div class="upgrade-body">
+      <h3>What you get with Premium</h3>
+      <ul class="upgrade-benefits">
+        <li><span class="upgrade-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span><span>Unlimited product listings</span></li>
+        <li><span class="upgrade-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span><span>Highlighted product &amp; store cards</span></li>
+        <li><span class="upgrade-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span><span>Priority placement in search</span></li>
+        <li><span class="upgrade-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span><span>Your store, automatically featured</span></li>
+        <li class="upgrade-benefit-wide"><span class="upgrade-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m5 12.5 4.5 4.5L19 7"/></svg></span><span>No additional product listing fees</span></li>
       </ul>
-      <div style="padding:12px;background:var(--muted-bg);border-radius:var(--r-md);font-size:.85rem">
-        <strong>Current Free Plan:</strong> 15 free listings, then ₱1 each. Featured Store: ₱10/week.
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn alt" id="sub-upgrade-cancel-btn" style="flex:1">Cancel</button>
-        <button class="btn" id="sub-upgrade-confirm-btn" style="flex:1">Upgrade Now (₱49)</button>
-      </div>
+
+      <section class="upgrade-comparison" aria-label="Plan comparison">
+        <p class="upgrade-usage" id="sub-upgrade-usage" hidden></p>
+        <table>
+          <caption class="sr-only">Free plan compared with Premium</caption>
+          <thead><tr><th scope="col"></th><th scope="col">Free</th><th scope="col">Premium</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Listings</th><td>15 free, then ₱1 each</td><td class="upgrade-premium-cell"><span aria-hidden="true">✦</span> Unlimited</td></tr>
+            <tr><th scope="row">Featured Store</th><td>₱10/week</td><td class="upgrade-premium-cell"><span aria-hidden="true">✦</span> Included</td></tr>
+          </tbody>
+        </table>
+      </section>
     </div>
-  </div>
+
+    <footer class="upgrade-footer">
+      <div class="upgrade-footer-buttons">
+        <button type="button" class="upgrade-not-now" id="sub-upgrade-cancel-btn">Not now</button>
+        <button type="button" class="chrome-pill upgrade-modal-cta" id="sub-upgrade-confirm-btn"><span class="free-upgrade-shine" aria-hidden="true"></span><span class="chrome-pill-text free-upgrade-label"><span class="upgrade-button-spinner" aria-hidden="true"></span><span class="upgrade-button-label">Upgrade now · ₱49/month</span></span></button>
+      </div>
+      <p class="upgrade-error" id="sub-upgrade-error" role="alert" hidden>Something went wrong. Please try again.</p>
+    </footer>
+  </section>
 </div>
 
 <!-- Featured Store Promo Modal -->

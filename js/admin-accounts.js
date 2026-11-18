@@ -84,7 +84,10 @@ async function loadAccounts() {
     body: { action: 'list' },
   });
   if (error || data?.error) {
-    listMessage.textContent = data?.error || 'Could not load accounts. Deploy the moderation function and SQL migration first.';
+    listMessage.textContent = data?.error || await getModerationErrorMessage(
+      error,
+      'Could not load accounts. Check the moderation function and database migrations.'
+    );
     return;
   }
   accounts = data.accounts || [];
@@ -120,10 +123,11 @@ function actionLabel(action) {
     ban: 'Permanent ban',
     restore: 'Restore access',
     unban: 'Remove ban',
+    remove_premium: 'Remove Premium',
   })[action] || action;
 }
 
-async function getModerationErrorMessage(error) {
+async function getModerationErrorMessage(error, fallback = 'Moderation failed. Try again.') {
   const response = error?.context;
   if (response && typeof response.clone === 'function') {
     try {
@@ -133,7 +137,7 @@ async function getModerationErrorMessage(error) {
       console.warn('[admin-accounts] Could not read moderation error response:', parseError);
     }
   }
-  return error?.message || 'Moderation failed. Try again.';
+  return error?.message || fallback;
 }
 
 function getAvailableActions(account) {
@@ -147,6 +151,10 @@ function getAvailableActions(account) {
   const baseActions = [
     { value: 'warn', label: 'Issue warning' },
   ];
+
+  if (account.is_premium) {
+    baseActions.push({ value: 'remove_premium', label: 'Remove Premium' });
+  }
 
   if (status === 'active') {
     baseActions.push(
@@ -224,6 +232,9 @@ function renderAccounts() {
     }
 
     const actions = getAvailableActions(account);
+    const premiumStatus = account.is_premium
+      ? `<div class="suspension-reason">Premium${account.premium_ends_at ? ` · through ${esc(formatDate(account.premium_ends_at))}` : ''}</div>`
+      : '';
 
     const recentActions = (account.recent_actions || []).map((action) => `
       <div style="padding:6px 0;border-top:1px solid var(--line)">
@@ -244,6 +255,7 @@ function renderAccounts() {
         <div class="account-status">
           <span class="pill ${statusPillClass}">${statusText}</span>
           ${statusExtra}
+          ${premiumStatus}
         </div>
         <div class="account-actions">
           <select data-action-select="${esc(account.id)}" aria-label="Moderation action for ${esc(account.full_name || account.email || 'account')}" ${ownAdmin ? 'disabled' : ''}>
@@ -278,6 +290,8 @@ function onAccountAction(event) {
   // Reset fields
   durationField.style.display = 'none';
   warningField.style.display = 'none';
+  reasonInput.required = false;
+  warningMessageInput.required = false;
   reasonInput.value = '';
   warningMessageInput.value = '';
   durationSelect.value = '168'; // Default 7 days
@@ -318,6 +332,9 @@ function onAccountAction(event) {
     reasonInput.required = true;
     warningMessageInput.required = false;
     moderationMessage.textContent = 'Removing the ban will restore full account access.';
+  } else if (action === 'remove_premium') {
+    reasonInput.required = true;
+    moderationMessage.textContent = 'Premium access will end immediately and the account will return to Free plan limits.';
   }
 
   dialog.showModal();
@@ -347,12 +364,14 @@ async function submitModeration(event) {
   moderationMessage.textContent = '';
 
   try {
-    const request = {
-      action: 'moderate',
-      targetUserId: currentTarget.id,
-      moderationAction: currentAction,
-      reason: currentAction === 'warn' ? warningMessage : reason,
-    };
+    const request = currentAction === 'remove_premium'
+      ? { action: 'remove_premium', targetUserId: currentTarget.id, reason }
+      : {
+        action: 'moderate',
+        targetUserId: currentTarget.id,
+        moderationAction: currentAction,
+        reason: currentAction === 'warn' ? warningMessage : reason,
+      };
 
     if (currentAction === 'suspend_temporary') {
       if (durationSelect.value === 'custom') {
