@@ -334,3 +334,9 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
 @media(prefers-reduced-motion:reduce){
   .featured-products-carousel .featured-products-grid{animation:none}
 }
+
+/* Keep long product titles readable in the detail layout. */
+#p-name{font-size:clamp(1.8rem,3.5vw,2.65rem);line-height:1.08;overflow-wrap:anywhere}
+@media(max-width:900px){.product-detail-header.has-image{grid-template-columns:minmax(0,1fr)}}
+.product-image-carousel .carousel-slide img{object-fit:contain}
+@media(max-width:760px){.product-detail-image{width:100%;max-width:480px;max-height:none;margin-inline:auto}}

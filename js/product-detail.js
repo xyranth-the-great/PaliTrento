@@ -166,6 +166,14 @@ function renderProduct(isPremiumStore = false) {
     const viewport = $('#p-image-viewport');
     const prevBtn = $('.carousel-prev', imageWrap);
     const nextBtn = $('.carousel-next', imageWrap);
+    let currentSlide = 0;
+
+    function updateFrameAspect(index = currentSlide) {
+      if (index !== currentSlide) return;
+      const image = track.children[index]?.querySelector('img');
+      if (!image?.naturalWidth || !image?.naturalHeight) return;
+      imageWrap.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
+    }
 
     // Clear existing content
     track.innerHTML = '';
@@ -176,6 +184,7 @@ function renderProduct(isPremiumStore = false) {
       slide.className = 'carousel-slide';
       slide.style.flex = '0 0 100%';
       slide.innerHTML = `<img src="${esc(url)}" alt="${esc(p.name)} ${index + 1}" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async">`;
+      slide.querySelector('img').addEventListener('load', () => updateFrameAspect(index), { once: true });
       track.appendChild(slide);
 
       // Create indicator
@@ -189,6 +198,7 @@ function renderProduct(isPremiumStore = false) {
 
     imageWrap.style.display = 'block';
     $('.product-detail-header').classList.add('has-image');
+    updateFrameAspect();
 
     // Initialize carousel if more than one image
     if (imageUrls.length > 1) {
@@ -196,10 +206,10 @@ function renderProduct(isPremiumStore = false) {
       prevBtn.style.display = 'flex';
       nextBtn.style.display = 'flex';
 
-      let currentSlide = 0;
       const totalSlides = imageUrls.length;
 
       function updateCarousel() {
+        updateFrameAspect();
         const slideWidth = viewport.clientWidth;
         track.style.transform = `translateX(-${currentSlide * slideWidth}px)`;
         indicators.querySelectorAll('.carousel-indicator').forEach((ind, i) => {
@@ -249,6 +259,7 @@ function renderProduct(isPremiumStore = false) {
       imageCarousel = { updateCarousel, goToSlide, nextSlide, prevSlide };
     } else {
       // Single image - no carousel controls needed
+      updateFrameAspect();
       indicators.style.display = 'none';
       prevBtn.style.display = 'none';
       nextBtn.style.display = 'none';

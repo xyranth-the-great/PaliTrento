@@ -1741,4 +1741,10 @@ html.dark .side{background:var(--bg);border-color:var(--line)}
 html.dark .side .card{border-color:var(--line)}
 html.dark .side .card[aria-pressed=true]{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary)}
 
+/* Keep long product titles readable in the detail layout. */
+#p-name{font-size:clamp(1.8rem,3.5vw,2.65rem);line-height:1.08;overflow-wrap:anywhere}
+@media(max-width:900px){.product-detail-header.has-image{grid-template-columns:minmax(0,1fr)}}
+.product-image-carousel .carousel-slide img{object-fit:contain}
+@media(max-width:760px){.product-detail-image{width:100%;max-width:480px;max-height:none;margin-inline:auto}}
+
 @keyframes badgePop { from { transform:scale(0) } to { transform:scale(1) } }
