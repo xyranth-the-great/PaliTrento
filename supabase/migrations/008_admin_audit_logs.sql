@@ -4,7 +4,9 @@ create table if not exists public.audit_logs (
   actor_user_id uuid references auth.users(id) on delete set null,
   actor_name text,
   actor_role text not null default 'system',
-  target_user_id uuid references auth.users(id) on delete set null,
+  -- Keep the historical UUID after the account is deleted. This is an audit
+  -- identifier, not a live relationship to auth.users.
+  target_user_id uuid,
   target_name text,
   action text not null check (action in ('INSERT', 'UPDATE', 'DELETE')),
   resource_type text not null,
