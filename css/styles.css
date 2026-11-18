@@ -1636,6 +1636,73 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
   .top nav a{padding:7px 8px;font-size:.88rem}
 }
 
+/* Mobile interaction and viewport refinements. Desktop layout stays unchanged. */
+@media (max-width:760px) {
+  html { scroll-padding-top: 76px; }
+
+  /* Keep the header compact while allowing every navigation link to remain reachable. */
+  .top nav {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .top nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  /* Avoid iOS focus zoom and make frequent controls easier to tap. */
+  input, select, textarea { font-size: 16px; }
+  .btn, button, .tab-btn, .settings-tab-btn, .carousel-pause-play-btn {
+    touch-action: manipulation;
+  }
+  .btn, .tab-btn, .settings-tab-btn { min-height: 44px; }
+  .tab-btn, .settings-tab-btn { display: inline-flex; align-items: center; justify-content: center; }
+
+  .carousel-viewport,
+  .featured-products-viewport,
+  .settings-tabs {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .maplay {
+    grid-template-rows: min(55vh, 540px) auto;
+    grid-template-rows: min(55dvh, 540px) auto;
+  }
+
+  .upgrade-modal { overflow-y: auto; }
+  .upgrade-shell { max-height: calc(100dvh - 24px); }
+  .notification-modal-content { max-height: 90dvh; }
+}
+
+@media (max-width:760px) and (hover:none) {
+  /* Keep touch feedback on press without leaving hover styling stuck after a tap. */
+  .btn:hover { background: var(--amber); }
+  .btn.alt:hover { background: var(--card); }
+  a.card:hover { transform: none; box-shadow: none; }
+  .top nav a:hover { background: transparent; }
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  @media (max-width:760px) {
+    .advisory-toast { bottom: max(12px, env(safe-area-inset-bottom)); }
+    .upgrade-modal {
+      padding-top: max(12px, env(safe-area-inset-top));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    .notification-modal {
+      padding-top: max(12px, env(safe-area-inset-top));
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+  }
+}
+
 
 @media(prefers-reduced-motion:reduce){
   .featured-products-carousel .featured-products-grid{animation:none}
