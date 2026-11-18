@@ -39,7 +39,7 @@
   --chrome-action-border:rgba(255,220,140,.45);
   --chrome-active:#b7f7c5;
   --font:'Plus Jakarta Sans',-apple-system,'Segoe UI',Roboto,sans-serif;
-  --r-sm:6px;--r-md:8px;--r-lg:12px;--r-xl:16px;--pad:24px;--ease:cubic-bezier(.16,1,.3,1)
+  --r-sm:6px;--r-md:8px;--r-lg:12px;--r-xl:16px;--pad:24px;--ease:cubic-bezier(.16,1,.3,1);--ease-in-out:cubic-bezier(.77,0,.175,1)
 }
 *{box-sizing:border-box}
 html{scroll-padding-top:72px}
@@ -1578,9 +1578,15 @@ dl{margin:0}dt{font-weight:700;font-size:.85rem;color:var(--muted);margin-top:12
 .photo-upload.dragover{border-color:var(--primary)!important;background:var(--amber-light)}
 
 /* Dashboard tabs */
+.dashboard-tabs{position:relative}
 .tab-btn{background:none;border:none;padding:12px 20px;font:600 .95rem var(--font);color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .18s var(--ease)}
 .tab-btn:hover{color:var(--ink)}
 .tab-btn[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--primary)}
+.dashboard-tabs[data-indicator-ready="true"] .tab-btn[aria-selected="true"]{border-bottom-color:transparent}
+.dashboard-tab-indicator{position:absolute;left:0;bottom:-1px;width:1px;height:3px;border-radius:999px;background:var(--primary);pointer-events:none;visibility:hidden;transform:translateX(var(--dashboard-tab-x,0px)) scaleX(var(--dashboard-tab-width,0));transform-origin:left center}
+.dashboard-tabs[data-indicator-ready="true"] .dashboard-tab-indicator{visibility:visible}
+.dashboard-tabs[data-indicator-animated="true"] .dashboard-tab-indicator{transition:transform 180ms var(--ease-in-out)}
+@media(prefers-reduced-motion:reduce){.dashboard-tabs[data-indicator-animated="true"] .dashboard-tab-indicator{transition-duration:100ms}}
 
 /* Modal */
 .modal{animation:fadeIn .15s var(--ease)}

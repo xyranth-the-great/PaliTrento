@@ -83,12 +83,13 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
   </div>
 
   <!-- Tabs -->
-  <div style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px" role="tablist">
+  <div class="dashboard-tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px" role="tablist">
     <button class="tab-btn" role="tab" aria-selected="true" data-tab="products">Products</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="orders">Orders</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="verification">Business Verification</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="subscription">Subscription</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="analytics">Analytics</button>
+    <span class="dashboard-tab-indicator" aria-hidden="true"></span>
   </div>
 
   <!-- Products tab -->

@@ -586,8 +586,11 @@ function renderProductsListingUsage() {
 function bindEvents() {
   // Tabs
   $$('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    btn.addEventListener('click', event => switchTab(btn.dataset.tab, event.detail > 0));
   });
+  updateDashboardTabIndicator(false);
+  window.addEventListener('resize', () => updateDashboardTabIndicator(false), { passive: true });
+  document.fonts?.ready.then(() => updateDashboardTabIndicator(false));
 
   const params = new URLSearchParams(window.location.search);
   const orderId = params.get('orderId');
@@ -1697,12 +1700,47 @@ function updateFilenameDisplay() {
   }
 }
 
-function switchTab(tab) {
+const dashboardTabAnimations = new WeakMap();
+
+function updateDashboardTabIndicator(animate) {
+  const tablist = $('.dashboard-tabs');
+  const activeButton = tablist?.querySelector('.tab-btn[aria-selected="true"]');
+  if (!tablist || !activeButton) return;
+
+  if (animate) tablist.dataset.indicatorAnimated = 'true';
+  else tablist.removeAttribute('data-indicator-animated');
+  tablist.style.setProperty('--dashboard-tab-x', `${activeButton.offsetLeft}px`);
+  tablist.style.setProperty('--dashboard-tab-width', activeButton.offsetWidth);
+  tablist.dataset.indicatorReady = 'true';
+}
+
+function switchTab(tab, animate = false) {
+  const activeTab = $$('.tab-btn[aria-selected="true"]')[0]?.dataset.tab;
+  const tabChanged = activeTab !== tab;
+
   $$('.tab-btn').forEach(b => {
     b.setAttribute('aria-selected', b.dataset.tab === tab);
   });
+  if (tabChanged) updateDashboardTabIndicator(animate);
   $$('[role="tabpanel"]').forEach(p => {
-    p.style.display = p.id === `tab-${tab}` ? 'block' : 'none';
+    const isActive = p.id === `tab-${tab}`;
+    p.style.display = isActive ? 'block' : 'none';
+
+    if (isActive && animate && tabChanged) {
+      dashboardTabAnimations.get(p)?.cancel();
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const animation = p.animate(
+        [{ opacity: prefersReducedMotion ? 0.96 : 0.88 }, { opacity: 1 }],
+        {
+          duration: prefersReducedMotion ? 100 : 160,
+          easing: getComputedStyle(document.documentElement).getPropertyValue('--ease').trim() || 'ease-out',
+        },
+      );
+      dashboardTabAnimations.set(p, animation);
+      animation.onfinish = () => {
+        if (dashboardTabAnimations.get(p) === animation) dashboardTabAnimations.delete(p);
+      };
+    }
   });
   setPremiumLiquidLive($('#sub-upgrade-btn'), tab === 'subscription' && getFreeUpgradeLivePreference());
 
