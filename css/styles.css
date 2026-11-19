@@ -1101,6 +1101,17 @@ html.dark {
 }
 
 /* Premium Plan Card (Account page) */
+.account-page #account-warnings {
+  box-sizing: border-box;
+  width: 100%;
+  border-radius: var(--r-lg);
+  white-space: normal;
+}
+
+.account-page #tab-subscription {
+  padding: 0;
+}
+
 .premium-plan-card {
   position: relative;
   overflow: hidden;
