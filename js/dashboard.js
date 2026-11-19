@@ -170,7 +170,13 @@ function normalizePermitReviewStatus(status) {
 }
 
 function renderStoreCard(store) {
-  $('#store-card').style.display = 'block';
+  const storeCard = $('#store-card');
+  const removalNotice = $('#store-marketplace-disabled-notice');
+  const storeRemoved = Boolean(store.marketplace_removed_at);
+  storeCard.style.display = 'block';
+  storeCard.classList.toggle('is-marketplace-disabled', storeRemoved);
+  removalNotice.style.display = storeRemoved ? 'block' : 'none';
+  $('#store-marketplace-disabled-reason').textContent = store.marketplace_removal_reason || 'No reason was provided.';
   $('#store-status').textContent = '';
 
   $('#dash-business-name').textContent = store.business_name;
@@ -463,6 +469,13 @@ function renderProducts() {
   list.innerHTML = upgradeBannerHtml + currentProducts.map(p => {
     const s = srp(p);
     const isLocked = lockedProductIds.has(p.id);
+    const removedByAdmin = Boolean(p.marketplace_removed_at || currentStore?.marketplace_removed_at);
+    const removalReason = p.marketplace_removed_at
+      ? p.marketplace_removal_reason
+      : currentStore?.marketplace_removal_reason;
+    const disabledNotice = removedByAdmin
+      ? `<div class="marketplace-product-disabled-notice"><strong>${p.marketplace_removed_at ? 'This product has been disabled by an admin in the marketplace.' : 'This store has been disabled by an admin in the marketplace.'}</strong><p><strong>Reason:</strong> ${esc(removalReason || 'No reason was provided.')}</p></div>`
+      : '';
     // Use first image from image_urls array, fallback to image_url
     const imageUrl = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
       ? p.image_urls[0]
@@ -473,7 +486,9 @@ function renderProducts() {
       : `<div style="width:100%;height:140px;background:var(--muted-bg);border-radius:var(--r-md) var(--r-md) 0 0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem">No image</div>`;
 
     return `
-      <div class="card" style="position:relative;display:flex;flex-direction:column">
+      <div class="marketplace-product-disabled-group${removedByAdmin ? ' is-disabled' : ''}">
+      ${disabledNotice}
+      <div class="card marketplace-product-card${removedByAdmin ? ' is-marketplace-disabled' : ''}" style="position:relative;display:flex;flex-direction:column">
         ${imageHtml}
         <div style="padding:12px;display:flex;flex-direction:column;flex:1">
           <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px">
@@ -496,6 +511,7 @@ function renderProducts() {
           </p>
           <p class="muted" style="font-size:.7rem;margin-top:8px">Category: ${esc(p.category)}</p>
         </div>
+      </div>
       </div>
     `;
   }).join('');

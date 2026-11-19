@@ -69,16 +69,22 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
 
   <!-- Store info card -->
   <div id="store-card" class="card" style="display:none;padding:20px;margin-bottom:24px">
-    <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start">
-      <div>
-        <h2 id="dash-business-name" style="margin:0 0 8px"></h2>
-        <p class="muted" id="dash-category"></p>
-        <p class="muted" id="dash-location"></p>
-        <p class="muted" id="dash-hours"></p>
-        <p class="store-description" id="dash-description" style="display:none"></p>
-        <div id="dash-badges" style="margin-top:8px"></div>
+    <div id="store-marketplace-disabled-notice" class="marketplace-disabled-notice" role="status" style="display:none">
+      <strong>This store has been disabled by an admin in the marketplace.</strong>
+      <p><strong>Reason:</strong> <span id="store-marketplace-disabled-reason"></span></p>
+    </div>
+    <div id="store-card-details">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start">
+        <div>
+          <h2 id="dash-business-name" style="margin:0 0 8px"></h2>
+          <p class="muted" id="dash-category"></p>
+          <p class="muted" id="dash-location"></p>
+          <p class="muted" id="dash-hours"></p>
+          <p class="store-description" id="dash-description" style="display:none"></p>
+          <div id="dash-badges" style="margin-top:8px"></div>
+        </div>
+        <img id="dash-storefront" src="" alt="Storefront" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-lg);display:none">
       </div>
-      <img id="dash-storefront" src="" alt="Storefront" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-lg);display:none">
     </div>
   </div>
 

@@ -58,10 +58,10 @@ async function loadListings() {
   showMessage('Loading listings…');
   const [storeResult, productResult] = await Promise.all([
     supabase.from('stores')
-      .select('id, user_id, business_name, trade_category, barangay, trn_code, marketplace_removed_at')
+      .select('id, user_id, business_name, trade_category, barangay, trn_code, marketplace_removed_at, marketplace_removal_reason')
       .order('business_name'),
     supabase.from('products')
-      .select('id, store_id, name, category, current_price, marketplace_removed_at')
+      .select('id, store_id, name, category, current_price, marketplace_removed_at, marketplace_removal_reason')
       .order('name')
   ]);
 
@@ -125,6 +125,8 @@ function renderListing(item, storeById) {
         <p>${esc(detail)}</p>
         ${isStore ? `<p>${relatedCount} product${relatedCount === 1 ? '' : 's'} · removing this store hides all of them</p>` : ''}
         <span class="pill ${marketHidden ? 'bad' : 'ok'} market-admin-status">${removed ? 'Removed from marketplace' : hiddenWithStore ? 'Hidden with store' : 'In marketplace'}</span>
+        ${removed && item.marketplace_removal_reason ? `<div class="market-admin-removal-reason"><strong>Reason:</strong> ${esc(item.marketplace_removal_reason)}</div>` : ''}
+        ${hiddenWithStore && store?.marketplace_removal_reason ? `<div class="market-admin-removal-reason"><strong>Store removal reason:</strong> ${esc(store.marketplace_removal_reason)}</div>` : ''}
       </div>
       <div class="market-admin-actions">
         <button type="button" class="btn ${removed ? '' : 'bad'}" data-action="${removed ? 'restore' : 'remove'}" data-kind="${isStore ? 'stores' : 'products'}" data-id="${esc(item.id)}">
@@ -149,12 +151,22 @@ async function handleListingAction(event) {
       ? `Hide “${name}” and all its products from the public marketplace? You can restore them later.`
       : `Hide “${name}” from the public marketplace? You can restore it later.`
     : `Restore “${name}” to the public marketplace?`;
+  let removalReason = null;
+  if (action === 'remove') {
+    const enteredReason = window.prompt(`Reason for removing ${isStore ? 'this store' : 'this product'} from the marketplace:`, item.marketplace_removal_reason || '');
+    if (enteredReason === null) return;
+    removalReason = enteredReason.trim();
+    if (!removalReason) {
+      window.alert('Please enter a reason before removing this listing.');
+      return;
+    }
+  }
   if (!window.confirm(prompt)) return;
 
   button.disabled = true;
   const update = action === 'remove'
-    ? { marketplace_removed_at: new Date().toISOString(), marketplace_removed_by: currentSession.user.id }
-    : { marketplace_removed_at: null, marketplace_removed_by: null };
+    ? { marketplace_removed_at: new Date().toISOString(), marketplace_removed_by: currentSession.user.id, marketplace_removal_reason: removalReason }
+    : { marketplace_removed_at: null, marketplace_removed_by: null, marketplace_removal_reason: null };
   const { error } = await supabase.from(kind).update(update).eq('id', id);
   if (error) {
     console.error(`Could not ${action} marketplace listing:`, error);
