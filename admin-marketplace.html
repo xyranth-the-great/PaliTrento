@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Marketplace Listings | PaliTrento Admin</title>
+<meta name="description" content="Manage stores and products shown in the public marketplace.">
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+  .market-admin-wrap{max-width:1120px;padding-top:32px;padding-bottom:56px}
+  .market-admin-heading{margin-bottom:24px}
+  .market-admin-heading h1{font-size:clamp(2rem,5vw,3rem);letter-spacing:-.035em}
+  .market-admin-heading p{margin:8px 0 0}
+  .market-admin-panel{padding:20px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--card)}
+  .market-admin-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:18px 0}
+  .market-admin-controls label{display:grid;gap:6px;flex:1;min-width:190px;font-size:.85rem;font-weight:600}
+  .market-admin-controls input,.market-admin-controls select{width:100%;min-height:42px}
+  .market-admin-tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);overflow-x:auto}
+  .market-admin-tabs button{flex:none;padding:10px 14px;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);font:600 .95rem var(--font);cursor:pointer}
+  .market-admin-tabs button[aria-selected="true"]{border-bottom-color:var(--primary);color:var(--primary)}
+  .market-admin-summary{margin:0 0 14px;color:var(--muted);font-size:.88rem}
+  .market-admin-list{display:grid;gap:10px}
+  .market-admin-item{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--card)}
+  .market-admin-copy{min-width:0}
+  .market-admin-copy h2{margin:0;font-size:1rem;overflow-wrap:anywhere}
+  .market-admin-copy p{margin:5px 0 0;color:var(--muted);font-size:.84rem;overflow-wrap:anywhere}
+  .market-admin-status{display:inline-flex;margin-top:8px}
+  .market-admin-actions{display:flex;flex:none;gap:8px}
+  .market-admin-actions .btn{padding:8px 12px;font-size:.82rem}
+  .market-admin-message{padding:26px 16px;text-align:center;color:var(--muted)}
+  @media(max-width:640px){
+    .market-admin-wrap{padding-top:22px}
+    .market-admin-panel{padding:14px}
+    .market-admin-item{align-items:flex-start;flex-direction:column}
+    .market-admin-actions{width:100%}
+    .market-admin-actions .btn{flex:1}
+  }
+</style>
+</head>
+<body>
+<div id="chrome-top"></div>
+<main>
+  <div class="wrap market-admin-wrap">
+    <header class="market-admin-heading">
+      <h1>Marketplace listings</h1>
+      <p class="muted">Remove a store or product from public listings and restore it whenever needed. Removing a store also hides all its products.</p>
+    </header>
+    <section class="market-admin-panel" aria-label="Manage marketplace listings">
+      <div class="market-admin-tabs" role="tablist" aria-label="Listing type">
+        <button type="button" role="tab" aria-selected="true" data-kind="stores">Stores</button>
+        <button type="button" role="tab" aria-selected="false" data-kind="products">Products</button>
+      </div>
+      <div class="market-admin-controls">
+        <label for="market-search">Search listings
+          <input id="market-search" type="search" placeholder="Search by name or store" autocomplete="off">
+        </label>
+        <label for="market-filter">Show
+          <select id="market-filter">
+            <option value="all">All listings</option>
+            <option value="public">In marketplace</option>
+            <option value="removed">Removed from marketplace</option>
+          </select>
+        </label>
+      </div>
+      <p id="market-summary" class="market-admin-summary" aria-live="polite"></p>
+      <p id="market-message" class="market-admin-message" role="status">Loading listings…</p>
+      <div id="market-list" class="market-admin-list"></div>
+    </section>
+  </div>
+</main>
+<div id="chrome-foot"></div>
+<script type="module" src="/js/admin-marketplace.js"></script>
+</body>
+</html>

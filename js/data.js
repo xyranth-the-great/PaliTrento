@@ -5,8 +5,8 @@ export const usingSeed = () => !supabase;
 async function load(table, seed, order) {
   if (!supabase) return seed;
   const { data, error } = await supabase.from(table).select('*').order(order);
-  if (error) { console.warn(`Supabase ${table}:`, error.message); return seed; }
-  return data?.length ? data : seed;
+  if (error) { console.warn(`Supabase ${table}:`, error.message); return []; }
+  return data || [];
 }
 export const getStores = async () =>
   (await load('stores', SEED_STORES, 'business_name')).filter(s =>

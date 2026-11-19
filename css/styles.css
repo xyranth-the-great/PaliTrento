@@ -1469,7 +1469,7 @@ html.dark {
 
 /* Featured Products Section Visibility Transitions */
 .catalog-featured-section[data-featured-section] {
-  transition: opacity 0.2s var(--ease), visibility 0.2s var(--ease), height 0.2s var(--ease), margin 0.2s var(--ease), padding 0.2s var(--ease);
+  transition: opacity 0.12s var(--ease), visibility 0.12s var(--ease), height 0.12s var(--ease), margin 0.12s var(--ease), padding 0.12s var(--ease);
   overflow: hidden;
 }
 

@@ -119,6 +119,86 @@ if (supabase) {
 // Filter out locked products from public view
 const visibleApprovedProducts = approvedProducts.filter(product => !lockedProductIds.has(product.id));
 
+const SEARCH_SYNONYMS = {
+  clothes: ['clothing', 'apparel', 'garment', 'garments'],
+  clothing: ['clothes', 'apparel', 'garment', 'garments'],
+  apparel: ['clothes', 'clothing', 'garment', 'garments'],
+  garment: ['clothes', 'clothing', 'apparel', 'garments'],
+  garments: ['clothes', 'clothing', 'apparel', 'garment']
+};
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function closeSearchTokenMatch(queryToken, productToken) {
+  if (productToken === queryToken || productToken.startsWith(queryToken) || queryToken.startsWith(productToken)) return true;
+  if (queryToken.length < 5 || productToken.length < 5 || Math.abs(queryToken.length - productToken.length) > 1) return false;
+
+  let queryIndex = 0;
+  let productIndex = 0;
+  let edits = 0;
+  while (queryIndex < queryToken.length && productIndex < productToken.length) {
+    if (queryToken[queryIndex] === productToken[productIndex]) {
+      queryIndex++;
+      productIndex++;
+      continue;
+    }
+    edits++;
+    if (edits > 1) return false;
+    if (queryToken.length > productToken.length) queryIndex++;
+    else if (queryToken.length < productToken.length) productIndex++;
+    else { queryIndex++; productIndex++; }
+  }
+  return edits + (queryToken.length - queryIndex) + (productToken.length - productIndex) <= 1;
+}
+
+function getProductSearchScore(product, query) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return 0;
+
+  const name = normalizeSearchText(product.name);
+  const category = normalizeSearchText(product.category);
+  if (name.includes(normalizedQuery)) return 100;
+  if (category.includes(normalizedQuery)) return 90;
+
+  const nameTokens = name.split(' ').filter(Boolean);
+  const categoryTokens = category.split(' ').filter(Boolean);
+  let score = 0;
+  for (const queryToken of normalizedQuery.split(' ').filter(Boolean)) {
+    const synonyms = Object.prototype.hasOwnProperty.call(SEARCH_SYNONYMS, queryToken)
+      ? SEARCH_SYNONYMS[queryToken]
+      : [];
+    const terms = [queryToken, ...synonyms];
+    const nameMatch = nameTokens.some(productToken => terms.some(term => closeSearchTokenMatch(term, productToken)));
+    const categoryMatch = categoryTokens.some(productToken => terms.some(term => closeSearchTokenMatch(term, productToken)));
+    if (!nameMatch && !categoryMatch) return 0;
+    score += nameMatch ? 8 : 5;
+  }
+  return score;
+}
+
+function sortPremiumFirst(products, query = '') {
+  return products.sort((a, b) => {
+    const aIsPremium = a.is_premium_store ?? premiumStoreIds.has(a.store_id);
+    const bIsPremium = b.is_premium_store ?? premiumStoreIds.has(b.store_id);
+    return Number(bIsPremium) - Number(aIsPremium)
+      || getProductSearchScore(b, query) - getProductSearchScore(a, query)
+      || String(a.name || '').localeCompare(String(b.name || ''));
+  });
+}
+
+function matchesSelectedFilters(product, category, cappedChecked, stockChecked) {
+  return (!category || product.category === category)
+    && (!cappedChecked || product.lgu_srp_ceiling != null)
+    && (!stockChecked || product.in_stock);
+}
+
 const cats = [...new Set(visibleApprovedProducts.map(x => x.category))].sort();
 $('#cat').insertAdjacentHTML('beforeend', cats.map(c => `<option>${c}</option>`).join(''));
 
@@ -146,7 +226,16 @@ async function render() {
       });
 
       if (!error && data) {
-        const availableResults = data.filter(hasAvailableQuantity);
+        const resultById = new Map(data.filter(hasAvailableQuantity).map(product => [product.id, product]));
+        if (q) {
+          visibleApprovedProducts
+            .filter(product => matchesSelectedFilters(product, c, cappedChecked, stockChecked)
+              && getProductSearchScore(product, q) > 0)
+            .forEach(product => {
+              if (!resultById.has(product.id)) resultById.set(product.id, product);
+            });
+        }
+        const availableResults = sortPremiumFirst([...resultById.values()], q);
         count = availableResults.length;
         resultsHtml = availableResults.map(x => {
           const store = byId[x.store_id];
@@ -160,9 +249,9 @@ async function render() {
 
   // Fallback to client-side filtering
   if (!resultsHtml) {
-    const qLower = q.toLowerCase();
-    const filtered = visibleApprovedProducts.filter(x => (!qLower || x.name.toLowerCase().includes(qLower)) && (!c || x.category === c) &&
-      (!cappedChecked || x.lgu_srp_ceiling != null) && (!stockChecked || x.in_stock));
+    const filtered = sortPremiumFirst(visibleApprovedProducts.filter(product =>
+      matchesSelectedFilters(product, c, cappedChecked, stockChecked)
+        && (!q || getProductSearchScore(product, q) > 0)), q);
     count = filtered.length;
     // Featured products still belong in the complete product catalog. The
     // featured stores strip above must not make products disappear.
@@ -179,7 +268,7 @@ async function render() {
 
 function debouncedRender() {
   clearTimeout(searchDebounceTimer);
-  searchDebounceTimer = setTimeout(render, 300);
+  searchDebounceTimer = setTimeout(render, 100);
 }
 
 $('#f').addEventListener('submit', e => e.preventDefault());

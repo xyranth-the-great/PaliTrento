@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const pages = [
   'index', 'explore', 'map', 'products', 'business', 'register', 'login',
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
-  'chat', 'admin', 'admin-verification', 'admin-verification-docs', 'admin-prices', 'admin-reports', 'admin-reports-management', 'admin-accounts', 'admin-support', 'admin-activity', 'admin-pickup-cases',
+  'chat', 'admin', 'admin-verification', 'admin-verification-docs', 'admin-prices', 'admin-reports', 'admin-reports-management', 'admin-marketplace', 'admin-accounts', 'admin-support', 'admin-activity', 'admin-pickup-cases',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
   'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status',
   'report-business', 'report-product', 'support'
@@ -15,7 +15,7 @@ const pages = [
 const directoryPages = new Set([
   'explore', 'map', 'products', 'business', 'register', 'login',
   'account', 'verify', 'register-business', 'store-setup', 'dashboard',
-  'chat', 'admin', 'admin-verification', 'admin-verification-docs', 'admin-prices', 'admin-reports', 'admin-reports-management', 'admin-accounts', 'admin-support', 'admin-activity', 'admin-pickup-cases',
+  'chat', 'admin', 'admin-verification', 'admin-verification-docs', 'admin-prices', 'admin-reports', 'admin-reports-management', 'admin-marketplace', 'admin-accounts', 'admin-support', 'admin-activity', 'admin-pickup-cases',
   'product-detail', 'standee', 'orders', 'settings', 'forgot-password',
   'reset-password', 'terms-and-agreement', 'advisories', 'suspended', 'banned', 'auth-status',
   'report-business', 'report-product', 'support'
