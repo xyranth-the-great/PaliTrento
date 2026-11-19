@@ -10,9 +10,19 @@ async function load(table, seed, order) {
 }
 export const getStores = async () =>
   (await load('stores', SEED_STORES, 'business_name')).filter(s =>
-    s.verification_status === 'VERIFIED' || s.approval_status === 'APPROVED'
+    (s.verification_status === 'VERIFIED' || s.approval_status === 'APPROVED')
+      && !s.marketplace_removed_at
   );
-export const getProducts = () => load('products', SEED_PRODUCTS, 'name');
+export const getProducts = async () => {
+  const [products, stores] = await Promise.all([
+    load('products', SEED_PRODUCTS, 'name'),
+    getStores()
+  ]);
+  const visibleStoreIds = new Set(stores.map(store => store.id));
+  return products.filter(product =>
+    !product.marketplace_removed_at && visibleStoreIds.has(product.store_id)
+  );
+};
 export const hasAvailableQuantity = product => {
   if (product?.quantity == null) return true;
   const quantity = Number(product.quantity);

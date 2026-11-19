@@ -247,7 +247,7 @@ async function loadProduct() {
     .eq('id', productId)
     .single();
 
-  if (error || !product) {
+  if (error || !product || product.marketplace_removed_at) {
     showError('Product not found');
     return;
   }
@@ -277,7 +277,7 @@ async function loadProduct() {
     .eq('id', product.store_id)
     .single();
 
-  if (storeError || !store || store.verification_status !== 'VERIFIED') {
+  if (storeError || !store || store.marketplace_removed_at || store.verification_status !== 'VERIFIED') {
     showError('Store not found');
     return;
   }
