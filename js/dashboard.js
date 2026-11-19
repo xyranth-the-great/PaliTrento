@@ -15,7 +15,9 @@ let currentStore = null;
 let currentProducts = [];
 let currentOrders = [];
 let editingProductId = null;
+let selectedProductImageFiles = [];
 let currentSession = null;
+let IS_ADMIN = false;
 let demoPaymentAction = null;
 let demoPaymentCancelAction = null;
 let demoPaymentAfterSuccessAction = null;
@@ -38,6 +40,8 @@ async function init() {
   }
 
   const { session, profile, redirectUrl } = await getSessionWithStatus();
+  IS_ADMIN = profile?.role === 'admin';
+  hideCapFieldsForSellers();
   if (redirectUrl) {
     window.location.replace(redirectUrl);
     return;
@@ -70,6 +74,23 @@ async function init() {
   } else if (window.location.hash === '#tab-products') {
     switchTab('products');
   }
+}
+
+function hideCapFieldsForSellers() {
+  if (IS_ADMIN) return;
+
+  const capInput = $('#p-srp');
+  if (capInput) {
+    const wrap = capInput.closest('div');
+    const grid = wrap?.parentElement;
+    if (wrap && grid) {
+      wrap.remove();
+      grid.style.gridTemplateColumns = '1fr';
+    }
+  }
+
+  const bulkCapInput = bulkProductRowTemplate?.content.querySelector('[data-field="srp"]');
+  bulkCapInput?.closest('label')?.remove();
 }
 
 async function loadStore(userId) {
@@ -658,7 +679,7 @@ function bindEvents() {
   // Delegate click for remove buttons on dynamic previews
   $('#p-image-previews')?.addEventListener('click', (e) => {
     const removeBtn = e.target.closest('[data-remove-index]');
-    if (removeBtn) handleImageRemove(parseInt(removeBtn.dataset.removeIndex));
+    if (removeBtn) handleImageRemove(removeBtn);
   });
 
   // Product form
@@ -1644,9 +1665,11 @@ async function handleImageSelect(e) {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
   // Validate total count (including existing previews)
-  const existingPreviews = $('#p-image-previews').querySelectorAll('.image-preview-item').length;
-  if (existingPreviews + files.length > MAX_IMAGES) {
-    alert(`Maximum ${MAX_IMAGES} images allowed. You already have ${existingPreviews}.`);
+  const previewsContainer = $('#p-image-previews');
+  const existingImageCount = previewsContainer.querySelectorAll('[data-existing-url]').length;
+  const totalSelected = existingImageCount + selectedProductImageFiles.length;
+  if (totalSelected + files.length > MAX_IMAGES) {
+    alert(`Maximum ${MAX_IMAGES} images allowed. You already have ${totalSelected}.`);
     e.target.value = '';
     return;
   }
@@ -1666,46 +1689,53 @@ async function handleImageSelect(e) {
   }
 
   // Show previews
-  const previewsContainer = $('#p-image-previews');
   const filenameEl = $('#p-image-filename');
 
   for (const file of files) {
+    const fileIndex = selectedProductImageFiles.push(file) - 1;
     const reader = new FileReader();
     reader.onload = (event) => {
-      const index = previewsContainer.children.length;
       const previewItem = document.createElement('div');
       previewItem.className = 'image-preview-item';
+      previewItem.dataset.fileIndex = String(fileIndex);
       previewItem.style.cssText = 'position:relative;width:120px;height:120px;flex-shrink:0';
       previewItem.innerHTML = `
         <img src="${event.target.result}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);border:1px solid var(--line)">
-        <button type="button" data-remove-index="${index}" style="position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;padding:0" aria-label="Remove image">&times;</button>
+        <button type="button" data-remove-index="${fileIndex}" style="position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;padding:0" aria-label="Remove image">&times;</button>
       `;
       previewsContainer.appendChild(previewItem);
       updateFilenameDisplay();
     };
     reader.readAsDataURL(file);
   }
+  e.target.value = '';
 }
 
-function handleImageRemove(index) {
+function handleImageRemove(removeButton) {
   const previewsContainer = $('#p-image-previews');
-  const items = previewsContainer.querySelectorAll('.image-preview-item');
-  if (items[index]) {
-    items[index].remove();
-    updateFilenameDisplay();
+  const item = removeButton.closest('.image-preview-item');
+  if (!item) return;
+
+  const fileIndex = Number(item.dataset.fileIndex);
+  if (Number.isInteger(fileIndex) && fileIndex >= 0 && fileIndex < selectedProductImageFiles.length) {
+    selectedProductImageFiles.splice(fileIndex, 1);
+    previewsContainer.querySelectorAll('.image-preview-item[data-file-index]').forEach(preview => {
+      const currentIndex = Number(preview.dataset.fileIndex);
+      if (currentIndex > fileIndex) {
+        preview.dataset.fileIndex = String(currentIndex - 1);
+        preview.querySelector('[data-remove-index]').dataset.removeIndex = String(currentIndex - 1);
+      }
+    });
   }
-  // If all removed, clear file input
-  if (previewsContainer.children.length === 0) {
-    $('#p-image').value = '';
-  }
+  item.remove();
+  updateFilenameDisplay();
 }
 
 function updateFilenameDisplay() {
-  const fileInput = $('#p-image');
   const filenameEl = $('#p-image-filename');
   const previewsContainer = $('#p-image-previews');
   const count = previewsContainer.children.length;
-  const fileCount = fileInput.files?.length || 0;
+  const fileCount = selectedProductImageFiles.length;
 
   if (count > 0) {
     filenameEl.textContent = `${count} image${count !== 1 ? 's' : ''} selected`;
@@ -1853,7 +1883,8 @@ function readBulkProductRows() {
     const category = value('category');
     const unit = value('unit');
     const price = Number(value('price'));
-    const srpValue = value('srp');
+    const srpInput = row.querySelector('[data-field="srp"]');
+    const srpValue = srpInput ? srpInput.value.trim() : '';
     const quantityValue = value('quantity');
 
     if (!name || !category || !unit || !Number.isFinite(price) || !image) {
@@ -1873,7 +1904,7 @@ function readBulkProductRows() {
         category,
         unit,
         current_price: price,
-        lgu_srp_ceiling: srpValue ? Number(srpValue) : null,
+        ...(IS_ADMIN && srpInput ? { lgu_srp_ceiling: srpValue ? Number(srpValue) : null } : {}),
         in_stock: true,
         quantity: quantityValue ? Number(quantityValue) : null,
       },
@@ -1976,6 +2007,7 @@ function openProductModal(productId = null) {
   updateOtherUnitField();
 
   // Reset image previews
+  selectedProductImageFiles = [];
   $('#p-image-previews').innerHTML = '';
   $('#p-image-filename').textContent = '';
   $('#p-image').value = '';
@@ -1999,20 +2031,24 @@ function openProductModal(productId = null) {
       $('#p-unit-other').value = hasPresetUnit ? '' : product.unit;
       updateOtherUnitField();
       $('#p-price').value = product.current_price;
-      $('#p-srp').value = product.lgu_srp_ceiling || '';
+      const capInput = $('#p-srp');
+      if (capInput) capInput.value = product.lgu_srp_ceiling || '';
       $('#p-stock').value = product.in_stock ? 'true' : 'false';
       $('#p-quantity').value = product.quantity ?? '';
 
       // Show existing images if present (support both image_url and image_urls)
-      const imageUrls = product.image_urls || (product.image_url ? [product.image_url] : []);
+      const imageUrls = Array.isArray(product.image_urls) && product.image_urls.length
+        ? product.image_urls
+        : (product.image_url ? [product.image_url] : []);
       if (imageUrls.length > 0) {
         const previewsContainer = $('#p-image-previews');
         imageUrls.forEach((url, index) => {
           const previewItem = document.createElement('div');
           previewItem.className = 'image-preview-item';
+          previewItem.dataset.existingUrl = url;
           previewItem.style.cssText = 'position:relative;width:120px;height:120px;flex-shrink:0';
           previewItem.innerHTML = `
-            <img src="${url}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);border:1px solid var(--line)">
+            <img src="${esc(url)}" alt="Preview" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r-md);border:1px solid var(--line)">
             <button type="button" data-remove-index="${index}" style="position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;line-height:1;padding:0" aria-label="Remove image">&times;</button>
           `;
           previewsContainer.appendChild(previewItem);
@@ -2084,6 +2120,7 @@ function updateOtherUnitField() {
 function closeModal() {
   modal.style.display = 'none';
   editingProductId = null;
+  selectedProductImageFiles = [];
 }
 
 async function saveProduct(e) {
@@ -2097,8 +2134,8 @@ async function saveProduct(e) {
     return;
   }
 
-  const imageFiles = $('#p-image')?.files;
-  const hasNewImages = imageFiles && imageFiles.length > 0;
+  const imageFiles = selectedProductImageFiles;
+  const hasNewImages = imageFiles.length > 0;
   const existingImagesCount = $('#p-image-previews').children.length;
 
   if (!editingProductId && !hasNewImages && existingImagesCount === 0) {
@@ -2107,6 +2144,7 @@ async function saveProduct(e) {
     return;
   }
 
+  const capInput = $('#p-srp');
   const productData = {
     store_id: currentStore.id,
     name: $('#p-name').value.trim(),
@@ -2117,7 +2155,7 @@ async function saveProduct(e) {
       ? $('#p-unit-other').value.trim()
       : $('#p-unit').value,
     current_price: parseFloat($('#p-price').value),
-    lgu_srp_ceiling: $('#p-srp').value ? parseFloat($('#p-srp').value) : null,
+    ...(IS_ADMIN && capInput ? { lgu_srp_ceiling: capInput.value ? parseFloat(capInput.value) : null } : {}),
     in_stock: $('#p-stock').value === 'true',
     quantity: $('#p-quantity').value ? parseInt($('#p-quantity').value) : null,
   };
@@ -2192,32 +2230,31 @@ async function saveProduct(e) {
   saveBtn.textContent = 'Saving...';
 
   try {
-    // Handle image updates
+    const product = currentProducts.find(p => p.id === editingProductId);
+    const originalUrls = Array.isArray(product?.image_urls) && product.image_urls.length
+      ? product.image_urls
+      : (product?.image_url ? [product.image_url] : []);
+    const retainedUrls = Array.from($('#p-image-previews').querySelectorAll('.image-preview-item[data-existing-url]'))
+      .map(preview => preview.dataset.existingUrl)
+      .filter(Boolean);
+    let updatedImageUrls = [...retainedUrls];
+
     if (hasNewImages) {
-      // Upload new images
       const { error: uploadError, urls } = await uploadProductImages(currentSession.user.id, editingProductId, imageFiles);
       if (uploadError) throw uploadError;
-
-      // Get existing images and combine with new ones (max 3 total)
-      const product = currentProducts.find(p => p.id === editingProductId);
-      const existingUrls = product?.image_urls || (product?.image_url ? [product.image_url] : []);
-      const combinedUrls = [...existingUrls, ...urls].slice(0, 3);
-
-      const { error: imageUpdateError } = await supabase
-        .from('products')
-        .update({ image_urls: combinedUrls, image_url: combinedUrls[0] || null }) // Keep image_url for backwards compat
-        .eq('id', editingProductId);
-      if (imageUpdateError) throw imageUpdateError;
+      updatedImageUrls = [...retainedUrls, ...urls].slice(0, 3);
     }
 
     const { error } = await supabase
       .from('products')
       .update({
+        image_urls: updatedImageUrls,
+        image_url: updatedImageUrls[0] || null,
         name: productData.name,
         category: productData.category,
         unit: productData.unit,
         current_price: productData.current_price,
-        lgu_srp_ceiling: productData.lgu_srp_ceiling,
+        ...(IS_ADMIN ? { lgu_srp_ceiling: productData.lgu_srp_ceiling } : {}),
         in_stock: productData.in_stock,
         quantity: productData.quantity,
       })
@@ -2225,6 +2262,10 @@ async function saveProduct(e) {
       .eq('store_id', currentStore.id);
 
     if (error) throw error;
+    const removedUrls = originalUrls.filter(url => !updatedImageUrls.includes(url));
+    if (removedUrls.length) {
+      await deleteProductImages(currentSession.user.id, editingProductId, removedUrls);
+    }
     closeModal();
     await loadProducts(currentStore.id);
   } catch (err) {

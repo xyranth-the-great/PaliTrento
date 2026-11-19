@@ -61,7 +61,7 @@ async function loadListings() {
       .select('id, user_id, business_name, trade_category, barangay, trn_code, marketplace_removed_at, marketplace_removal_reason')
       .order('business_name'),
     supabase.from('products')
-      .select('id, store_id, name, category, current_price, marketplace_removed_at, marketplace_removal_reason')
+      .select('id, store_id, name, category, current_price, lgu_srp_ceiling, marketplace_removed_at, marketplace_removal_reason')
       .order('name')
   ]);
 
@@ -128,6 +128,11 @@ function renderListing(item, storeById) {
         ${removed && item.marketplace_removal_reason ? `<div class="market-admin-removal-reason"><strong>Reason:</strong> ${esc(item.marketplace_removal_reason)}</div>` : ''}
         ${hiddenWithStore && store?.marketplace_removal_reason ? `<div class="market-admin-removal-reason"><strong>Store removal reason:</strong> ${esc(store.marketplace_removal_reason)}</div>` : ''}
       </div>
+      ${!isStore ? `<div class="market-admin-cap">
+        <label for="cap-${esc(item.id)}">Price cap (₱)</label>
+        <input id="cap-${esc(item.id)}" class="market-admin-cap-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="No cap" value="${item.lgu_srp_ceiling ?? ''}" data-cap-input="${esc(item.id)}">
+        <button type="button" class="btn" data-action="set-cap" data-kind="products" data-id="${esc(item.id)}">Save cap</button>
+      </div>` : ''}
       <div class="market-admin-actions">
         <button type="button" class="btn ${removed ? '' : 'bad'}" data-action="${removed ? 'restore' : 'remove'}" data-kind="${isStore ? 'stores' : 'products'}" data-id="${esc(item.id)}">
           ${removed ? 'Restore' : 'Remove'}
@@ -143,6 +148,41 @@ async function handleListingAction(event) {
   const { action, kind, id } = button.dataset;
   const item = (kind === 'stores' ? stores : products).find(row => row.id === id);
   if (!item) return;
+
+  if (action === 'set-cap') {
+    const input = document.querySelector('[data-cap-input="' + CSS.escape(id) + '"]');
+    if (!input) return;
+    const raw = input.value.trim();
+    let newCap;
+    if (raw === '') {
+      newCap = null;
+      if (!window.confirm('Clear the price cap for "' + item.name + '"?')) return;
+    } else {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) {
+        window.alert('Enter a number of 0 or more, or leave it empty to clear the cap.');
+        return;
+      }
+      newCap = Math.round(n * 100) / 100;
+    }
+    const currentCap = item.lgu_srp_ceiling == null || item.lgu_srp_ceiling === ''
+      ? null
+      : Number(item.lgu_srp_ceiling);
+    if (newCap === currentCap) {
+      window.alert('No change to save.');
+      return;
+    }
+    button.disabled = true;
+    const { error } = await supabase.from('products').update({ lgu_srp_ceiling: newCap }).eq('id', id);
+    if (error) {
+      console.error('Could not save product price cap:', error);
+      button.disabled = false;
+      window.alert(error.message || 'Could not save the price cap.');
+      return;
+    }
+    await loadListings();
+    return;
+  }
 
   const isStore = kind === 'stores';
   const name = isStore ? item.business_name : item.name;

@@ -731,3 +731,118 @@ function showError(text) {
 }
 
 init();
+
+/* Pikachu product showcase additions */
+const PK_SHOWCASE_IDS = ['2ca26369-62b9-4b6e-a814-b2f2659b6228'];
+
+function isPkShowcaseProduct(product) {
+  return !!product && PK_SHOWCASE_IDS.includes(String(product.id));
+}
+
+function fitPkFrame(frame, img) {
+  if (!frame || !img?.naturalWidth || !img?.naturalHeight) return;
+  const availableWidth = frame.parentElement?.clientWidth || 0;
+  if (!availableWidth) return;
+  const ratio = img.naturalWidth / img.naturalHeight;
+  const isMobile = window.matchMedia('(max-width: 900px)').matches;
+  const maxHeight = isMobile ? Math.min(window.innerHeight * 0.6, 480) : 560;
+  const photoWidth = Math.min(img.naturalWidth, Math.max(0, availableWidth - 2), maxHeight * ratio);
+  const photoHeight = photoWidth / ratio;
+  frame.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+  frame.style.width = `${photoWidth + 2}px`;
+  frame.style.height = `${photoHeight + 2}px`;
+}
+
+function createPkBolt(index) {
+  const positions = [[-8,10],[96,6],[-10,48],[98,40],[-9,82],[97,76],[30,-10],[70,-12],[50,98]];
+  const bolt = document.createElement('span');
+  bolt.className = 'pk-bolt';
+  bolt.setAttribute('aria-hidden', 'true');
+  bolt.style.left = `${positions[index][0]}%`;
+  bolt.style.top = `${positions[index][1]}%`;
+  bolt.style.setProperty('--pk-r', `${((index * 47) % 70) - 35}deg`);
+  bolt.style.animationDelay = `${index * 0.37}s`;
+  bolt.style.animationDuration = `${2.8 + (index % 4) * 0.4}s`;
+  bolt.innerHTML = '<svg viewBox="0 0 14 26" width="14" height="26"><path d="M8 0L1 14h5l-2 12 9-16H8z" fill="#FFE14D" stroke="#fff" stroke-width="1"/></svg>';
+  return bolt;
+}
+
+function applyPkShowcaseDetail() {
+  if (!isPkShowcaseProduct(currentProduct)) return;
+  const root = contentEl;
+  const frame = $('#p-image-wrap');
+  const img = frame?.querySelector('.carousel-slide img');
+  const price = $('#p-price');
+  if (!root || !frame || !img) return;
+  root.classList.add('pk-showcase');
+  frame.classList.add('pk-frame');
+  img.classList.add('pk-img');
+  price?.classList.add('pk-price');
+  if (!frame.hasAttribute('data-pk-done')) {
+    frame.setAttribute('data-pk-done', '1');
+    const ring = document.createElement('span');
+    ring.className = 'pk-ring';
+    ring.setAttribute('aria-hidden', 'true');
+    frame.insertBefore(ring, frame.firstChild);
+    for (let i = 0; i < 9; i++) frame.insertBefore(createPkBolt(i), frame.firstChild);
+    const holo = document.createElement('span');
+    holo.className = 'pk-holo';
+    holo.setAttribute('aria-hidden', 'true');
+    const glit = document.createElement('span');
+    glit.className = 'pk-glit';
+    glit.setAttribute('aria-hidden', 'true');
+    frame.append(holo, glit);
+    const finish = () => {
+      frame.classList.remove('pk-loading');
+      requestAnimationFrame(() => fitPkFrame(frame, img));
+    };
+    if (img.complete && img.naturalWidth) finish();
+    else {
+      frame.classList.add('pk-loading');
+      img.addEventListener('load', finish, { once: true });
+      img.addEventListener('error', finish, { once: true });
+    }
+    frame.querySelectorAll('.carousel-slide img').forEach(slideImg => {
+      if (slideImg !== img) slideImg.addEventListener('load', () => {
+        if (slideImg.classList.contains('pk-img')) fitPkFrame(frame, slideImg);
+      }, { once: true });
+    });
+    const track = frame.querySelector('.carousel-track');
+    if (track && typeof MutationObserver === 'function') {
+      new MutationObserver(() => {
+        const active = getCurrentPhoto(frame);
+        frame.querySelectorAll('.carousel-slide img').forEach(slideImg => slideImg.classList.toggle('pk-img', slideImg === active));
+        if (active?.naturalWidth) fitPkFrame(frame, active);
+        else if (active) {
+          frame.classList.add('pk-loading');
+          active.addEventListener('load', () => {
+            frame.classList.remove('pk-loading');
+            fitPkFrame(frame, active);
+          }, { once: true });
+        }
+      }).observe(track, { attributes: true, attributeFilter: ['style'] });
+    }
+    window.addEventListener('resize', () => fitPkFrame(frame, frame.querySelector('.pk-img')));
+    if (window.matchMedia('(hover:hover) and (pointer:fine)').matches
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      frame.addEventListener('pointermove', event => {
+        const rect = frame.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const x = (event.clientX - rect.left) / rect.width - 0.5;
+        const y = (event.clientY - rect.top) / rect.height - 0.5;
+        frame.style.setProperty('--pk-ry', `${x * 14}deg`);
+        frame.style.setProperty('--pk-rx', `${-y * 14}deg`);
+      });
+      frame.addEventListener('pointerleave', () => {
+        frame.style.setProperty('--pk-ry', '0deg');
+        frame.style.setProperty('--pk-rx', '0deg');
+      });
+    }
+  }
+  fitPkFrame(frame, img);
+}
+
+applyPkShowcaseDetail();
+if (contentEl && typeof MutationObserver === 'function') {
+  new MutationObserver(applyPkShowcaseDetail).observe(contentEl, { childList: true, subtree: true });
+}

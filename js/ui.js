@@ -411,6 +411,55 @@ export const storeCard = (s, isPremium = false) => {
   </a>`;
 };
 
+/* Pikachu product card showcase additions */
+const PK_CARD_IDS = ['2ca26369-62b9-4b6e-a814-b2f2659b6228'];
+function isPkProduct(p) { return !!p && PK_CARD_IDS.includes(String(p.id)); }
+
+function pkCardDecorations() {
+  const fragment = document.createDocumentFragment();
+  ['pk-ring', 'pk-holo', 'pk-glit'].forEach(className => {
+    const element = document.createElement('span');
+    element.className = className;
+    element.setAttribute('aria-hidden', 'true');
+    fragment.appendChild(element);
+  });
+  const positions = [[-8,10],[96,6],[-10,48],[98,40],[-9,82],[97,76]];
+  positions.forEach((position, index) => {
+    const bolt = document.createElement('span');
+    bolt.className = 'pk-bolt';
+    bolt.setAttribute('aria-hidden', 'true');
+    bolt.style.left = `${position[0]}%`;
+    bolt.style.top = `${position[1]}%`;
+    bolt.style.setProperty('--pk-r', `${((index * 47) % 70) - 35}deg`);
+    bolt.style.animationDelay = `${index * 0.37}s`;
+    bolt.style.animationDuration = `${2.8 + (index % 4) * 0.4}s`;
+    bolt.innerHTML = '<svg viewBox="0 0 14 26" width="14" height="26"><path d="M8 0L1 14h5l-2 12 9-16H8z" fill="#FFE14D" stroke="#fff" stroke-width="1"/></svg>';
+    fragment.appendChild(bolt);
+  });
+  return fragment;
+}
+
+function enhancePkProductCards() {
+  if (!/^\/products\/?$/.test(window.location.pathname)) return;
+  document.querySelectorAll('.product-card').forEach(card => {
+    if (card.classList.contains('product-card--pk')) return;
+    const link = card.matches('a[href*="product-detail"]')
+      ? card
+      : card.querySelector('a[href*="product-detail"]');
+    if (!link) return;
+    const id = new URL(link.href, window.location.href).searchParams.get('id');
+    if (!isPkProduct({ id })) return;
+    card.classList.add('product-card--pk');
+    card.prepend(pkCardDecorations());
+    card.querySelector('.product-card-content .price')?.classList.add('pk-price');
+  });
+}
+
+enhancePkProductCards();
+if (document.body && typeof MutationObserver === 'function') {
+  new MutationObserver(enhancePkProductCards).observe(document.body, { childList: true, subtree: true });
+}
+
 export const FIRE_PRODUCT_IDS = ['55b671e1-b9b5-4109-acc7-73f7b61b7d0f'];
 
 const FIRE_EMBERS = [
@@ -1559,6 +1608,9 @@ async function openNotificationModal(advisory) {
   modal.querySelector('#notification-modal-time').textContent = new Date(advisory.published_at).toLocaleString('en-PH');
 
   const actionLink = modal.querySelector('.notification-modal-action');
+  actionLink.hidden = true;
+  actionLink.removeAttribute('href');
+  actionLink.textContent = '';
   if (advisory.action_url) {
     const actionUrl = new URL(advisory.action_url, window.location.origin);
     if (actionUrl.origin === window.location.origin) {

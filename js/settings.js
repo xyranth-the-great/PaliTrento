@@ -13,6 +13,22 @@ let currentSession = null;
 let accountDeletionInProgress = false;
 let passwordSetupRequired = false;
 
+document.querySelectorAll('.password-visibility-toggle').forEach(button => {
+  const input = document.getElementById(button.dataset.passwordTarget);
+  if (!input) return;
+  const label = input.labels?.[0]?.textContent.trim() || 'password';
+  button.setAttribute('aria-label', `Show ${label}`);
+  button.addEventListener('click', () => {
+    const isVisible = input.type === 'text';
+    const selStart = input.selectionStart, selEnd = input.selectionEnd;
+    input.type = isVisible ? 'password' : 'text';
+    button.setAttribute('aria-pressed', String(!isVisible));
+    button.setAttribute('aria-label', `${isVisible ? 'Show' : 'Hide'} ${label}`);
+    input.focus();
+    try { input.setSelectionRange(selStart, selEnd); } catch (e) {}
+  });
+});
+
 function configurePasswordForm() {
   const isGoogleAccount = currentSession?.user?.app_metadata?.provider === 'google';
   passwordSetupRequired = isGoogleAccount
@@ -100,6 +116,7 @@ async function loadSettings() {
   currentSession = session;
   configurePasswordForm();
   currentProfile = profile || await getCachedProfile(session.user.id);
+  configureDangerZoneForRole();
   renderChrome('/settings/', session, currentProfile);
 
   // Start advisory toast listener
@@ -1182,11 +1199,43 @@ $('#download-data-btn').addEventListener('click', async () => {
 });
 
 // ===== Danger Zone: Delete Account =====
+function configureDangerZoneForRole() {
+  if (currentProfile?.role !== 'admin') return;
+
+  [
+    {
+      button: $('#delete-account-btn'),
+      checkbox: $('#confirm-delete'),
+      message: 'Admin accounts cannot be deleted from Settings.'
+    },
+    {
+      button: $('#delete-store-btn'),
+      checkbox: $('#confirm-delete-store'),
+      message: 'Admin accounts cannot delete stores from Settings.'
+    }
+  ].forEach(({ button, checkbox, message }) => {
+    if (!button) return;
+    button.disabled = true;
+    if (checkbox) checkbox.disabled = true;
+    const section = button.parentElement?.parentElement;
+    section?.classList.add('danger-zone-disabled');
+    const notice = document.createElement('p');
+    notice.className = 'danger-zone-disabled-note';
+    notice.setAttribute('role', 'status');
+    notice.textContent = message;
+    section?.appendChild(notice);
+  });
+}
+
 $('#confirm-delete').addEventListener('change', (e) => {
   $('#delete-account-btn').disabled = !e.target.checked;
 });
 
 $('#delete-account-btn').addEventListener('click', async () => {
+  if (currentProfile?.role === 'admin') {
+    alert('Admin accounts cannot be deleted from Settings.');
+    return;
+  }
   if (!confirm('FINAL WARNING: This will permanently delete your account and ALL data. Type "DELETE" to confirm.')) return;
   const input = prompt('Type DELETE to confirm:');
   if (input !== 'DELETE') return alert('Cancelled - confirmation text did not match');
@@ -1231,6 +1280,10 @@ $('#confirm-delete-store').addEventListener('change', (e) => {
 });
 
 $('#delete-store-btn').addEventListener('click', async () => {
+  if (currentProfile?.role === 'admin') {
+    alert('Admin accounts cannot delete stores from Settings.');
+    return;
+  }
   if (!confirm('This will permanently delete your store and all products. Orders and chat history for buyers will remain. Type "DELETE STORE" to confirm.')) return;
   const input = prompt('Type DELETE STORE to confirm:');
   if (input !== 'DELETE STORE') return alert('Cancelled - confirmation text did not match');

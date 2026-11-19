@@ -67,7 +67,10 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
 
     <div>
       <label for="password">Password</label>
-      <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Your password">
+      <div class="password-input-wrap">
+        <input id="password" name="password" type="password" required autocomplete="current-password" placeholder="Your password">
+        <button type="button" class="password-visibility-toggle" data-password-target="password" aria-controls="password" aria-pressed="false"><svg class="pw-eye" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="pw-pupil" cx="12" cy="12" r="3"/><line class="pw-slash" x1="3" y1="3" x2="21" y2="21" pathLength="1"/></svg></button>
+      </div>
       <p class="muted" style="margin-top:8px;text-align:right"><a href="/forgot-password/" style="font-size:0.875rem">Forgot password?</a></p>
     </div>
 

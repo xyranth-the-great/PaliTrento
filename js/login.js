@@ -7,6 +7,22 @@ const msgEl = $('#login-message');
 const googleBtn = $('#google-login-btn');
 const emailInput = $('#email');
 
+document.querySelectorAll('.password-visibility-toggle').forEach(button => {
+  const input = document.getElementById(button.dataset.passwordTarget);
+  if (!input) return;
+  const label = input.labels?.[0]?.textContent.trim() || 'password';
+  button.setAttribute('aria-label', `Show ${label}`);
+  button.addEventListener('click', () => {
+    const isVisible = input.type === 'text';
+    const selStart = input.selectionStart, selEnd = input.selectionEnd;
+    input.type = isVisible ? 'password' : 'text';
+    button.setAttribute('aria-pressed', String(!isVisible));
+    button.setAttribute('aria-label', `${isVisible ? 'Show' : 'Hide'} ${label}`);
+    input.focus();
+    try { input.setSelectionRange(selStart, selEnd); } catch (e) {}
+  });
+});
+
 async function init() {
   // Store email in sessionStorage as user types (for auth error redirect)
   emailInput?.addEventListener('input', () => {

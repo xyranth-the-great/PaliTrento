@@ -254,16 +254,25 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
         <div style="display:grid;gap:16px;max-width:480px">
           <div id="current-password-field">
             <label for="set-current-password">Current password</label>
-            <input id="set-current-password" name="current_password" type="password" autocomplete="current-password">
+            <div class="password-input-wrap">
+              <input id="set-current-password" name="current_password" type="password" autocomplete="current-password">
+              <button type="button" class="password-visibility-toggle" data-password-target="set-current-password" aria-controls="set-current-password" aria-pressed="false"><svg class="pw-eye" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="pw-pupil" cx="12" cy="12" r="3"/><line class="pw-slash" x1="3" y1="3" x2="21" y2="21" pathLength="1"/></svg></button>
+            </div>
           </div>
           <div>
             <label id="new-password-label" for="set-new-password">New password</label>
-            <input id="set-new-password" name="new_password" type="password" autocomplete="new-password" minlength="8">
+            <div class="password-input-wrap">
+              <input id="set-new-password" name="new_password" type="password" autocomplete="new-password" minlength="8">
+              <button type="button" class="password-visibility-toggle" data-password-target="set-new-password" aria-controls="set-new-password" aria-pressed="false"><svg class="pw-eye" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="pw-pupil" cx="12" cy="12" r="3"/><line class="pw-slash" x1="3" y1="3" x2="21" y2="21" pathLength="1"/></svg></button>
+            </div>
             <div id="password-strength-container"></div>
           </div>
           <div>
             <label id="confirm-password-label" for="set-confirm-password">Confirm new password</label>
-            <input id="set-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8">
+            <div class="password-input-wrap">
+              <input id="set-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8">
+              <button type="button" class="password-visibility-toggle" data-password-target="set-confirm-password" aria-controls="set-confirm-password" aria-pressed="false"><svg class="pw-eye" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle class="pw-pupil" cx="12" cy="12" r="3"/><line class="pw-slash" x1="3" y1="3" x2="21" y2="21" pathLength="1"/></svg></button>
+            </div>
           </div>
         </div>
 
