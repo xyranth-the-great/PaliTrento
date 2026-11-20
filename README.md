@@ -1,49 +1,76 @@
-# PaliTrento (first pass: public pages)
-Tara, Palit Ta sa Trento! Vite + vanilla JS + Supabase + Leaflet.
+# PaliTrento
 
-## Run it
-1. `npm install`
-2. `cp .env.example .env` and paste your Supabase URL and anon key (optional: without keys, the pages use built-in sample data)
-3. `npm run dev`  -> http://localhost:5173
+**Tara, Palit ta sa Trento!** PaliTrento is a community marketplace for Trento, Agusan del Sur. It helps people discover nearby stores, compare local product prices, and connect with local sellers.
 
-## Connect Supabase
-1. Create a project at supabase.com
-2. SQL Editor: run `supabase/schema.sql`, then `supabase/seed.sql`
-3. Project Settings > API: copy the Project URL and the `anon` public key into `.env`
-The anon key is safe to expose. Security comes from the row-level security rules in `schema.sql`.
+PaliTrento is available as a **website** and an **Android mobile app**. Both versions connect to the same Supabase backend.
 
-For an existing project, run `supabase/store-submission.sql` in the SQL Editor to add store-submission columns and owner permissions.
-Run `supabase/store-product-approval.sql` as well to restrict product publishing to Admin-verified stores.
-For existing projects, run `supabase/remove-trike-cod.sql` to remove Trike COD from saved store payment preferences.
-For existing projects, run `supabase/custom-product-units.sql` to allow custom product units.
+## Use PaliTrento
 
-Account deletion uses the server-side `delete-account` Edge Function. Deploy it separately with `supabase functions deploy delete-account`; the function requires the Supabase URL, anon key, and service-role key in the Edge Function environment. Never expose the service-role key in the frontend.
+- **Website:** [palitrento.online](https://palitrento.online)
+- **Android app:** [Download the latest testing APK](https://github.com/xyranth-the-great/PaliTrento/releases/tag/android-v1.0.0-test.2)
 
-For the buyer's name to appear in seller chats, run `supabase/chat-customer-name.sql` after `supabase/orders.sql` and `supabase/chat.sql`. The function only exposes a buyer's name to participants in that order.
+The Android APK is currently a testing release. It is signed with a development key and is not a Google Play production build.
 
-For reservation cancellation, inventory holds, and automatic expiry of uncollected orders, run `supabase/orders.sql` and then `supabase/reservation-notifications.sql` in the Supabase SQL Editor. The latter enables a `pg_cron` job that expires new reservations 72 hours after they are marked ready. Existing active reservations are not backfilled.
+## What you can do
 
-For new Google sign-ups to choose a customer or business-owner account, run `supabase/google-auth-role.sql` in the Supabase SQL Editor after `supabase/schema.sql`.
+- Find local stores and market products, and search or browse by category.
+- Compare prices with Bantay Presyo advisories and LGU price caps.
+- Explore stores on the map and find nearby businesses.
+- Reserve products for pickup and follow order updates or chat with the seller.
+- Create a store and manage product listings, orders, and store information.
+- Verify businesses, manage marketplace listings, and publish price advisories through the admin tools.
 
-## Deploy to GitHub Pages
-The GitHub Actions workflow builds the app with Vite and publishes `dist/`. In repository **Settings → Pages**, set the build and deployment source to **GitHub Actions**. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as repository secrets to connect the production site to Supabase; without them, built-in sample data is used.
+## Project versions
 
-## Preview through ngrok
-For a site served from the ngrok domain root, run `npm run build:ngrok`, then `npm run preview -- --host 0.0.0.0 --port 4173` and start the tunnel with `ngrok http 4173`. This builds with relative asset paths, unlike the GitHub Pages subpath build above.
+| Version | Location | Stack |
+| --- | --- | --- |
+| Website | Repository root | Vite, JavaScript, Supabase, Leaflet |
+| Android app | [`mobile/`](mobile/) | Expo, React Native, TypeScript |
 
-## Pages
-index (home + Bantay Presyo board), explore (search + filters), map (Leaflet), products (price caps), business?trn=TRN-2024-089 (detail), settings (Profile, Notifications, Privacy, Security, Danger Zone), forgot-password (request reset link), reset-password (set new password)
+The website and mobile app have separate dependency manifests and setup steps. The mobile project also has a detailed [development handoff](mobile/HANDOFF.md), including native Android build notes.
 
-## Not built yet
-SMS OTP login (see note below), merchant and admin screens, orders, chat.
-Supabase phone login supports Twilio, MessageBird, Vonage and Textlocal. For a Philippine gateway like Semaphore you need an Auth "Send SMS" hook (Edge Function).
-Verify the barangay list in `js/ui.js` against the official PSGC list.
+## Run the website locally
 
-## ✅ Recently Completed (2026-11-13)
-- Settings page (`settings.html`, `js/settings.js`) — 5 tabs: Profile, Notifications, Privacy, Security, Danger Zone
-- Supabase SMTP via Resend — Confirm email ON, password reset & email confirmations enabled
-- Product image upload (Supabase migration + Dashboard integration)
-- QR Standee PDF (`standee.html` — A5/A4 printable store signage)
-- Resend domain `palitrento.online` verified (production sender configured)
-- GitHub Actions automated deployment with Supabase secrets
-- **Forgot password / Reset password** — `forgot-password.html` + `reset-password.html` with Supabase `resetPasswordForEmail` and `updateUser`
+From the repository root:
+
+```sh
+npm ci
+```
+
+Copy `.env.example` to `.env` and set the Supabase project URL and public anon key. Then start the Vite development server:
+
+```sh
+npm run dev
+```
+
+Open the local URL printed by Vite, usually `http://localhost:5173`.
+
+## Run the Android app locally
+
+1. Change to `mobile/` and install its dependencies with `npm ci`.
+2. Copy `mobile/.env.example` to `mobile/.env` and set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+3. For Android Firebase push notifications, place your Firebase `google-services.json` at `mobile/google-services.json`. This file is local configuration and must not be committed.
+4. Start Expo with `npx expo start`.
+
+The checked-in `mobile/android/` directory includes intentional native patches. Read [mobile/HANDOFF.md](mobile/HANDOFF.md) before building Android or changing native configuration. Do not run `expo prebuild --clean` without reviewing those notes.
+
+## Supabase setup
+
+Create a Supabase project, then run `supabase/schema.sql` and `supabase/seed.sql` in the SQL Editor for a new database. The website and mobile app use the project's public anon key; access is controlled by database policies. Never put a service-role key in either app or commit it to the repository.
+
+For an existing database, apply the relevant SQL files in `supabase/`. Depending on the features enabled, these include store submissions and product approval, custom product units, orders and reservation notifications, chat customer names, and Google sign-up role selection. Review each SQL file and its prerequisites before applying it.
+
+Account deletion uses the `delete-account` Supabase Edge Function. Deploy and configure server-side functions separately; keep service-role credentials in Supabase secrets.
+
+## Deploy the website
+
+The website is deployed to GitHub Pages with GitHub Actions. In repository settings, choose **GitHub Actions** as the Pages deployment source and configure the `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` repository secrets.
+
+For a temporary ngrok preview from the repository root:
+
+```sh
+npm run build:ngrok
+npm run preview -- --host 0.0.0.0 --port 4173
+```
+
+Then expose port `4173` with ngrok.
