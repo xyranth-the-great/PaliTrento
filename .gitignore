@@ -4,3 +4,45 @@ dist
 .impeccable
 .obsidian-vault
 .Palitrento/.obsidian
+# --- Added by repository cleanup ---
+# Build outputs
+dist-*/
+dist_*/
+build/
+coverage/
+playwright-report/
+test-results/
+.vite/
+.cache/
+
+# Vite config snapshots
+vite.config.js.timestamp-*
+
+# Environment files (the example file stays tracked)
+.env.*
+!.env.example
+
+# Packages, signing material, logs, backups
+*.aab
+*.jks
+*.keystore
+*.p12
+*.pem
+*.log
+*.bak*
+local.properties
+keystore.properties
+google-services.json
+
+# Mobile build outputs (for when the mobile app joins this repository)
+.gradle/
+.kotlin/
+android/app/build/
+.expo/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.fleet/
