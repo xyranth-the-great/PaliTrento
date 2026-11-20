@@ -103,7 +103,7 @@ export default function StoreDetailScreen() {
         {/* Cover */}
         <View style={styles.coverWrap}>
           {store.storefront_image_url ? (
-            <Image source={{ uri: store.storefront_image_url }} style={styles.coverImg} />
+            <Image source={{ uri: store.storefront_image_url }} style={styles.coverImg} fadeDuration={0} />
           ) : (
             <View style={[styles.coverImg, styles.coverFallback]}>
               <Ionicons name="storefront" size={50} color="rgba(255,255,255,0.35)" />

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Battery from 'expo-battery';
+import { IS_LOW_END_ANDROID } from '../../lib/perf';
 import { PREMIUM_LIQUID } from './tokens';
 
 export interface PremiumChromeProps {
@@ -105,8 +106,9 @@ function ChromeLayers({
   }, []);
 
   useEffect(() => {
+    const instanceCap = IS_LOW_END_ANDROID ? 4 : PREMIUM_LIQUID.maxAnimatedInstances;
     if (!still && visible) {
-      if (!reserved.current && animatedInstances < PREMIUM_LIQUID.maxAnimatedInstances) {
+      if (!reserved.current && animatedInstances < instanceCap) {
         animatedInstances += 1;
         reserved.current = true;
         setBudgetAvailable(true);
@@ -221,7 +223,7 @@ function ChromeLayers({
         {renderTile(2)}
       </Animated.View>
 
-      {animate ? (
+      {animate && !IS_LOW_END_ANDROID ? (
         <Animated.View
           style={[
             styles.layer,

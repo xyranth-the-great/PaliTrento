@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -45,6 +45,7 @@ import {
   updateOrderStatus,
 } from '../../lib/seller';
 import { DemoPaymentConfig, DemoPaymentModal } from '../../components/DemoPaymentModal';
+import { SwipeTabContent } from '../../components/SwipeTabContent';
 import { SubscriptionTab } from '../../components/seller/SubscriptionTab';
 import { VerificationTab } from '../../components/seller/VerificationTab';
 import { AnalyticsTab } from '../../components/seller/AnalyticsTab';
@@ -63,6 +64,15 @@ import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
 type Tab = 'orders' | 'products' | 'subscription' | 'verification' | 'analytics';
 type OrderFilter = 'active' | 'all' | 'done';
+
+const SELLER_TAB_KEYS: readonly Tab[] = [
+  'orders',
+  'products',
+  'subscription',
+  'verification',
+  'analytics',
+];
+const SELLER_ORDER_FILTER_KEYS: readonly OrderFilter[] = ['active', 'all', 'done'];
 
 const NEXT_ACTION: Record<
   string,
@@ -133,6 +143,8 @@ export default function SellerDashboard() {
     }
   }, [params.tab]);
 
+  const lastLoadedRef = useRef<{ userId: string | null; at: number }>({ userId: null, at: 0 });
+
   const load = useCallback(async () => {
     if (!userId) return;
     try {
@@ -154,6 +166,7 @@ export default function SellerDashboard() {
         setCompliance(comp);
         setLockedProducts(locked);
       }
+      lastLoadedRef.current = { userId, at: Date.now() };
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -162,8 +175,14 @@ export default function SellerDashboard() {
 
   useFocusEffect(
     useCallback(() => {
+      if (
+        lastLoadedRef.current.userId === userId &&
+        Date.now() - lastLoadedRef.current.at < 10_000
+      ) {
+        return;
+      }
       load();
-    }, [load])
+    }, [load, userId])
   );
 
   useEffect(() => {
@@ -448,6 +467,11 @@ export default function SellerDashboard() {
         </ScrollView>
 
         {/* TAB 1: ORDERS */}
+        <SwipeTabContent
+          activeKey={tab}
+          keys={SELLER_TAB_KEYS}
+          onChangeKey={(k) => setTab(k as Tab)}
+        >
         {tab === 'orders' ? (
           <>
             <View style={styles.filterRow}>
@@ -455,6 +479,7 @@ export default function SellerDashboard() {
               <Chip label="All" active={filter === 'all'} onPress={() => setFilter('all')} />
               <Chip label="Finished" active={filter === 'done'} onPress={() => setFilter('done')} />
             </View>
+            <SwipeTabContent activeKey={filter} keys={SELLER_ORDER_FILTER_KEYS} swipeEnabled={false}>
             {filteredOrders.length === 0 ? (
               <EmptyState
                 icon="receipt-outline"
@@ -579,6 +604,7 @@ export default function SellerDashboard() {
                 })}
               </View>
             )}
+            </SwipeTabContent>
           </>
         ) : tab === 'products' ? (
           /* TAB 2: PRODUCTS */
@@ -772,6 +798,7 @@ export default function SellerDashboard() {
           /* TAB 5: ANALYTICS */
           <AnalyticsTab analytics={analytics} />
         )}
+        </SwipeTabContent>
       </ScrollView>
       <StatusBarCover />
 

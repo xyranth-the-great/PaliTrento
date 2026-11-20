@@ -20,6 +20,7 @@ import { Store } from '../../lib/data';
 import { adminGetStores, adminStatus, PERMITS } from '../../lib/seller';
 import { AdminDashboardCounts, adminGetDashboardCounts } from '../../lib/admin';
 import { Chip, EmptyState, StatusBarCover, StatusPill } from '../../components/ui';
+import { SwipeTabContent } from '../../components/SwipeTabContent';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
 type AdminStore = Store & Record<string, any>;
@@ -261,56 +262,66 @@ export default function AdminScreen() {
 
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 30 }} />
-        ) : filtered.length === 0 ? (
-          <EmptyState
-            icon="checkmark-done-outline"
-            title="Nothing here"
-            text="No stores match this filter right now."
-          />
         ) : (
-          <View style={{ gap: 10 }}>
-            {filtered.map((s) => {
-              const st = adminStatus(s);
-              const approvedPermits = PERMITS.filter((p) => s[p.statusColumn] === 'APPROVED').length;
-              return (
-                <Pressable
-                  key={s.id}
-                  onPress={() => router.push({ pathname: '/admin/store/[id]', params: { id: s.id } })}
-                  style={({ pressed }) => [styles.row, pressed && { opacity: 0.9 }]}
-                >
-                  {s.storefront_image_url ? (
-                    <Image source={{ uri: s.storefront_image_url }} style={styles.thumb} />
-                  ) : (
-                    <View style={[styles.thumb, styles.thumbEmpty]}>
-                      <Ionicons name="storefront-outline" size={20} color={COLORS.primary} />
-                    </View>
-                  )}
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>
-                      {s.business_name}
-                    </Text>
-                    <Text style={styles.rowSub} numberOfLines={1}>
-                      {CATS[s.trade_category] || s.trade_category} • {s.barangay} • {s.proprietor_name}
-                    </Text>
-                    <View style={{ flexDirection: 'row', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                      <StatusPill label={st.label} tone={st.tone} />
-                      <StatusPill
-                        label={`Permits ${approvedPermits}/3`}
-                        tone={approvedPermits === 3 ? 'ok' : 'info'}
-                      />
-                    </View>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
-                </Pressable>
-              );
-            })}
-          </View>
+          <SwipeTabContent
+            activeKey={filter}
+            keys={ADMIN_FILTER_KEYS}
+            onChangeKey={(k) => setFilter(k as Filter)}
+          >
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon="checkmark-done-outline"
+                title="Nothing here"
+                text="No stores match this filter right now."
+              />
+            ) : (
+              <View style={{ gap: 10 }}>
+                {filtered.map((s) => {
+                  const st = adminStatus(s);
+                  const approvedPermits = PERMITS.filter((p) => s[p.statusColumn] === 'APPROVED').length;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => router.push({ pathname: '/admin/store/[id]', params: { id: s.id } })}
+                      style={({ pressed }) => [styles.row, pressed && { opacity: 0.9 }]}
+                    >
+                      {s.storefront_image_url ? (
+                        <Image source={{ uri: s.storefront_image_url }} style={styles.thumb} fadeDuration={0} />
+                      ) : (
+                        <View style={[styles.thumb, styles.thumbEmpty]}>
+                          <Ionicons name="storefront-outline" size={20} color={COLORS.primary} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Text style={styles.rowTitle} numberOfLines={1}>
+                          {s.business_name}
+                        </Text>
+                        <Text style={styles.rowSub} numberOfLines={1}>
+                          {CATS[s.trade_category] || s.trade_category} • {s.barangay} • {s.proprietor_name}
+                        </Text>
+                        <View style={{ flexDirection: 'row', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                          <StatusPill label={st.label} tone={st.tone} />
+                          <StatusPill
+                            label={`Permits ${approvedPermits}/3`}
+                            tone={approvedPermits === 3 ? 'ok' : 'info'}
+                          />
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={COLORS.muted} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </SwipeTabContent>
         )}
       </ScrollView>
       <StatusBarCover />
     </View>
   );
 }
+
+const ADMIN_FILTER_KEYS: readonly Filter[] = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'ALL'];
 
 function HeroStat({ value, label }: { value: number; label: string }) {
   return (

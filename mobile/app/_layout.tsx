@@ -42,7 +42,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     const onTerms = first === 'terms';
     const onStatus = first === 'auth-status';
     const onRoleChoice = first === 'choose-role';
-    const onAuthCallback = first === 'auth-callback';
+    const onAuthCallback = first === 'auth-callback' || first === 'auth';
 
     if (onTerms) return; // readable from anywhere
 
@@ -51,16 +51,17 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       return;
     }
 
+    // Suspended / banned accounts are automatically logged out and shown the status screen
+    if (restriction) {
+      if (!onStatus) router.replace('/auth-status');
+      return;
+    }
+
     if (!session) {
       if (!inAuth && !onStatus && !onAuthCallback) router.replace('/(auth)/login');
       return;
     }
 
-    // Suspended / banned accounts can only see the status screen
-    if (restriction) {
-      if (!onStatus) router.replace('/auth-status');
-      return;
-    }
     if (onStatus) {
       router.replace('/(tabs)');
       return;
@@ -111,6 +112,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="admin/verification-docs" />
         <Stack.Screen name="auth-status" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="auth-callback" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="auth/callback" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="choose-role" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="terms" />
         <Stack.Screen name="notifications" />

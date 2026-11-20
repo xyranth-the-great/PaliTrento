@@ -3,6 +3,7 @@ export const CATS: Record<string, string> = {
   CARINDERIA: 'Carinderia',
   FRESH_PRODUCE: 'Fresh produce',
   PHARMACY: 'Pharmacy',
+  CLOTHING: 'Clothing',
   SERVICES: 'Services',
   PRODUCT: 'Product',
   AGRI: 'Agri supply',
@@ -37,6 +38,7 @@ export const PRODUCT_CATEGORIES = [
   'Personal Care',
   'Household',
   'Medicine',
+  'Clothing',
 ] as const;
 
 export const PRODUCT_CATEGORY_LABELS: Record<string, string> = {

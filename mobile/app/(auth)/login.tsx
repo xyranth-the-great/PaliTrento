@@ -16,13 +16,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LogoMark } from '../../components/LogoMark';
+import { GoogleLogo } from '../../components/GoogleLogo';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signInWithGoogle, oauthError, clearOAuthError } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,8 +32,11 @@ export default function LoginScreen() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const visibleError = errorMsg || oauthError;
+
   const handleLogin = async () => {
     setErrorMsg(null);
+    clearOAuthError();
     if (!email.trim() || !password) {
       setErrorMsg('Please enter your email and password.');
       return;
@@ -51,13 +55,16 @@ export default function LoginScreen() {
 
   const handleGoogle = async () => {
     setErrorMsg(null);
+    clearOAuthError();
     setGoogleBusy(true);
-    const { error, restricted } = await signInWithGoogle();
+    const { error, restricted, signedIn, needsRoleChoice } = await signInWithGoogle();
     setGoogleBusy(false);
     if (restricted) {
       router.push('/auth-status');
     } else if (error) {
       setErrorMsg(error);
+    } else if (signedIn) {
+      router.replace(needsRoleChoice ? '/choose-role' : '/(tabs)');
     }
   };
 
@@ -93,10 +100,10 @@ export default function LoginScreen() {
           <Text style={styles.heading}>Welcome back</Text>
           <Text style={styles.subheading}>Log in to explore Trento stores & live prices.</Text>
 
-          {errorMsg && (
+          {visibleError && (
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle" size={16} color={COLORS.bad} />
-              <Text style={styles.errorText}>{errorMsg}</Text>
+              <Text style={styles.errorText}>{visibleError}</Text>
             </View>
           )}
 
@@ -171,7 +178,7 @@ export default function LoginScreen() {
               <ActivityIndicator color={COLORS.ink} />
             ) : (
               <>
-                <Ionicons name="logo-google" size={18} color="#DB4437" />
+                <GoogleLogo size={20} />
                 <Text style={styles.googleBtnText}>Continue with Google</Text>
               </>
             )}

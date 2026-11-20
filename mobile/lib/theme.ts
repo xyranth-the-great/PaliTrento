@@ -73,6 +73,7 @@ export const CATEGORY_VISUALS: Record<
   CARINDERIA: { icon: 'restaurant', bg: '#FFF2E0', color: '#D97706', shortLabel: 'Eateries' },
   FRESH_PRODUCE: { icon: 'leaf', bg: '#ECFCCB', color: '#4D7C0F', shortLabel: 'Fresh' },
   PHARMACY: { icon: 'medkit', bg: '#FFE8EC', color: '#E11D48', shortLabel: 'Pharmacy' },
+  CLOTHING: { icon: 'shirt', bg: '#E0E7FF', color: '#4338CA', shortLabel: 'Clothing' },
   SERVICES: { icon: 'construct', bg: '#E0F2FE', color: '#0284C7', shortLabel: 'Services' },
   PRODUCT: { icon: 'bag-handle', bg: '#F3E8FF', color: '#7C3AED', shortLabel: 'Goods' },
   AGRI: { icon: 'nutrition', bg: '#FEF3C7', color: '#B45309', shortLabel: 'Agri' },

@@ -19,6 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { Button, Chip, EmptyState, ScreenHeader, StatusPill, Tone } from '../components/ui';
+import { SwipeTabContent } from '../components/SwipeTabContent';
+import { LIST_PERF_PROPS } from '../lib/perf';
 import {
   dismissNotifications,
   fetchAllNotifications,
@@ -31,6 +33,10 @@ import {
   UnifiedNotification,
 } from '../lib/notifications';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../lib/theme';
+
+const NOTIF_STATUS_KEYS = ['all', 'unread', 'read'] as const;
+const extractNotifKey = (item: UnifiedNotification) => `${item.type}:${item.id}`;
+const NotifListSeparator = () => <View style={{ height: 10 }} />;
 
 const CAT_META: Record<string, { label: string; tone: Tone; icon: keyof typeof Ionicons.glyphMap }> = {
   PRICE_CAP: { label: 'Price Cap', tone: 'ok', icon: 'pricetag-outline' },
@@ -327,11 +333,18 @@ export default function NotificationsScreen() {
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => `${item.type}:${item.id}`}
-          contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 24 }]}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        <SwipeTabContent
+          activeKey={statusFilter}
+          keys={NOTIF_STATUS_KEYS}
+          onChangeKey={(k) => setStatusFilter(k as StatusFilter)}
+          style={{ flex: 1 }}
+        >
+          <FlatList
+            data={filtered}
+            keyExtractor={extractNotifKey}
+            {...LIST_PERF_PROPS}
+            contentContainerStyle={[styles.listPad, { paddingBottom: insets.bottom + 24 }]}
+            ItemSeparatorComponent={NotifListSeparator}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -410,7 +423,8 @@ export default function NotificationsScreen() {
               </Pressable>
             );
           }}
-        />
+          />
+        </SwipeTabContent>
       )}
 
       {/* Advisory Detail Modal */}

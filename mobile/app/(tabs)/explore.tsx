@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
+  LayoutChangeEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,12 +14,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StoreCard } from '../../components/StoreCard';
 import { ProductCard } from '../../components/ProductCard';
+import { SwipeTabContent } from '../../components/SwipeTabContent';
 import { FeaturedMarqueeCarousel, PremiumChromePill } from '../../components/effects';
 import { CATS, isStoreOpen } from '../../lib/constants';
+import { LIST_PERF_PROPS, useReducedMotion } from '../../lib/perf';
 import {
   getFeaturedStores,
   getPremiumStoreIds,
@@ -32,14 +36,52 @@ import {
 } from '../../lib/data';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
+const EXPLORE_MODES = ['stores', 'products'] as const;
+const STORE_CAT_KEYS = ['', ...Object.keys(CATS)] as const;
+
 export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ q?: string; cat?: string; mode?: string }>();
+  const reduceMotion = useReducedMotion();
 
   const [mode, setMode] = useState<'stores' | 'products'>(
     params.mode === 'products' ? 'products' : 'stores'
   );
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  const [segWidth, setSegWidth] = useState(0);
+  const segX = useRef(new Animated.Value(0)).current;
+  const segReady = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
+
+  useEffect(() => {
+    if (segWidth <= 0) return;
+    const slotW = (segWidth - 6) / 2;
+    const toX = mode === 'products' ? slotW : 0;
+    if (!segReady.current || reduceMotion) {
+      segReady.current = true;
+      segX.setValue(toX);
+      return;
+    }
+    Animated.spring(segX, {
+      toValue: toX,
+      stiffness: 360,
+      damping: 30,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
+  }, [mode, reduceMotion, segWidth, segX]);
+
+  const handleSegLayout = useCallback((e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) setSegWidth((prev) => (Math.abs(prev - w) > 0.5 ? w : prev));
+  }, []);
   const [query, setQuery] = useState(params.q || '');
   const [selectedStoreCat, setSelectedStoreCat] = useState<string>(
     params.mode === 'products' ? '' : params.cat || ''
@@ -279,14 +321,28 @@ export default function ExploreScreen() {
     return sortPremiumFirst(filtered);
   }, [cappedOnly, inStockOnly, productById, products, query, rpcProducts, selectedProdCat, storeById]);
 
+  const prodCatKeys = useMemo(() => ['', ...productCategories], [productCategories]);
+
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <View style={styles.segmentWrap}>
+        <View style={styles.segmentWrap} onLayout={handleSegLayout}>
+          {segWidth > 0 ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.segSlider,
+                {
+                  width: (segWidth - 6) / 2,
+                  transform: [{ translateX: segX }],
+                },
+              ]}
+            />
+          ) : null}
           <Pressable
             onPress={() => setMode('stores')}
-            style={[styles.segBtn, mode === 'stores' && styles.segBtnActive]}
+            style={styles.segBtn}
           >
             <Text style={[styles.segText, mode === 'stores' && styles.segTextActive]}>
               Stores ({displayedStores.length})
@@ -294,7 +350,7 @@ export default function ExploreScreen() {
           </Pressable>
           <Pressable
             onPress={() => setMode('products')}
-            style={[styles.segBtn, mode === 'products' && styles.segBtnActive]}
+            style={styles.segBtn}
           >
             <Text style={[styles.segText, mode === 'products' && styles.segTextActive]}>
               Products ({displayedProducts.length})
@@ -422,113 +478,143 @@ export default function ExploreScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
-      ) : mode === 'stores' ? (
-        <FlatList
-          key="stores-list"
-          data={displayedStores}
-          keyExtractor={(item) => item.id}
-          removeClippedSubviews={false}
-          contentContainerStyle={styles.listPad}
-          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          ListHeaderComponent={
-            !query.trim() && !selectedStoreCat && !openOnly && featuredStores.length > 0 ? (
-              <View style={styles.featuredHeaderWrap}>
-                <View style={styles.featuredTitleRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.featuredTitle}>Featured Stores</Text>
-                    <Text style={styles.featuredSub}>Spotlit & Premium verified shops</Text>
-                  </View>
-                  <PremiumChromePill size="xs" label="Featured" />
-                </View>
-                <FeaturedMarqueeCarousel
-                  data={featuredStores}
-                  keyExtractor={(item) => item.id}
-                  itemWidth={228}
-                  gap={14}
-                  speedPxPerSec={40}
-                  fadeColor={COLORS.bg}
-                  style={{ marginHorizontal: -14 }}
-                  renderItem={(item) => (
-                    <StoreCard
-                      store={item}
-                      onPress={() =>
-                        router.push({ pathname: '/store/[trn]', params: { trn: item.trn_code } })
-                      }
-                    />
-                  )}
-                />
-                <Text style={styles.allStoresHeading}>All Stores</Text>
-              </View>
-            ) : undefined
-          }
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                loadData();
-              }}
-              colors={[COLORS.primary]}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Ionicons name="storefront-outline" size={34} color={COLORS.muted} />
-              <Text style={styles.emptyTitle}>No stores matched</Text>
-              <Text style={styles.emptySub}>Try clearing a filter or searching another keyword.</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <StoreCard
-              store={item}
-              variant="row"
-              onPress={() =>
-                router.push({ pathname: '/store/[trn]', params: { trn: item.trn_code } })
-              }
-            />
-          )}
-        />
       ) : (
-        <FlatList
-          key="products-grid"
-          data={displayedProducts}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          removeClippedSubviews={false}
-          columnWrapperStyle={{ gap: 12, overflow: 'visible' }}
-          contentContainerStyle={styles.productsListPad}
-          ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                loadData();
-              }}
-              colors={[COLORS.primary]}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyBox}>
-              <Ionicons name="basket-outline" size={34} color={COLORS.muted} />
-              <Text style={styles.emptyTitle}>No products found</Text>
-              <Text style={styles.emptySub}>Try another search term or category.</Text>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <View style={{ flex: 1, overflow: 'visible' }}>
-              <ProductCard
-                product={item}
-                store={storeById[item.store_id]}
-                onPress={() => router.push({ pathname: '/product/[id]', params: { id: item.id } })}
+        <SwipeTabContent
+          activeKey={mode}
+          keys={EXPLORE_MODES}
+          swipeEnabled={false}
+          style={{ flex: 1 }}
+        >
+          {mode === 'stores' ? (
+            <SwipeTabContent
+              activeKey={selectedStoreCat}
+              keys={STORE_CAT_KEYS}
+              onChangeKey={setSelectedStoreCat}
+              style={{ flex: 1 }}
+            >
+              <FlatList
+                key="stores-list"
+                data={displayedStores}
+                keyExtractor={extractId}
+                removeClippedSubviews={false}
+                {...LIST_PERF_PROPS}
+                contentContainerStyle={styles.listPad}
+                ItemSeparatorComponent={StoreListSeparator}
+                ListHeaderComponent={
+                  !query.trim() && !selectedStoreCat && !openOnly && featuredStores.length > 0 ? (
+                    <View style={styles.featuredHeaderWrap}>
+                      <View style={styles.featuredTitleRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.featuredTitle}>Featured Stores</Text>
+                          <Text style={styles.featuredSub}>Spotlit & Premium verified shops</Text>
+                        </View>
+                        <PremiumChromePill size="xs" label="Featured" />
+                      </View>
+                      <FeaturedMarqueeCarousel
+                        data={featuredStores}
+                        keyExtractor={(item) => item.id}
+                        itemWidth={228}
+                        gap={14}
+                        speedPxPerSec={40}
+                        fadeColor={COLORS.bg}
+                        paused={!isScreenFocused}
+                        style={{ marginHorizontal: -14 }}
+                        renderItem={(item) => (
+                          <StoreCard
+                            store={item}
+                            onPress={() =>
+                              router.push({ pathname: '/store/[trn]', params: { trn: item.trn_code } })
+                            }
+                          />
+                        )}
+                      />
+                      <Text style={styles.allStoresHeading}>All Stores</Text>
+                    </View>
+                  ) : undefined
+                }
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={() => {
+                      setRefreshing(true);
+                      loadData();
+                    }}
+                    colors={[COLORS.primary]}
+                  />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyBox}>
+                    <Ionicons name="storefront-outline" size={34} color={COLORS.muted} />
+                    <Text style={styles.emptyTitle}>No stores matched</Text>
+                    <Text style={styles.emptySub}>Try clearing a filter or searching another keyword.</Text>
+                  </View>
+                }
+                renderItem={({ item }) => (
+                  <StoreCard
+                    store={item}
+                    variant="row"
+                    onPress={() =>
+                      router.push({ pathname: '/store/[trn]', params: { trn: item.trn_code } })
+                    }
+                  />
+                )}
               />
-            </View>
+            </SwipeTabContent>
+          ) : (
+            <SwipeTabContent
+              activeKey={selectedProdCat}
+              keys={prodCatKeys}
+              onChangeKey={setSelectedProdCat}
+              style={{ flex: 1 }}
+            >
+              <FlatList
+                key="products-grid"
+                data={displayedProducts}
+                keyExtractor={extractId}
+                numColumns={2}
+                removeClippedSubviews={false}
+                {...LIST_PERF_PROPS}
+                columnWrapperStyle={{ gap: 12, overflow: 'visible' }}
+                contentContainerStyle={styles.productsListPad}
+                ItemSeparatorComponent={ProductListSeparator}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={() => {
+                      setRefreshing(true);
+                      loadData();
+                    }}
+                    colors={[COLORS.primary]}
+                  />
+                }
+                ListEmptyComponent={
+                  <View style={styles.emptyBox}>
+                    <Ionicons name="basket-outline" size={34} color={COLORS.muted} />
+                    <Text style={styles.emptyTitle}>No products found</Text>
+                    <Text style={styles.emptySub}>Try another search term or category.</Text>
+                  </View>
+                }
+                renderItem={({ item }) => (
+                  <View style={{ flex: 1, overflow: 'visible' }}>
+                    <ProductCard
+                      product={item}
+                      store={storeById[item.store_id]}
+                      onPress={() => router.push({ pathname: '/product/[id]', params: { id: item.id } })}
+                    />
+                  </View>
+                )}
+              />
+            </SwipeTabContent>
           )}
-        />
+        </SwipeTabContent>
       )}
     </View>
   );
 }
+
+const extractId = (item: { id: string }) => item.id;
+const StoreListSeparator = () => <View style={{ height: 12 }} />;
+const ProductListSeparator = () => <View style={{ height: 16 }} />;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },
@@ -539,10 +625,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   segmentWrap: {
+    position: 'relative',
     flexDirection: 'row',
     backgroundColor: 'rgba(0,0,0,0.18)',
     borderRadius: RADIUS.md,
     padding: 3,
+  },
+  segSlider: {
+    position: 'absolute',
+    top: 3,
+    bottom: 3,
+    left: 3,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.white,
+    ...SHADOW.card,
   },
   segBtn: {
     flex: 1,
@@ -550,6 +646,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
   segBtnActive: {
     backgroundColor: COLORS.white,

@@ -13,13 +13,14 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { StoreCard } from '../../components/StoreCard';
 import { ProductCard } from '../../components/ProductCard';
 import { LogoMark } from '../../components/LogoMark';
+import { FadeInView } from '../../components/FadeInView';
 import { FeaturedMarqueeCarousel } from '../../components/effects';
 import { ProPill } from '../../components/premium';
 import {
@@ -51,6 +52,14 @@ export default function HomeScreen() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsScreenFocused(true);
+      return () => setIsScreenFocused(false);
+    }, [])
+  );
   const [featuredStores, setFeaturedStores] = useState<Store[]>([]);
   const [nearbyStores, setNearbyStores] = useState<Store[]>([]);
   const [cappedProducts, setCappedProducts] = useState<Product[]>([]);
@@ -267,7 +276,7 @@ export default function HomeScreen() {
             <Text style={styles.loaderText}>Finding local stores...</Text>
           </View>
         ) : (
-          <>
+          <FadeInView offsetY={10} duration={240}>
             {/* Featured Stores */}
             {featuredStores.length > 0 && (
               <View style={styles.section}>
@@ -292,6 +301,7 @@ export default function HomeScreen() {
                   gap={14}
                   speedPxPerSec={40}
                   fadeColor={COLORS.bg}
+                  paused={!isScreenFocused}
                   renderItem={(item) => (
                     <StoreCard
                       store={item}
@@ -445,7 +455,7 @@ export default function HomeScreen() {
                 ))}
               </View>
             </View>
-          </>
+          </FadeInView>
         )}
       </ScrollView>
     </View>

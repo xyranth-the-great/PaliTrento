@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  AppState,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -13,6 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS } from '../../lib/theme';
+import { IS_LOW_END_ANDROID } from '../../lib/perf';
 import { GOLD_CHROME } from './showcaseConfig';
 
 interface FeaturedMarqueeCarouselProps<T> {
@@ -25,6 +27,7 @@ interface FeaturedMarqueeCarouselProps<T> {
   fadeColor?: string;
   style?: StyleProp<ViewStyle>;
   showPauseButton?: boolean;
+  paused?: boolean;
 }
 
 /**
@@ -46,16 +49,19 @@ export function FeaturedMarqueeCarousel<T>({
   fadeColor = COLORS.bg,
   style,
   showPauseButton = true,
+  paused = false,
 }: FeaturedMarqueeCarouselProps<T>) {
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [userPaused, setUserPaused] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [appActive, setAppActive] = useState(AppState.currentState === 'active');
 
   const offsetRef = useRef(0);
   const draggingRef = useRef(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number | null>(null);
+  const lastDrawTsRef = useRef<number>(0);
   const initializedRef = useRef(false);
 
   useEffect(() => {
@@ -66,11 +72,15 @@ export function FeaturedMarqueeCarousel<T>({
       })
       .catch(() => {});
     const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (enabled) => {
-      setReduceMotion(Boolean(enabled));
+      if (mounted) setReduceMotion(Boolean(enabled));
+    });
+    const appSub = AppState.addEventListener('change', (s) => {
+      if (mounted) setAppActive(s === 'active');
     });
     return () => {
       mounted = false;
       sub.remove();
+      appSub.remove();
     };
   }, []);
 
@@ -78,9 +88,10 @@ export function FeaturedMarqueeCarousel<T>({
   const setWidth = data.length * stride;
   const marqueeEnabled = data.length >= 2 && !reduceMotion;
 
-  // Use at least 3 copies (or enough to cover wide tablets smoothly)
+  // Use fewer cloned cards on low-end Android devices to save RAM and GPU memory
   const copyCount = useMemo(() => {
     if (!marqueeEnabled || setWidth <= 0) return 1;
+    if (IS_LOW_END_ANDROID) return 2;
     return Math.max(3, Math.ceil(960 / setWidth) + 2);
   }, [marqueeEnabled, setWidth]);
 
@@ -109,29 +120,39 @@ export function FeaturedMarqueeCarousel<T>({
     return () => clearTimeout(t);
   }, [anchorToMiddle]);
 
-  // Smooth RAF marquee loop
+  // Smooth RAF marquee loop (pauses when unfocused, backgrounded, or user-paused; 30fps cap on low-end Android)
   useEffect(() => {
-    if (!marqueeEnabled || userPaused || setWidth <= 0) {
+    if (!marqueeEnabled || userPaused || paused || !appActive || setWidth <= 0) {
       if (rafRef.current != null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
       lastTsRef.current = null;
+      lastDrawTsRef.current = 0;
       return;
     }
 
+    const minIntervalMs = IS_LOW_END_ANDROID ? 33 : 16;
+    const wrapLimit = copyCount >= 3 ? setWidth * 2 : setWidth;
+    const wrapFloor = copyCount >= 3 ? setWidth * 0.5 : 0;
+
     const tick = (ts: number) => {
+      if (lastDrawTsRef.current > 0 && ts - lastDrawTsRef.current < minIntervalMs) {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
       if (lastTsRef.current == null) {
         lastTsRef.current = ts;
       }
-      const dtSec = Math.min(0.05, Math.max(0, (ts - lastTsRef.current) / 1000));
+      const dtSec = Math.min(0.06, Math.max(0, (ts - lastTsRef.current) / 1000));
       lastTsRef.current = ts;
+      lastDrawTsRef.current = ts;
 
       if (!draggingRef.current && initializedRef.current) {
         let next = offsetRef.current + speedPxPerSec * dtSec;
-        if (next >= setWidth * 2) {
+        if (next >= wrapLimit) {
           next -= setWidth;
-        } else if (next < setWidth * 0.5) {
+        } else if (next < wrapFloor) {
           next += setWidth;
         }
         offsetRef.current = next;
@@ -150,7 +171,7 @@ export function FeaturedMarqueeCarousel<T>({
       }
       lastTsRef.current = null;
     };
-  }, [marqueeEnabled, setWidth, speedPxPerSec, userPaused]);
+  }, [appActive, copyCount, marqueeEnabled, paused, setWidth, speedPxPerSec, userPaused]);
 
   useEffect(() => {
     return () => {

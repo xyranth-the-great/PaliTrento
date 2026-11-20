@@ -1,0 +1,34 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="520"
+    android:viewportHeight="520">
+    <group
+        android:translateX="-7.5"
+        android:translateY="-10">
+        <!-- 5-panel scalloped market awning -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M55,46 Q55,32 69,32 H135 V150 A40,40 0 0,1 55,150 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M145,32 H220 V150 A37.5,37.5 0 0,1 145,150 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M230,32 H305 V150 A37.5,37.5 0 0,1 230,150 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M315,32 H390 V150 A37.5,37.5 0 0,1 315,150 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M400,32 H466 Q480,32 480,46 V150 A40,40 0 0,1 400,150 Z" />
+        <!-- T-post stem -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M227,198 H308 V438 L267.5,472 L227,438 Z" />
+        <!-- Ground base oval -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M185.5,494 A82,18 0 1,0 349.5,494 A82,18 0 1,0 185.5,494 Z" />
+    </group>
+</vector>

@@ -21,6 +21,7 @@ import { BARANGAYS } from '../lib/constants';
 import { removeUserAvatar, uploadUserAvatar } from '../lib/seller';
 import { supabase } from '../lib/supabase';
 import { Button, Card, Chip, Field, ScreenHeader, SectionLabel } from '../components/ui';
+import { SwipeTabContent } from '../components/SwipeTabContent';
 import { NotificationsTab } from '../components/settings/NotificationsTab';
 import { PrivacyTab } from '../components/settings/PrivacyTab';
 import { SecurityTab } from '../components/settings/SecurityTab';
@@ -28,6 +29,14 @@ import { DangerZoneTab } from '../components/settings/DangerZoneTab';
 import { COLORS, FONTS, RADIUS } from '../lib/theme';
 
 type SettingsTab = 'profile' | 'notifications' | 'privacy' | 'security' | 'danger';
+
+const SETTINGS_TAB_KEYS: readonly SettingsTab[] = [
+  'profile',
+  'notifications',
+  'privacy',
+  'security',
+  'danger',
+];
 
 const TABS: {
   key: SettingsTab;
@@ -213,6 +222,11 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <SwipeTabContent
+          activeKey={activeTab}
+          keys={SETTINGS_TAB_KEYS}
+          onChangeKey={(k) => setActiveTab(k as SettingsTab)}
+        >
         {activeTab === 'profile' ? (
           <>
             <SectionLabel>Profile Photo</SectionLabel>
@@ -339,6 +353,7 @@ export default function SettingsScreen() {
         {activeTab === 'danger' ? (
           <DangerZoneTab userId={userId} role={role} onRefreshProfile={refreshProfile} />
         ) : null}
+        </SwipeTabContent>
       </ScrollView>
     </KeyboardAvoidingView>
   );

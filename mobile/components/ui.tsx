@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -13,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useReducedMotion } from '../lib/perf';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../lib/theme';
 
 // ---------------------------------------------------------------------------
@@ -120,11 +123,41 @@ export function Chip({
   onPress: () => void;
   icon?: keyof typeof Ionicons.glyphMap;
 }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
+
+  const onPressIn = () => {
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: 0.94,
+      speed: 40,
+      bounciness: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: 1,
+      speed: 32,
+      bounciness: 6,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <Pressable onPress={onPress} style={[ui.chip, active && ui.chipActive]}>
-      {icon ? <Ionicons name={icon} size={13} color={active ? COLORS.white : COLORS.primary} /> : null}
-      <Text style={[ui.chipText, active && ui.chipTextActive]}>{label}</Text>
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        style={[ui.chip, active && ui.chipActive]}
+      >
+        {icon ? <Ionicons name={icon} size={13} color={active ? COLORS.white : COLORS.primary} /> : null}
+        <Text style={[ui.chipText, active && ui.chipTextActive]}>{label}</Text>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -169,27 +202,54 @@ export function Button({
   small?: boolean;
 }) {
   const v = BUTTON_VARIANTS[variant];
+  const scale = useRef(new Animated.Value(1)).current;
+  const reduceMotion = useReducedMotion();
+  const isDisabled = Boolean(disabled || loading);
+
+  const handlePressIn = () => {
+    if (reduceMotion || isDisabled) return;
+    Animated.spring(scale, {
+      toValue: 0.965,
+      speed: 42,
+      bounciness: 3,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    if (reduceMotion) return;
+    Animated.spring(scale, {
+      toValue: 1,
+      speed: 30,
+      bounciness: 6,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      style={({ pressed }) => [
-        ui.btn,
-        small && ui.btnSmall,
-        { backgroundColor: v.bg, borderColor: v.border },
-        (pressed || disabled) && { opacity: disabled ? 0.5 : 0.88 },
-        style,
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color={v.fg} />
-      ) : (
-        <>
-          {icon ? <Ionicons name={icon} size={small ? 14 : 16} color={v.fg} /> : null}
-          <Text style={[ui.btnText, small && ui.btnTextSmall, { color: v.fg }]}>{title}</Text>
-        </>
-      )}
-    </Pressable>
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        style={({ pressed }) => [
+          ui.btn,
+          small && ui.btnSmall,
+          { backgroundColor: v.bg, borderColor: v.border },
+          (pressed || disabled) && { opacity: disabled ? 0.5 : 0.9 },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color={v.fg} />
+        ) : (
+          <>
+            {icon ? <Ionicons name={icon} size={small ? 14 : 16} color={v.fg} /> : null}
+            <Text style={[ui.btnText, small && ui.btnTextSmall, { color: v.fg }]}>{title}</Text>
+          </>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -238,15 +298,37 @@ export function EmptyState({
   text?: string;
   action?: React.ReactNode;
 }) {
+  const reduceMotion = useReducedMotion();
+  const opacity = useRef(new Animated.Value(reduceMotion ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(reduceMotion ? 1 : 0.94)).current;
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        stiffness: 280,
+        damping: 22,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, reduceMotion, scale]);
+
   return (
-    <View style={ui.empty}>
+    <Animated.View style={[ui.empty, { opacity, transform: [{ scale }] }]}>
       <View style={ui.emptyIcon}>
         <Ionicons name={icon} size={28} color={COLORS.primary} />
       </View>
       <Text style={ui.emptyTitle}>{title}</Text>
       {text ? <Text style={ui.emptyText}>{text}</Text> : null}
       {action}
-    </View>
+    </Animated.View>
   );
 }
 

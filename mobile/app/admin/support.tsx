@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '../../lib/supabase';
 import {
   adminGetSupportTicketDetail,
   adminGetSupportTickets,
@@ -32,6 +33,13 @@ import {
   SUPPORT_STATUS,
 } from '../../lib/support';
 import { Button, Card, Chip, EmptyState, ScreenHeader, StatusPill } from '../../components/ui';
+import {
+  AnimatedMessageBubble,
+  AnimatedSendButton,
+  ChatDateSeparator,
+  formatChatDateLabel,
+  isSameCalendarDay,
+} from '../../components/ChatAnimations';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
 const STATUS_ACTIONS: {
@@ -60,8 +68,52 @@ export default function AdminSupportInboxScreen() {
   const [activeTicket, setActiveTicket] = useState<AdminSupportTicket | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [replyFocused, setReplyFocused] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const detailScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const animatedAdminMsgIdsRef = useRef<Set<string>>(new Set());
+
+  // Live Realtime updates while admin has a ticket conversation open
+  useEffect(() => {
+    const ticketId = activeTicket?.id;
+    if (!ticketId) return;
+    const ch = supabase
+      .channel(`rn-admin-support-${ticketId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `ticket_id=eq.${ticketId}`,
+        },
+        (payload) => {
+          const incoming = payload.new as NonNullable<AdminSupportTicket['support_messages']>[number];
+          animatedAdminMsgIdsRef.current.add(incoming.id);
+          setActiveTicket((prev) => {
+            if (!prev || prev.id !== ticketId) return prev;
+            const list = prev.support_messages || [];
+            if (list.some((m) => m.id === incoming.id)) return prev;
+            const tempIdx = incoming.is_from_admin
+              ? list.findIndex(
+                  (m) => m.id.startsWith('temp-') && m.content.trim() === incoming.content.trim()
+                )
+              : -1;
+            const nextMsgs =
+              tempIdx !== -1
+                ? list.map((m, i) => (i === tempIdx ? incoming : m))
+                : [...list, incoming];
+            return { ...prev, support_messages: nextMsgs };
+          });
+          setTimeout(() => detailScrollRef.current?.scrollToEnd({ animated: true }), 80);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [activeTicket?.id]);
 
   const load = useCallback(async () => {
     setErrorMsg(null);
@@ -97,6 +149,7 @@ export default function AdminSupportInboxScreen() {
   );
 
   const openTicket = async (ticketId: string) => {
+    animatedAdminMsgIdsRef.current.clear();
     setLoadingDetail(true);
     setReplyText('');
     try {
@@ -106,6 +159,7 @@ export default function AdminSupportInboxScreen() {
         return;
       }
       setActiveTicket(detail);
+      setTimeout(() => detailScrollRef.current?.scrollToEnd({ animated: false }), 90);
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Could not load ticket details.');
     } finally {
@@ -114,15 +168,45 @@ export default function AdminSupportInboxScreen() {
   };
 
   const handleSendReply = async () => {
-    if (!activeTicket || !replyText.trim()) return;
+    const content = replyText.trim();
+    if (!activeTicket || !content || sendingReply) return;
+    const ticketId = activeTicket.id;
+    const tempId = `temp-${Date.now()}`;
+    animatedAdminMsgIdsRef.current.add(tempId);
+
+    const optimisticMsg = {
+      id: tempId,
+      sender_id: 'admin',
+      content,
+      is_from_admin: true,
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+
+    setReplyText('');
     setSendingReply(true);
+    setActiveTicket((prev) =>
+      prev && prev.id === ticketId
+        ? { ...prev, support_messages: [...(prev.support_messages || []), optimisticMsg] }
+        : prev
+    );
+    setTimeout(() => detailScrollRef.current?.scrollToEnd({ animated: true }), 60);
+
     try {
-      await adminReplySupportTicket(activeTicket.id, replyText);
-      setReplyText('');
-      const refreshed = await adminGetSupportTicketDetail(activeTicket.id);
+      await adminReplySupportTicket(ticketId, content);
+      const refreshed = await adminGetSupportTicketDetail(ticketId);
       if (refreshed) setActiveTicket(refreshed);
       load();
     } catch (e: any) {
+      setActiveTicket((prev) =>
+        prev && prev.id === ticketId
+          ? {
+              ...prev,
+              support_messages: (prev.support_messages || []).filter((m) => m.id !== tempId),
+            }
+          : prev
+      );
+      setReplyText(content);
       Alert.alert('Reply failed', e?.message || 'Could not send reply.');
     } finally {
       setSendingReply(false);
@@ -318,7 +402,12 @@ export default function AdminSupportInboxScreen() {
           <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) + 8 }]}>
             <View style={styles.grabber} />
             {activeTicket ? (
-              <ScrollView style={{ maxHeight: 590 }} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                ref={detailScrollRef}
+                style={{ maxHeight: 590 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
                 <View style={styles.cardHead}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.sheetTitle}>{activeTicket.subject}</Text>
@@ -359,39 +448,78 @@ export default function AdminSupportInboxScreen() {
 
                 {/* Messages thread */}
                 {(activeTicket.support_messages || []).length > 0 ? (
-                  <View style={{ gap: 8, marginBottom: 14 }}>
-                    {(activeTicket.support_messages || []).map((m) => (
-                      <View
-                        key={m.id}
-                        style={[styles.msgBubble, m.is_from_admin && styles.msgBubbleAdmin]}
-                      >
-                        <View style={styles.msgHead}>
-                          <Text
-                            style={[
-                              styles.msgSender,
-                              m.is_from_admin && { color: COLORS.primary },
-                            ]}
-                          >
-                            {m.is_from_admin
-                              ? 'Administrator'
-                              : m.profiles?.full_name || activeTicket.profiles?.full_name || 'User'}
-                          </Text>
-                          <Text style={styles.dateText}>{formatAdminDate(m.created_at)}</Text>
+                  <View style={{ marginBottom: 14 }}>
+                    {(activeTicket.support_messages || []).map((m, idx, arr) => {
+                      const prev = idx > 0 ? arr[idx - 1] : null;
+                      const next = idx < arr.length - 1 ? arr[idx + 1] : null;
+                      const showDate =
+                        !prev || !isSameCalendarDay(prev.created_at, m.created_at)
+                          ? formatChatDateLabel(m.created_at)
+                          : null;
+                      const own = Boolean(m.is_from_admin);
+                      const samePrev =
+                        Boolean(prev) && !showDate && Boolean(prev!.is_from_admin) === own;
+                      const sameNext =
+                        Boolean(next) &&
+                        isSameCalendarDay(m.created_at, next!.created_at) &&
+                        Boolean(next!.is_from_admin) === own;
+                      const isOptimistic = m.id.startsWith('temp-');
+
+                      return (
+                        <View key={m.id}>
+                          {showDate ? <ChatDateSeparator label={showDate} /> : null}
+                          <AnimatedMessageBubble
+                            content={m.content}
+                            timestamp={m.created_at}
+                            own={own}
+                            variant="support"
+                            senderLabel={
+                              own
+                                ? 'Administrator'
+                                : m.profiles?.full_name || activeTicket.profiles?.full_name || 'User'
+                            }
+                            animateEntrance={
+                              animatedAdminMsgIdsRef.current.has(m.id) ||
+                              idx >= Math.max(0, arr.length - 4)
+                            }
+                            isFirstInGroup={!samePrev}
+                            isLastInGroup={!sameNext}
+                            status={
+                              own
+                                ? isOptimistic
+                                  ? 'sending'
+                                  : m.read_at
+                                    ? 'read'
+                                    : 'sent'
+                                : undefined
+                            }
+                            extraFooter={
+                              m.attachment_path ? (
+                                <Pressable
+                                  onPress={() => handleOpenAttachment(m.attachment_path!)}
+                                  style={[styles.attachBtn, own && styles.attachBtnOwn]}
+                                >
+                                  <Ionicons
+                                    name="attach"
+                                    size={14}
+                                    color={own ? COLORS.white : COLORS.primary}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.attachText,
+                                      own && { color: COLORS.white },
+                                    ]}
+                                    numberOfLines={1}
+                                  >
+                                    {m.attachment_name || 'Attachment'}
+                                  </Text>
+                                </Pressable>
+                              ) : null
+                            }
+                          />
                         </View>
-                        <Text style={styles.msgBody}>{m.content}</Text>
-                        {m.attachment_path ? (
-                          <Pressable
-                            onPress={() => handleOpenAttachment(m.attachment_path!)}
-                            style={styles.attachBtn}
-                          >
-                            <Ionicons name="attach" size={14} color={COLORS.primary} />
-                            <Text style={styles.attachText} numberOfLines={1}>
-                              {m.attachment_name || 'Attachment'}
-                            </Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 ) : (
                   <Text style={[styles.dateText, { marginBottom: 12 }]}>
@@ -403,23 +531,23 @@ export default function AdminSupportInboxScreen() {
                 {!isClosed ? (
                   <View style={styles.composerBox}>
                     <Text style={styles.fieldLabel}>Admin reply</Text>
-                    <TextInput
-                      value={replyText}
-                      onChangeText={setReplyText}
-                      multiline
-                      placeholder="Write a helpful response to the user..."
-                      placeholderTextColor={COLORS.muted}
-                      style={styles.textArea}
-                    />
-                    <Button
-                      title="Send reply"
-                      icon="send"
-                      small
-                      loading={sendingReply}
-                      disabled={!replyText.trim() || sendingReply}
-                      onPress={handleSendReply}
-                      style={{ marginTop: 8 }}
-                    />
+                    <View style={styles.replyRow}>
+                      <TextInput
+                        value={replyText}
+                        onChangeText={setReplyText}
+                        onFocus={() => setReplyFocused(true)}
+                        onBlur={() => setReplyFocused(false)}
+                        multiline
+                        placeholder="Write a helpful response to the user..."
+                        placeholderTextColor={COLORS.muted}
+                        style={[styles.textArea, replyFocused && styles.textAreaFocused]}
+                      />
+                      <AnimatedSendButton
+                        enabled={Boolean(replyText.trim())}
+                        loading={sendingReply}
+                        onPress={handleSendReply}
+                      />
+                    </View>
                   </View>
                 ) : (
                   <View style={styles.closedNote}>
@@ -564,7 +692,11 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    marginTop: 4,
+    marginTop: 6,
+  },
+  attachBtnOwn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.28)',
   },
   attachText: { fontSize: 11.5, fontFamily: FONTS.bold, color: COLORS.primary, maxWidth: 220 },
   composerBox: {
@@ -573,18 +705,29 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   fieldLabel: { fontSize: 12, fontFamily: FONTS.bold, color: COLORS.ink, marginBottom: 6 },
+  replyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   textArea: {
-    minHeight: 74,
-    borderRadius: RADIUS.sm,
+    flex: 1,
+    minHeight: 46,
+    maxHeight: 110,
+    borderRadius: 20,
     backgroundColor: COLORS.bg,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: COLORS.line,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 13.5,
     fontFamily: FONTS.medium,
     color: COLORS.ink,
     textAlignVertical: 'top',
+  },
+  textAreaFocused: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
   },
   closedNote: {
     flexDirection: 'row',

@@ -22,7 +22,7 @@ interface ProductCardProps {
   onPress: () => void;
 }
 
-export function ProductCard({ product, store, onPress }: ProductCardProps) {
+function ProductCardBase({ product, store, onPress }: ProductCardProps) {
   const images = getProductImages(product);
   const srp = getSrpStatus(product);
   const unit = UNITS[product.unit] || product.unit || 'pc';
@@ -33,7 +33,7 @@ export function ProductCard({ product, store, onPress }: ProductCardProps) {
     <>
       <View style={styles.media}>
         {images[0] ? (
-          <Image source={{ uri: images[0] }} style={styles.img} />
+          <Image source={{ uri: images[0] }} style={styles.img} fadeDuration={0} />
         ) : (
           <View style={[styles.img, styles.placeholder]}>
             <Ionicons name="bag-handle-outline" size={26} color={COLORS.primary} />
@@ -119,6 +119,11 @@ export function ProductCard({ product, store, onPress }: ProductCardProps) {
     </Pressable>
   );
 }
+
+export const ProductCard = React.memo(
+  ProductCardBase,
+  (prev, next) => prev.product === next.product && prev.store === next.store
+);
 
 const styles = StyleSheet.create({
   flexFill: {
