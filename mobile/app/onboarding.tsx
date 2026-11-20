@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Animated,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -50,15 +51,22 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList>(null);
+  const scrollX = useRef(new Animated.Value(0)).current;
   const [index, setIndex] = useState(0);
 
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!width) return;
-    const next = Math.round(e.nativeEvent.contentOffset.x / width);
-    if (next !== index && next >= 0 && next < SLIDES.length) {
-      setIndex(next);
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    {
+      useNativeDriver: false,
+      listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        if (!width) return;
+        const next = Math.round(e.nativeEvent.contentOffset.x / width);
+        if (next !== index && next >= 0 && next < SLIDES.length) {
+          setIndex(next);
+        }
+      },
     }
-  };
+  );
 
   const handleNext = () => {
     if (index < SLIDES.length - 1) {
@@ -92,7 +100,7 @@ export default function OnboardingScreen() {
         )}
       </View>
 
-      <FlatList
+      <Animated.FlatList
         ref={listRef}
         data={SLIDES}
         keyExtractor={(item) => item.key}
@@ -101,32 +109,70 @@ export default function OnboardingScreen() {
         showsHorizontalScrollIndicator={false}
         onScroll={onScroll}
         scrollEventThrottle={16}
-        renderItem={({ item }) => (
-          <View style={[styles.slide, { width }]}>
-            <View style={[styles.haloOuter, { backgroundColor: item.halo }]}>
-              <View style={[styles.haloInner, { backgroundColor: item.halo }]}>
-                <LinearGradient
-                  colors={item.grad}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.iconBox}
-                >
-                  <Ionicons name={item.icon} size={38} color={COLORS.white} />
-                </LinearGradient>
-              </View>
-            </View>
-            <Text style={styles.eyebrow}>{item.eyebrow}</Text>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>{item.text}</Text>
-          </View>
-        )}
+        renderItem={({ item, index: slideIdx }) => {
+          const inputRange = [(slideIdx - 1) * width, slideIdx * width, (slideIdx + 1) * width];
+          const heroScale = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.84, 1, 0.84],
+            extrapolate: 'clamp',
+          });
+          const slideOpacity = scrollX.interpolate({
+            inputRange,
+            outputRange: [0.45, 1, 0.45],
+            extrapolate: 'clamp',
+          });
+          return (
+            <Animated.View style={[styles.slide, { width, opacity: slideOpacity }]}>
+              <Animated.View
+                style={[styles.haloOuter, { backgroundColor: item.halo, transform: [{ scale: heroScale }] }]}
+              >
+                <View style={[styles.haloInner, { backgroundColor: item.halo }]}>
+                  <LinearGradient
+                    colors={item.grad}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.iconBox}
+                  >
+                    <Ionicons name={item.icon} size={38} color={COLORS.white} />
+                  </LinearGradient>
+                </View>
+              </Animated.View>
+              <Text style={styles.eyebrow}>{item.eyebrow}</Text>
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={styles.subtitle}>{item.text}</Text>
+            </Animated.View>
+          );
+        }}
       />
 
       <View style={styles.footer}>
         <View style={styles.dots}>
-          {SLIDES.map((s, i) => (
-            <View key={s.key} style={[styles.dot, i === index && styles.dotActive]} />
-          ))}
+          {SLIDES.map((s, i) => {
+            const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
+            const dotWidth = scrollX.interpolate({
+              inputRange,
+              outputRange: [8, 24, 8],
+              extrapolate: 'clamp',
+            });
+            const dotOpacity = scrollX.interpolate({
+              inputRange,
+              outputRange: [0.35, 1, 0.35],
+              extrapolate: 'clamp',
+            });
+            return (
+              <Animated.View
+                key={s.key}
+                style={[
+                  styles.dot,
+                  {
+                    width: dotWidth,
+                    opacity: dotOpacity,
+                    backgroundColor: COLORS.primary,
+                  },
+                ]}
+              />
+            );
+          })}
         </View>
 
         <Pressable

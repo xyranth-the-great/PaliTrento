@@ -32,6 +32,7 @@ import {
   ModerationActionType,
 } from '../../lib/admin';
 import { Button, Card, Chip, EmptyState, ScreenHeader, StatusPill, Tone } from '../../components/ui';
+import { SwipeTabContent } from '../../components/SwipeTabContent';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
 type StatusFilter = 'all' | 'active' | 'suspended' | 'banned';
@@ -302,14 +303,20 @@ export default function AdminAccountsScreen() {
             text={errorMsg}
             action={<Button title="Retry" variant="soft" small onPress={load} style={{ marginTop: 8 }} />}
           />
-        ) : visible.length === 0 ? (
-          <EmptyState
-            icon="people-outline"
-            title="No matching accounts"
-            text="Try clearing the search or choosing another status filter."
-          />
         ) : (
-          <View style={{ gap: 10 }}>
+          <SwipeTabContent
+            activeKey={filter}
+            keys={ACCOUNT_FILTER_KEYS}
+            onChangeKey={(k) => setFilter(k as StatusFilter)}
+          >
+            {visible.length === 0 ? (
+              <EmptyState
+                icon="people-outline"
+                title="No matching accounts"
+                text="Try clearing the search or choosing another status filter."
+              />
+            ) : (
+              <View style={{ gap: 10 }}>
             {visible.map((acc) => {
               const badge = getAccountBadge(acc);
               const ownAdmin = acc.id === session?.user?.id && acc.role === 'admin';
@@ -411,7 +418,9 @@ export default function AdminAccountsScreen() {
                 </Card>
               );
             })}
-          </View>
+              </View>
+            )}
+          </SwipeTabContent>
         )}
       </ScrollView>
 
@@ -554,6 +563,8 @@ export default function AdminAccountsScreen() {
     </View>
   );
 }
+
+const ACCOUNT_FILTER_KEYS = ['all', 'active', 'suspended', 'banned'] as const;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },

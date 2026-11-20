@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Pressable,
   StyleSheet,
@@ -9,14 +10,19 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 const NativeWebView = WebView as unknown as React.ComponentType<any>;
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { CATS, isStoreOpen, TRENTO_CENTER } from '../../lib/constants';
 import { getStores, Store } from '../../lib/data';
+import { LIST_PERF_PROPS, useReducedMotion } from '../../lib/perf';
 import { COLORS, RADIUS, SHADOW } from '../../lib/theme';
+
+const SHEET_OPEN_HEIGHT = 222;
+const SHEET_COLLAPSED_HEIGHT = 56;
+const SHEET_SLIDE_DELTA = SHEET_OPEN_HEIGHT - SHEET_COLLAPSED_HEIGHT;
 
 export default function MapScreen() {
   const router = useRouter();
@@ -28,14 +34,53 @@ export default function MapScreen() {
   const [sheetOpen, setSheetOpen] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [mapActivated, setMapActivated] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const sheetProgress = useRef(new Animated.Value(0)).current; // 0 = open, 1 = collapsed
 
   useEffect(() => {
+    const toValue = sheetOpen ? 0 : 1;
+    if (reduceMotion) {
+      sheetProgress.setValue(toValue);
+      return;
+    }
+    Animated.spring(sheetProgress, {
+      toValue,
+      stiffness: 290,
+      damping: 26,
+      mass: 0.75,
+      useNativeDriver: true,
+    }).start();
+  }, [reduceMotion, sheetOpen, sheetProgress]);
+
+  const sheetTranslateY = sheetProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SHEET_SLIDE_DELTA],
+  });
+  const gpsTranslateY = sheetProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, SHEET_SLIDE_DELTA - 4],
+  });
+  const chevronRotate = sheetProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
+  // Lazy-activate Chromium WebView only once Map is actually visited (saves ~80MB RAM on startup for low-end Android)
+  useFocusEffect(
+    useCallback(() => {
+      setMapActivated(true);
+    }, [])
+  );
+
+  useEffect(() => {
+    if (!mapActivated) return;
     (async () => {
       const list = await getStores();
       setStores(list.filter((s) => s.lat != null && s.lng != null));
       setLoading(false);
     })();
-  }, []);
+  }, [mapActivated]);
 
   const mapHtml = useMemo(() => {
     const markersJson = JSON.stringify(
@@ -127,7 +172,7 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.mapWrap}>
-        {loading ? (
+        {!mapActivated || loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
@@ -150,71 +195,80 @@ export default function MapScreen() {
           />
         )}
 
-        {/* Floating GPS button */}
-        <Pressable
-          onPress={locateMe}
-          style={[styles.gpsBtn, { bottom: sheetOpen ? 236 : 74 }]}
-          accessibilityLabel="Show my location"
+        {/* Floating GPS button (glides smoothly with bottom sheet) */}
+        <Animated.View
+          style={[
+            styles.gpsBtnWrap,
+            { transform: [{ translateY: gpsTranslateY }] },
+          ]}
         >
-          {locating ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
-          ) : (
-            <Ionicons name="locate" size={22} color={COLORS.primary} />
-          )}
-        </Pressable>
+          <Pressable
+            onPress={locateMe}
+            style={({ pressed }) => [styles.gpsBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.94 }] }]}
+            accessibilityLabel="Show my location"
+          >
+            {locating ? (
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            ) : (
+              <Ionicons name="locate" size={22} color={COLORS.primary} />
+            )}
+          </Pressable>
+        </Animated.View>
 
-        {/* Bottom Store Sheet */}
-        <View style={[styles.sheet, { height: sheetOpen ? 222 : 56 }]}>
+        {/* Smooth Animated Bottom Store Sheet */}
+        <Animated.View
+          style={[
+            styles.sheet,
+            { height: SHEET_OPEN_HEIGHT, transform: [{ translateY: sheetTranslateY }] },
+          ]}
+        >
           <Pressable onPress={() => setSheetOpen((v) => !v)} style={styles.sheetHeader}>
             <View style={styles.grabber} />
             <View style={styles.sheetTitleRow}>
               <Text style={styles.sheetTitle}>Stores on the map ({stores.length})</Text>
-              <Ionicons
-                name={sheetOpen ? 'chevron-down' : 'chevron-up'}
-                size={18}
-                color={COLORS.muted}
-              />
+              <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+                <Ionicons name="chevron-down" size={18} color={COLORS.muted} />
+              </Animated.View>
             </View>
           </Pressable>
 
-          {sheetOpen && (
-            <FlatList
-              data={stores}
-              keyExtractor={(s) => s.id}
-              contentContainerStyle={styles.sheetList}
-              renderItem={({ item }) => {
-                const active = selectedId === item.id;
-                const open = isStoreOpen(item);
-                return (
+          <FlatList
+            data={stores}
+            keyExtractor={(s) => s.id}
+            {...LIST_PERF_PROPS}
+            contentContainerStyle={styles.sheetList}
+            renderItem={({ item }) => {
+              const active = selectedId === item.id;
+              const open = isStoreOpen(item);
+              return (
+                <Pressable
+                  onPress={() => focusStore(item)}
+                  style={[styles.sheetRow, active && styles.sheetRowActive]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sheetRowName} numberOfLines={1}>
+                      {item.business_name}
+                    </Text>
+                    <Text style={styles.sheetRowMeta} numberOfLines={1}>
+                      {CATS[item.trade_category] || item.trade_category} • {item.barangay} •{' '}
+                      <Text style={{ color: open ? COLORS.ok : COLORS.muted, fontWeight: '700' }}>
+                        {open ? 'Open' : 'Closed'}
+                      </Text>
+                    </Text>
+                  </View>
                   <Pressable
-                    onPress={() => focusStore(item)}
-                    style={[styles.sheetRow, active && styles.sheetRowActive]}
+                    onPress={() =>
+                      router.push({ pathname: '/store/[trn]', params: { trn: item.trn_code } })
+                    }
+                    style={styles.goBtn}
                   >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.sheetRowName} numberOfLines={1}>
-                        {item.business_name}
-                      </Text>
-                      <Text style={styles.sheetRowMeta} numberOfLines={1}>
-                        {CATS[item.trade_category] || item.trade_category} • {item.barangay} •{' '}
-                        <Text style={{ color: open ? COLORS.ok : COLORS.muted, fontWeight: '700' }}>
-                          {open ? 'Open' : 'Closed'}
-                        </Text>
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() =>
-                        router.push({ pathname: '/store/[trn]', params: { trn: item.trn_code } })
-                      }
-                      style={styles.goBtn}
-                    >
-                      <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
-                    </Pressable>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
                   </Pressable>
-                );
-              }}
-            />
-          )}
-        </View>
+                </Pressable>
+              );
+            }}
+          />
+        </Animated.View>
       </View>
     </View>
   );
@@ -243,9 +297,12 @@ const styles = StyleSheet.create({
   mapWrap: { flex: 1, position: 'relative' },
   webview: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  gpsBtn: {
+  gpsBtnWrap: {
     position: 'absolute',
     right: 14,
+    bottom: 236,
+  },
+  gpsBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,

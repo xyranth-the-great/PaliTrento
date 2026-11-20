@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { Animated, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../context/NotificationContext';
@@ -20,6 +20,47 @@ export function NotificationToast() {
   const slide = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
+  const animateOutAndDismiss = useCallback(
+    (after?: () => void) => {
+      Animated.parallel([
+        Animated.timing(slide, { toValue: -120, duration: 170, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+      ]).start(() => {
+        dismissToast();
+        if (after) after();
+      });
+    },
+    [dismissToast, opacity, slide]
+  );
+
+  const dismissRef = useRef(animateOutAndDismiss);
+  dismissRef.current = animateOutAndDismiss;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_evt, g) => g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx),
+        onPanResponderMove: (_evt, g) => {
+          if (g.dy < 0) {
+            slide.setValue(g.dy);
+          }
+        },
+        onPanResponderRelease: (_evt, g) => {
+          if (g.dy < -28 || g.vy < -0.5) {
+            dismissRef.current();
+          } else {
+            Animated.spring(slide, {
+              toValue: 0,
+              useNativeDriver: true,
+              speed: 22,
+              bounciness: 6,
+            }).start();
+          }
+        },
+      }),
+    [slide]
+  );
+
   useEffect(() => {
     if (activeToast) {
       slide.setValue(-100);
@@ -37,13 +78,13 @@ export function NotificationToast() {
 
   const handlePress = () => {
     const fn = activeToast.onPress;
-    dismissToast();
-    if (fn) fn();
+    animateOutAndDismiss(fn);
   };
 
   return (
     <Animated.View
       pointerEvents="box-none"
+      {...panResponder.panHandlers}
       style={[
         styles.wrap,
         { top: insets.top + 8, opacity, transform: [{ translateY: slide }] },
@@ -74,7 +115,7 @@ export function NotificationToast() {
         <Pressable
           onPress={(e) => {
             e.stopPropagation();
-            dismissToast();
+            animateOutAndDismiss();
           }}
           hitSlop={10}
           style={styles.closeBtn}

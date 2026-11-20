@@ -1,9 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import {
+  ensureDefaultMobilePushEnabled,
   fetchAllNotifications,
   getMessageNotificationOrders,
   getNotificationPreferences,
@@ -13,10 +15,12 @@ import {
   resolveAdvisoryAction,
 } from '../lib/notifications';
 import {
+  getPushPermissionStatus,
   initNativeNotifications,
   presentLocalPushNotification,
   PushRegistrationResult,
   registerDevicePushToken,
+  requestPushPermission,
   resolveNotificationTapRoute,
   saveDevicePushToken,
   syncAppBadgeCount,
@@ -60,7 +64,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeToast, setActiveToast] = useState<InAppToast | null>(null);
   const [pushState, setPushState] = useState<PushRegistrationResult>(DEFAULT_PUSH_STATE);
+  const pushRegisteredRef = useRef(false);
+  pushRegisteredRef.current = pushState.status === 'registered';
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seenWarningBucketsRef = useRef<Set<string>>(new Set());
 
   const userId = session?.user?.id || null;
   const isBusinessOwner = (profile?.role ?? session?.user?.user_metadata?.role) === 'business_owner';
@@ -84,6 +91,79 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       dismissTimerRef.current = null;
     }, 6500);
   }, []);
+
+  const deliverAccountWarning = useCallback(
+    async (params: { id?: string | null; reason: string; actorName?: string | null; body?: string }) => {
+      const cleanReason = params.reason.trim();
+      const bucket = `${cleanReason.toLowerCase().slice(0, 64)}:${Math.floor(Date.now() / 60_000)}`;
+      if (params.id && seenWarningBucketsRef.current.has(`id:${params.id}`)) return;
+      if (seenWarningBucketsRef.current.has(bucket)) return;
+      if (params.id) seenWarningBucketsRef.current.add(`id:${params.id}`);
+      seenWarningBucketsRef.current.add(bucket);
+
+      const title = 'Account Warning';
+      const body =
+        params.body ||
+        (params.actorName ? `Warning from ${params.actorName}: ${cleanReason}` : cleanReason || 'You received an account warning from an administrator.');
+
+      if (userId && params.id) {
+        AsyncStorage.setItem(`palitrento_last_seen_warning_id_${userId}`, params.id).catch(() => {});
+      }
+
+      showToast({
+        tag: 'ACCOUNT WARNING',
+        title,
+        body,
+        tone: 'bad',
+        onPress: () => router.push('/(tabs)/account'),
+      });
+
+      // Local fallback when remote FCM is not registered on this device (FCM already delivers the OS alert when registered)
+      if (!pushRegisteredRef.current) {
+        presentLocalPushNotification({
+          title,
+          body,
+          channelId: 'moderation',
+          data: { pathname: '/(tabs)/account' },
+        });
+      }
+    },
+    [router, showToast, userId]
+  );
+
+  const checkUnseenWarnings = useCallback(async () => {
+    if (!enabled || !userId) return;
+    try {
+      const { data } = await supabase
+        .from('account_moderation_actions')
+        .select('id, reason, created_at')
+        .eq('target_user_id', userId)
+        .eq('action', 'warn')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const latest = data?.[0];
+      if (!latest?.id) return;
+
+      const storageKey = `palitrento_last_seen_warning_id_${userId}`;
+      const lastSeenId = await AsyncStorage.getItem(storageKey);
+      if (lastSeenId === latest.id) return;
+
+      // On very first baseline check, record existing old warnings (> 10 min old) without re-alerting
+      const ageMs = Date.now() - Date.parse(latest.created_at ?? '');
+      if (!lastSeenId && Number.isFinite(ageMs) && ageMs > 10 * 60_000) {
+        await AsyncStorage.setItem(storageKey, latest.id);
+        return;
+      }
+
+      await AsyncStorage.setItem(storageKey, latest.id);
+      await deliverAccountWarning({
+        id: latest.id,
+        reason: latest.reason || 'Please review your account warning.',
+      });
+    } catch {
+      // Non-fatal on offline / transient errors
+    }
+  }, [deliverAccountWarning, enabled, userId]);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!enabled || !userId) {
@@ -121,7 +201,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       return idle;
     }
 
-    const prefs = await getNotificationPreferences(userId);
+    const prefs = await ensureDefaultMobilePushEnabled(userId);
     if (!prefs.push) {
       const off: PushRegistrationResult = {
         status: 'disabled',
@@ -130,6 +210,17 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       };
       setPushState(off);
       return off;
+    }
+
+    // Automatically request Android notification permission once on first signed-in launch
+    const permStatus = await getPushPermissionStatus();
+    if (permStatus === 'undetermined') {
+      const askedKey = 'palitrento_push_perm_asked_v1';
+      const alreadyAsked = await AsyncStorage.getItem(askedKey).catch(() => null);
+      if (alreadyAsked !== '1') {
+        await AsyncStorage.setItem(askedKey, '1').catch(() => {});
+        await requestPushPermission();
+      }
     }
 
     const res = await registerDevicePushToken(userId);
@@ -142,11 +233,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     initNativeNotifications();
   }, []);
 
-  // Sync unread count + FCM device token registration on auth change
+  // Sync unread count, warning catch-up + FCM device token registration on auth change
   useEffect(() => {
     refreshUnreadCount();
     refreshPushRegistration();
-  }, [refreshPushRegistration, refreshUnreadCount]);
+    checkUnseenWarnings();
+  }, [checkUnseenWarnings, refreshPushRegistration, refreshUnreadCount]);
 
   // Listen for native notification taps (foreground, background, and cold-start)
   useEffect(() => {
@@ -213,14 +305,25 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
   }, [enabled, refreshUnreadCount, router, userId]);
 
-  // Refresh unread count when app returns to foreground
+  // Refresh unread count & catch up any unseen warnings when app returns to foreground (plus lightweight 20s fallback poll while active)
   useEffect(() => {
     if (!enabled) return;
     const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') refreshUnreadCount();
+      if (state === 'active') {
+        refreshUnreadCount();
+        checkUnseenWarnings();
+      }
     });
-    return () => sub.remove();
-  }, [enabled, refreshUnreadCount]);
+    const timer = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        checkUnseenWarnings();
+      }
+    }, 20_000);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
+  }, [checkUnseenWarnings, enabled, refreshUnreadCount]);
 
   // Live Supabase Realtime listeners (advisories, order status, reservations, chat messages)
   useEffect(() => {
@@ -245,6 +348,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             if (adv.expires_at && Date.parse(adv.expires_at) <= Date.now()) return;
 
             refreshUnreadCount();
+
+            const isAccountWarning =
+              adv.recipient_id === userId &&
+              (String(adv.title || '').toLowerCase().includes('warning') ||
+                String(adv.body || '').toLowerCase().startsWith('warning from'));
+
+            if (isAccountWarning) {
+              const reasonText = String(adv.body || adv.title || '').replace(/^Warning from [^:]+:\s*/i, '');
+              await deliverAccountWarning({
+                reason: reasonText,
+                body: adv.body || adv.title || 'You received an account warning.',
+              });
+              return;
+            }
 
             const prefs = await getNotificationPreferences(userId);
             if (adv.category === 'PRICE_CAP' && !prefs.price_caps) return;
@@ -280,7 +397,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                   : router.push('/notifications'),
             });
 
-            if (prefs.push) {
+            if (prefs.push && !pushRegisteredRef.current) {
               presentLocalPushNotification({
                 title,
                 body,
@@ -294,6 +411,31 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         )
         .subscribe();
       channels.push(advisoryCh);
+
+      // 1b. Direct account moderation warnings (works even if advisories realtime is filtered)
+      const modWarnCh = supabase
+        .channel(`rn-mod-warn-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'account_moderation_actions',
+            filter: `target_user_id=eq.${userId}`,
+          },
+          async (payload) => {
+            if (cancelled) return;
+            const row = payload.new as any;
+            if (!row || row.action !== 'warn') return;
+            refreshUnreadCount();
+            await deliverAccountWarning({
+              id: row.id,
+              reason: row.reason || 'Please review your account warning.',
+            });
+          }
+        )
+        .subscribe();
+      channels.push(modWarnCh);
 
       // 2. Order status changes (live toast + native push + bell refresh)
       const orderStatusCh = supabase
@@ -355,7 +497,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 router.push({ pathname: '/(tabs)/orders', params: { orderId: order.id } }),
             });
 
-            if (prefs.push || mandatory) {
+            if ((prefs.push || mandatory) && !pushRegisteredRef.current) {
               presentLocalPushNotification({
                 title,
                 body,
@@ -410,7 +552,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                     tone: 'info',
                     onPress: () => router.push('/(tabs)/store'),
                   });
-                  if (prefs.push) {
+                  if (prefs.push && !pushRegisteredRef.current) {
                     presentLocalPushNotification({
                       title,
                       body,
@@ -462,7 +604,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 onPress: () =>
                   router.push({ pathname: '/chat/[orderId]', params: { orderId: msg.order_id } }),
               });
-              if (prefs.push) {
+              if (prefs.push && !pushRegisteredRef.current) {
                 presentLocalPushNotification({
                   title,
                   body,
@@ -483,7 +625,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         supabase.removeChannel(ch);
       });
     };
-  }, [enabled, isBusinessOwner, refreshUnreadCount, router, showToast, userId]);
+  }, [deliverAccountWarning, enabled, isBusinessOwner, refreshUnreadCount, router, showToast, userId]);
 
   useEffect(() => {
     return () => {
@@ -491,18 +633,29 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     };
   }, []);
 
+  const contextValue = useMemo<NotificationContextValue>(
+    () => ({
+      unreadCount,
+      refreshUnreadCount,
+      activeToast,
+      showToast,
+      dismissToast,
+      pushState,
+      refreshPushRegistration,
+    }),
+    [
+      unreadCount,
+      refreshUnreadCount,
+      activeToast,
+      showToast,
+      dismissToast,
+      pushState,
+      refreshPushRegistration,
+    ]
+  );
+
   return (
-    <NotificationContext.Provider
-      value={{
-        unreadCount,
-        refreshUnreadCount,
-        activeToast,
-        showToast,
-        dismissToast,
-        pushState,
-        refreshPushRegistration,
-      }}
-    >
+    <NotificationContext.Provider value={contextValue}>
       {children}
     </NotificationContext.Provider>
   );

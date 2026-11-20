@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui';
+import { FadeInView } from '../components/FadeInView';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../lib/theme';
 
 function formatDate(iso?: string | null) {
@@ -30,7 +31,7 @@ export default function AuthStatusScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ email?: string }>();
-  const { session, profile, restriction, signOut, refreshProfile } = useAuth();
+  const { session, profile, restriction, restrictedEmail, clearRestriction, signOut, refreshProfile } = useAuth();
   const [, tick] = useState(0);
 
   // Live countdown for temporary suspensions
@@ -40,25 +41,27 @@ export default function AuthStatusScreen() {
   }, []);
 
   const kind = restriction?.kind ?? 'restricted';
-  const email = profile?.email || session?.user?.email || params.email || '';
+  const email = restrictedEmail || profile?.email || session?.user?.email || params.email || '';
   const until = restriction?.until;
   const remaining = timeLeft(until);
 
   const meta =
     kind === 'banned'
-      ? { icon: 'ban-outline' as const, color: COLORS.bad, bg: COLORS.badBg, title: 'Account banned', text: 'This account can no longer use PaliTrento.' }
+      ? { icon: 'ban-outline' as const, color: COLORS.bad, bg: COLORS.badBg, title: 'Account banned', text: 'You have been logged out. This account can no longer use PaliTrento.' }
       : kind === 'suspended'
-        ? { icon: 'time-outline' as const, color: COLORS.warn, bg: COLORS.warnBg, title: 'Account suspended', text: until ? 'Your access is paused until the date below.' : 'Your access is paused until an admin restores it.' }
+        ? { icon: 'time-outline' as const, color: COLORS.warn, bg: COLORS.warnBg, title: 'Account suspended', text: until ? 'You have been logged out. Your access is paused until the date below.' : 'You have been logged out. Your access is paused until an admin restores it.' }
         : { icon: 'lock-closed-outline' as const, color: COLORS.warn, bg: COLORS.warnBg, title: 'Sign-in restricted', text: 'This account is currently restricted. Contact PaliTrento support for help.' };
 
   const leave = async () => {
-    await signOut();
+    clearRestriction();
+    if (session) await signOut();
     router.replace('/(auth)/login');
   };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
       <StatusBar style="dark" />
+      <FadeInView offsetY={16} duration={260}>
       <View style={styles.card}>
         <View style={[styles.iconRing, { backgroundColor: meta.bg }]}>
           <Ionicons name={meta.icon} size={40} color={meta.color} />
@@ -76,6 +79,7 @@ export default function AuthStatusScreen() {
 
         <Text style={styles.help}>If you think this is a mistake, contact the PaliTrento team through the Help & Support page on palitrento.online.</Text>
       </View>
+      </FadeInView>
 
       <View style={{ gap: 10 }}>
         {kind === 'suspended' && session ? (

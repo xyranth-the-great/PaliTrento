@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { AccountWarning, getAccountWarnings } from '../../lib/seller';
 import { StatusBarCover } from '../../components/ui';
+import { FadeInView } from '../../components/FadeInView';
 import { PremiumMembershipBanner, ProPill } from '../../components/premium';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
@@ -77,6 +78,7 @@ export default function AccountScreen() {
         </View>
 
         {/* Flagship Gradient Profile Card */}
+        <FadeInView offsetY={10} duration={220}>
         <LinearGradient
           colors={['#143520', '#1E4E30']}
           start={{ x: 0, y: 0 }}
@@ -87,7 +89,7 @@ export default function AccountScreen() {
           <View style={styles.profileRow}>
             <Pressable onPress={() => router.push('/settings')} style={styles.avatarTouch}>
               {profile?.avatar_url ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+                <Image source={{ uri: profile.avatar_url }} style={styles.avatar} fadeDuration={0} />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
                   <Text style={styles.avatarInitials}>{initials || 'PT'}</Text>
@@ -110,15 +112,18 @@ export default function AccountScreen() {
             </View>
           </View>
         </LinearGradient>
+        </FadeInView>
 
         {profile?.is_premium === true ? (
-          <PremiumMembershipBanner
-            currentPeriodEnd={profile.premium_details?.current_period_end ?? null}
-            onManage={() =>
-              router.push({ pathname: '/(tabs)/store', params: { tab: 'subscription' } })
-            }
-            style={{ marginTop: 14 }}
-          />
+          <FadeInView delay={50} offsetY={12} duration={240}>
+            <PremiumMembershipBanner
+              currentPeriodEnd={profile.premium_details?.current_period_end ?? null}
+              onManage={() =>
+                router.push({ pathname: '/(tabs)/store', params: { tab: 'subscription' } })
+              }
+              style={{ marginTop: 14 }}
+            />
+          </FadeInView>
         ) : null}
 
         {warnings.length > 0 && (

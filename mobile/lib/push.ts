@@ -5,7 +5,7 @@ import { resolveAdvisoryAction } from './notifications';
 
 export const FCM_TOKEN_STORAGE_KEY = 'palitrento_fcm_token';
 
-export type PushChannelId = 'default' | 'orders' | 'messages' | 'advisories';
+export type PushChannelId = 'default' | 'orders' | 'messages' | 'advisories' | 'moderation';
 
 export type PushPermissionState = 'granted' | 'denied' | 'undetermined' | 'web';
 
@@ -92,6 +92,17 @@ export async function initNativeNotifications(): Promise<void> {
           enableVibrate: true,
           showBadge: true,
         }),
+        Notifications.setNotificationChannelAsync('moderation', {
+          name: 'Account alerts & warnings',
+          description: 'Important account warnings, suspensions, and moderation notices',
+          importance: imp.MAX,
+          sound: 'default',
+          vibrationPattern: [0, 320, 160, 320],
+          lightColor: '#DC2626',
+          enableLights: true,
+          enableVibrate: true,
+          showBadge: true,
+        }),
       ]);
     }
   } catch (e) {
@@ -171,10 +182,11 @@ export async function presentLocalPushNotification(params: {
 }
 
 /**
- * Sends an immediate local Android test notification so the user can verify
- * status-bar alerts, sound, and tap-to-open routing on device.
+ * Sends a test notification so the user can verify status-bar alerts, sound,
+ * and tap-to-open routing. Uses remote Firebase FCM when available, falling back
+ * to a local native notification if offline or FCM backend is not deployed yet.
  */
-export async function sendTestPushNotification(): Promise<{ ok: boolean; error?: string }> {
+export async function sendTestPushNotification(): Promise<{ ok: boolean; error?: string; remote?: boolean }> {
   if (Platform.OS === 'web') {
     return { ok: false, error: 'Native push test is available on Android devices.' };
   }
@@ -185,6 +197,19 @@ export async function sendTestPushNotification(): Promise<{ ok: boolean; error?:
       error: 'Notification permission is not granted. Enable notifications in Android Settings.',
     };
   }
+
+  // Try real remote FCM round-trip first so background push delivery is verified end-to-end
+  try {
+    const { data, error } = await supabase.functions.invoke('send-mobile-push', {
+      body: { type: 'test_self' },
+    });
+    if (!error && data?.ok && Number(data?.sent || 0) > 0) {
+      return { ok: true, remote: true };
+    }
+  } catch {
+    // Fall back to local notification if offline or Edge Function not deployed yet
+  }
+
   const sent = await presentLocalPushNotification({
     title: 'PaliTrento notifications are active',
     body: 'Tap this notification to open your Notifications inbox.',
@@ -192,7 +217,7 @@ export async function sendTestPushNotification(): Promise<{ ok: boolean; error?:
     data: { pathname: '/notifications', source: 'test' },
   });
   return sent
-    ? { ok: true }
+    ? { ok: true, remote: false }
     : { ok: false, error: 'Could not schedule test notification.' };
 }
 
@@ -328,33 +353,68 @@ export function resolveNotificationTapRoute(
     return { pathname: '/notifications' };
   }
 
-  if (typeof data.pathname === 'string' && data.pathname.startsWith('/')) {
-    const rawParams =
-      data.params && typeof data.params === 'object'
-        ? Object.fromEntries(
-            Object.entries(data.params as Record<string, unknown>)
-              .filter(([, v]) => v != null)
-              .map(([k, v]) => [k, String(v)])
-          )
-        : undefined;
-    return { pathname: data.pathname, params: rawParams };
-  }
-
-  if (typeof data.orderId === 'string' && data.orderId) {
-    if (data.type === 'message') {
-      return { pathname: '/chat/[orderId]', params: { orderId: data.orderId } };
+  // If `data.body` is a JSON-encoded object (raw FCM payload), merge it in
+  let merged: Record<string, unknown> = data;
+  if (typeof data.body === 'string' && data.body.trim().startsWith('{')) {
+    try {
+      const parsedBody = JSON.parse(data.body);
+      if (parsedBody && typeof parsedBody === 'object') {
+        merged = { ...data, ...(parsedBody as Record<string, unknown>) };
+      }
+    } catch {
+      // ignore non-JSON body
     }
-    return { pathname: '/(tabs)/orders', params: { orderId: data.orderId } };
   }
 
-  const url =
-    typeof data.action_url === 'string'
-      ? data.action_url
-      : typeof data.url === 'string'
-        ? data.url
+  // Check action_url first if pathname is generic /notifications
+  const actionUrl =
+    typeof merged.action_url === 'string'
+      ? merged.action_url
+      : typeof merged.url === 'string'
+        ? merged.url
         : null;
-  if (url) {
-    const mapped = resolveAdvisoryAction(url);
+  if (actionUrl && (!merged.pathname || merged.pathname === '/notifications')) {
+    const mapped = resolveAdvisoryAction(actionUrl);
+    if (mapped) return mapped;
+  }
+
+  if (typeof merged.pathname === 'string' && merged.pathname.startsWith('/')) {
+    let parsedParams: Record<string, unknown> | undefined;
+    if (merged.params && typeof merged.params === 'object') {
+      parsedParams = merged.params as Record<string, unknown>;
+    } else if (typeof merged.params === 'string' && merged.params.trim().startsWith('{')) {
+      try {
+        parsedParams = JSON.parse(merged.params) as Record<string, unknown>;
+      } catch {
+        // ignore
+      }
+    }
+
+    const paramsOut: Record<string, string> = {};
+    if (parsedParams) {
+      for (const [k, v] of Object.entries(parsedParams)) {
+        if (v != null) paramsOut[k] = String(v);
+      }
+    }
+    if (typeof merged.orderId === 'string' && merged.orderId && !paramsOut.orderId) {
+      paramsOut.orderId = merged.orderId;
+    }
+
+    return {
+      pathname: merged.pathname,
+      params: Object.keys(paramsOut).length > 0 ? paramsOut : undefined,
+    };
+  }
+
+  if (typeof merged.orderId === 'string' && merged.orderId) {
+    if (merged.type === 'message') {
+      return { pathname: '/chat/[orderId]', params: { orderId: merged.orderId } };
+    }
+    return { pathname: '/(tabs)/orders', params: { orderId: merged.orderId } };
+  }
+
+  if (actionUrl) {
+    const mapped = resolveAdvisoryAction(actionUrl);
     if (mapped) return mapped;
   }
 

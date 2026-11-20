@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import {
   DEFAULT_NOTIFICATION_PREFS,
+  MOBILE_PUSH_DEFAULT_APPLIED_PREFIX,
+  MOBILE_PUSH_OPTOUT_PREFIX,
   NotificationPreferences,
 } from './notifications';
 
@@ -29,19 +31,25 @@ export const DEFAULT_PRIVACY_PREFS: PrivacyPreferences = {
 // ---------------------------------------------------------------------------
 export async function loadNotificationPrefs(userId: string): Promise<NotificationPreferences> {
   try {
-    const { data, error } = await supabase
-      .from('notification_preferences')
-      .select('orders, messages, price_caps, store_announcements, push')
-      .eq('id', userId)
-      .maybeSingle();
+    const [optOut, applied, dbRes] = await Promise.all([
+      AsyncStorage.getItem(`${MOBILE_PUSH_OPTOUT_PREFIX}${userId}`).catch(() => null),
+      AsyncStorage.getItem(`${MOBILE_PUSH_DEFAULT_APPLIED_PREFIX}${userId}`).catch(() => null),
+      supabase
+        .from('notification_preferences')
+        .select('orders, messages, price_caps, store_announcements, push')
+        .eq('id', userId)
+        .maybeSingle(),
+    ]);
+    const needsMobileDefault = optOut !== '1' && applied !== '1';
 
-    if (!error && data) {
+    if (!dbRes.error && dbRes.data) {
+      const data = dbRes.data;
       const prefs: NotificationPreferences = {
         orders: data.orders ?? true,
         messages: data.messages ?? true,
-        price_caps: data.price_caps ?? false,
-        store_announcements: data.store_announcements ?? false,
-        push: data.push ?? false,
+        price_caps: needsMobileDefault ? true : (data.price_caps ?? true),
+        store_announcements: needsMobileDefault ? true : (data.store_announcements ?? true),
+        push: needsMobileDefault ? true : (data.push ?? true),
       };
       await AsyncStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(prefs));
       return prefs;
@@ -57,9 +65,9 @@ export async function loadNotificationPrefs(userId: string): Promise<Notificatio
       return {
         orders: parsed.orders ?? true,
         messages: parsed.messages ?? true,
-        price_caps: parsed.price_caps ?? false,
-        store_announcements: parsed.store_announcements ?? false,
-        push: parsed.push ?? false,
+        price_caps: parsed.price_caps ?? true,
+        store_announcements: parsed.store_announcements ?? true,
+        push: parsed.push ?? true,
       };
     }
   } catch {
@@ -74,6 +82,12 @@ export async function saveNotificationPrefs(
   prefs: NotificationPreferences
 ): Promise<void> {
   await AsyncStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(prefs));
+  await AsyncStorage.setItem(`${MOBILE_PUSH_DEFAULT_APPLIED_PREFIX}${userId}`, '1');
+  if (prefs.push) {
+    await AsyncStorage.removeItem(`${MOBILE_PUSH_OPTOUT_PREFIX}${userId}`);
+  } else {
+    await AsyncStorage.setItem(`${MOBILE_PUSH_OPTOUT_PREFIX}${userId}`, '1');
+  }
 
   const { error } = await supabase
     .from('notification_preferences')

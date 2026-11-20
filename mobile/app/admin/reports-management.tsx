@@ -29,9 +29,11 @@ import {
   REPORT_STATUS_META,
 } from '../../lib/admin';
 import { Button, Card, Chip, EmptyState, ScreenHeader, StatusPill } from '../../components/ui';
+import { SwipeTabContent } from '../../components/SwipeTabContent';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../../lib/theme';
 
 type ReportTab = 'business' | 'product';
+const REPORT_TAB_KEYS: readonly ReportTab[] = ['business', 'product'];
 
 export default function AdminReportsManagementScreen() {
   const insets = useSafeAreaInsets();
@@ -262,14 +264,23 @@ export default function AdminReportsManagementScreen() {
             text={errorMsg}
             action={<Button title="Retry" variant="soft" small onPress={load} style={{ marginTop: 8 }} />}
           />
-        ) : activeList.length === 0 ? (
-          <EmptyState
-            icon="flag-outline"
-            title="No reports found"
-            text="No user reports match your current filters."
-          />
         ) : (
-          <View style={{ gap: 10 }}>
+          <SwipeTabContent
+            activeKey={tab}
+            keys={REPORT_TAB_KEYS}
+            onChangeKey={(k) => {
+              setTab(k as ReportTab);
+              setReasonFilter('');
+            }}
+          >
+            {activeList.length === 0 ? (
+              <EmptyState
+                icon="flag-outline"
+                title="No reports found"
+                text="No user reports match your current filters."
+              />
+            ) : (
+              <View style={{ gap: 10 }}>
             {tab === 'business'
               ? filteredBusiness.map((r) => {
                   const st = REPORT_STATUS_META[r.status] || { label: r.status, tone: 'info' as const };
@@ -343,7 +354,9 @@ export default function AdminReportsManagementScreen() {
                     </Pressable>
                   );
                 })}
-          </View>
+              </View>
+            )}
+          </SwipeTabContent>
         )}
       </ScrollView>
 

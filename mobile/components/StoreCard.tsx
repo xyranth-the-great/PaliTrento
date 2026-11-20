@@ -13,7 +13,7 @@ interface StoreCardProps {
   onPress: () => void;
 }
 
-export function StoreCard({ store, variant = 'carousel', onPress }: StoreCardProps) {
+function StoreCardBase({ store, variant = 'carousel', onPress }: StoreCardProps) {
   const open = isStoreOpen(store);
   const categoryLabel = CATS[store.trade_category] || store.trade_category;
   const purok =
@@ -26,7 +26,7 @@ export function StoreCard({ store, variant = 'carousel', onPress }: StoreCardPro
       <View style={styles.rowInner}>
         <View style={styles.rowImgWrap}>
           {store.storefront_image_url ? (
-            <Image source={{ uri: store.storefront_image_url }} style={styles.rowImg} />
+            <Image source={{ uri: store.storefront_image_url }} style={styles.rowImg} fadeDuration={0} />
           ) : (
             <LinearGradient
               colors={['#EAF3ED', '#D7E8DD']}
@@ -102,7 +102,7 @@ export function StoreCard({ store, variant = 'carousel', onPress }: StoreCardPro
     <>
       <View style={styles.carouselMedia}>
         {store.storefront_image_url ? (
-          <Image source={{ uri: store.storefront_image_url }} style={styles.carouselImg} />
+          <Image source={{ uri: store.storefront_image_url }} style={styles.carouselImg} fadeDuration={0} />
         ) : (
           <LinearGradient
             colors={['#1E4D31', '#143520']}
@@ -168,6 +168,11 @@ export function StoreCard({ store, variant = 'carousel', onPress }: StoreCardPro
     </Pressable>
   );
 }
+
+export const StoreCard = React.memo(
+  StoreCardBase,
+  (prev, next) => prev.store === next.store && prev.variant === next.variant
+);
 
 const styles = StyleSheet.create({
   pressed: {

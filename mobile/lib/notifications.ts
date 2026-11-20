@@ -1,4 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+
+export const MOBILE_PUSH_OPTOUT_PREFIX = 'palitrento_mobile_push_optout_';
+export const MOBILE_PUSH_DEFAULT_APPLIED_PREFIX = 'palitrento_mobile_push_default_v1_';
 
 export type NotificationType = 'advisory' | 'message' | 'reservation' | 'order_status';
 
@@ -13,9 +17,9 @@ export interface NotificationPreferences {
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   orders: true,
   messages: true,
-  price_caps: false,
-  store_announcements: false,
-  push: false,
+  price_caps: true,
+  store_announcements: true,
+  push: true,
 };
 
 export interface UnifiedNotification {
@@ -110,24 +114,72 @@ export function getPickupCountdown(
 
 export async function getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
   try {
-    const { data, error } = await supabase
-      .from('notification_preferences')
-      .select('orders, messages, price_caps, store_announcements, push')
-      .eq('id', userId)
-      .maybeSingle();
-    if (!error && data) {
+    const [optOut, defaultApplied, dbRes] = await Promise.all([
+      AsyncStorage.getItem(`${MOBILE_PUSH_OPTOUT_PREFIX}${userId}`).catch(() => null),
+      AsyncStorage.getItem(`${MOBILE_PUSH_DEFAULT_APPLIED_PREFIX}${userId}`).catch(() => null),
+      supabase
+        .from('notification_preferences')
+        .select('orders, messages, price_caps, store_announcements, push')
+        .eq('id', userId)
+        .maybeSingle(),
+    ]);
+    const userOptedOutOnMobile = optOut === '1';
+    const needsMobileDefault = !userOptedOutOnMobile && defaultApplied !== '1';
+
+    if (!dbRes.error && dbRes.data) {
+      const data = dbRes.data;
       return {
         orders: data.orders !== false,
         messages: data.messages !== false,
-        price_caps: Boolean(data.price_caps),
-        store_announcements: Boolean(data.store_announcements),
-        push: Boolean(data.push),
+        price_caps: needsMobileDefault ? true : data.price_caps !== false,
+        store_announcements: needsMobileDefault ? true : data.store_announcements !== false,
+        push: needsMobileDefault ? true : data.push !== false,
       };
     }
+    if (userOptedOutOnMobile) {
+      return { ...DEFAULT_NOTIFICATION_PREFS, push: false };
+    }
   } catch {
-    // fallback to defaults
+    // fallback to defaults (push enabled by default on mobile)
   }
   return { ...DEFAULT_NOTIFICATION_PREFS };
+}
+
+/**
+ * Ensures every mobile user has push notifications enabled by default once,
+ * while respecting any explicit opt-out toggled later in Settings.
+ */
+export async function ensureDefaultMobilePushEnabled(userId: string): Promise<NotificationPreferences> {
+  const optOutKey = `${MOBILE_PUSH_OPTOUT_PREFIX}${userId}`;
+  const appliedKey = `${MOBILE_PUSH_DEFAULT_APPLIED_PREFIX}${userId}`;
+  try {
+    const [optOut, applied] = await Promise.all([
+      AsyncStorage.getItem(optOutKey),
+      AsyncStorage.getItem(appliedKey),
+    ]);
+    if (optOut === '1' || applied === '1') {
+      return getNotificationPreferences(userId);
+    }
+
+    const prefs: NotificationPreferences = { ...DEFAULT_NOTIFICATION_PREFS };
+    await AsyncStorage.setItem(appliedKey, '1');
+    await AsyncStorage.setItem('palitrento_notifications', JSON.stringify(prefs));
+    await supabase.from('notification_preferences').upsert(
+      {
+        id: userId,
+        orders: prefs.orders,
+        messages: prefs.messages,
+        price_caps: prefs.price_caps,
+        store_announcements: prefs.store_announcements,
+        push: true,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+    return prefs;
+  } catch {
+    return getNotificationPreferences(userId);
+  }
 }
 
 export async function getOwnedStoreIds(userId: string): Promise<string[]> {

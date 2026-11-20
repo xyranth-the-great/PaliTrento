@@ -13,7 +13,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { SwipeTabContent } from '../../components/SwipeTabContent';
 import { useAuth } from '../../context/AuthContext';
+import { LIST_PERF_PROPS } from '../../lib/perf';
 import { getMyOrders, OrderRecord } from '../../lib/data';
 import { getPickupCountdown } from '../../lib/notifications';
 import { supabase } from '../../lib/supabase';
@@ -158,11 +160,18 @@ export default function OrdersScreen() {
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listPad}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        <SwipeTabContent
+          activeKey={filter}
+          keys={ORDER_FILTER_KEYS}
+          onChangeKey={(k) => setFilter(k as FilterKey)}
+          style={{ flex: 1 }}
+        >
+          <FlatList
+            data={filtered}
+            keyExtractor={extractOrderId}
+            {...LIST_PERF_PROPS}
+            contentContainerStyle={styles.listPad}
+            ItemSeparatorComponent={OrderListSeparator}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -295,11 +304,16 @@ export default function OrdersScreen() {
               </View>
             );
           }}
-        />
+          />
+        </SwipeTabContent>
       )}
     </View>
   );
 }
+
+const ORDER_FILTER_KEYS = ['all', 'active', 'done', 'cancelled'] as const;
+const extractOrderId = (item: { id: string }) => item.id;
+const OrderListSeparator = () => <View style={{ height: 10 }} />;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: COLORS.bg },

@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Modal,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Platform,
   Pressable,
   RefreshControl,
@@ -20,6 +23,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import {
   Button,
   Card,
@@ -30,6 +34,16 @@ import {
   SectionLabel,
   StatusPill,
 } from '../components/ui';
+import { SwipeTabContent } from '../components/SwipeTabContent';
+import {
+  AnimatedMessageBubble,
+  AnimatedSendButton,
+  ChatDateSeparator,
+  ChatLoadingSkeleton,
+  formatChatDateLabel,
+  isSameCalendarDay,
+  ScrollToBottomFab,
+} from '../components/ChatAnimations';
 import {
   createSupportTicket,
   getMySupportTickets,
@@ -40,12 +54,14 @@ import {
   SUPPORT_CATEGORY_MAP,
   SUPPORT_FAQS,
   SUPPORT_STATUS,
+  SupportMessage,
   SupportTicket,
   uploadSupportAttachment,
 } from '../lib/support';
 import { COLORS, FONTS, RADIUS, SHADOW } from '../lib/theme';
 
 type TabKey = 'tickets' | 'new' | 'faq';
+const SUPPORT_TABS: readonly TabKey[] = ['tickets', 'new', 'faq'];
 
 export default function SupportScreen() {
   const insets = useSafeAreaInsets();
@@ -90,7 +106,102 @@ export default function SupportScreen() {
   const [activeTicket, setActiveTicket] = useState<SupportTicket | null>(null);
   const [loadingThread, setLoadingThread] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [replyFocused, setReplyFocused] = useState(false);
   const [sendingReply, setSendingReply] = useState(false);
+  const [showThreadFab, setShowThreadFab] = useState(false);
+  const [unreadThreadBelow, setUnreadThreadBelow] = useState(0);
+
+  const threadScrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const threadNearBottomRef = useRef(true);
+  const animatedSupportIdsRef = useRef<Set<string>>(new Set());
+
+  const scrollThreadToBottom = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      threadScrollRef.current?.scrollToEnd({ animated });
+    });
+    setShowThreadFab(false);
+    setUnreadThreadBelow(0);
+    threadNearBottomRef.current = true;
+  }, []);
+
+  const handleThreadScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const dist = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    const near = dist < 80;
+    threadNearBottomRef.current = near;
+    if (near) {
+      setShowThreadFab(false);
+      setUnreadThreadBelow(0);
+    } else if (contentSize.height > layoutMeasurement.height + 100) {
+      setShowThreadFab(true);
+    }
+  }, []);
+
+  // Auto-scroll support thread smoothly when keyboard opens
+  useEffect(() => {
+    if (!activeTicket?.id) return;
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (threadNearBottomRef.current) {
+        setTimeout(() => threadScrollRef.current?.scrollToEnd({ animated: true }), 60);
+      }
+    });
+    return () => sub.remove();
+  }, [activeTicket?.id]);
+
+  // Live Realtime replies while support ticket modal is open
+  useEffect(() => {
+    const ticketId = activeTicket?.id;
+    if (!ticketId || !userId) return;
+    const channel = supabase
+      .channel(`rn-support-${ticketId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `ticket_id=eq.${ticketId}`,
+        },
+        (payload) => {
+          const incoming = payload.new as SupportMessage;
+          animatedSupportIdsRef.current.add(incoming.id);
+          setActiveTicket((prev) => {
+            if (!prev || prev.id !== ticketId) return prev;
+            const list = prev.support_messages || [];
+            if (list.some((m) => m.id === incoming.id)) return prev;
+            // Reconcile optimistic stub if this is our own message
+            const tempIdx = !incoming.is_from_admin
+              ? list.findIndex(
+                  (m) => m.id.startsWith('temp-') && m.content.trim() === incoming.content.trim()
+                )
+              : -1;
+            const nextMsgs =
+              tempIdx !== -1
+                ? list.map((m, i) => (i === tempIdx ? incoming : m))
+                : [...list, incoming];
+            return { ...prev, support_messages: nextMsgs };
+          });
+          if (incoming.is_from_admin) {
+            supabase
+              .from('support_messages')
+              .update({ read_at: new Date().toISOString() })
+              .eq('id', incoming.id)
+              .then(() => {});
+          }
+          if (threadNearBottomRef.current || !incoming.is_from_admin) {
+            setTimeout(() => threadScrollRef.current?.scrollToEnd({ animated: true }), 60);
+          } else {
+            setUnreadThreadBelow((n) => n + 1);
+            setShowThreadFab(true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeTicket?.id, userId]);
 
   const loadTickets = useCallback(async () => {
     if (!userId) {
@@ -115,6 +226,10 @@ export default function SupportScreen() {
 
   const openThread = async (ticketId: string) => {
     if (!userId) return;
+    animatedSupportIdsRef.current.clear();
+    setShowThreadFab(false);
+    setUnreadThreadBelow(0);
+    threadNearBottomRef.current = true;
     setLoadingThread(true);
     const existing = tickets.find((t) => t.id === ticketId) || null;
     setActiveTicket(existing);
@@ -126,6 +241,7 @@ export default function SupportScreen() {
         setTickets((prev) =>
           prev.map((t) => (t.id === full.id ? { ...t, support_messages: full.support_messages } : t))
         );
+        setTimeout(() => threadScrollRef.current?.scrollToEnd({ animated: false }), 70);
       }
     } finally {
       setLoadingThread(false);
@@ -194,12 +310,33 @@ export default function SupportScreen() {
   };
 
   const handleSendReply = async () => {
-    if (!activeTicket || !replyText.trim() || sendingReply || !userId) return;
+    const content = replyText.trim();
+    if (!activeTicket || !content || sendingReply || !userId) return;
+    const ticketId = activeTicket.id;
+    const tempId = `temp-${Date.now()}`;
+    animatedSupportIdsRef.current.add(tempId);
+
+    const optimisticMsg: SupportMessage = {
+      id: tempId,
+      sender_id: userId,
+      content,
+      is_from_admin: false,
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+
+    setReplyText('');
     setSendingReply(true);
+    setActiveTicket((prev) =>
+      prev && prev.id === ticketId
+        ? { ...prev, support_messages: [...(prev.support_messages || []), optimisticMsg] }
+        : prev
+    );
+    scrollThreadToBottom(true);
+
     try {
-      await replyToSupportTicket(activeTicket.id, replyText);
-      setReplyText('');
-      const refreshed = await getSupportTicketDetail(userId, activeTicket.id);
+      await replyToSupportTicket(ticketId, content);
+      const refreshed = await getSupportTicketDetail(userId, ticketId);
       if (refreshed) {
         setActiveTicket(refreshed);
         setTickets((prev) =>
@@ -207,6 +344,16 @@ export default function SupportScreen() {
         );
       }
     } catch (e: any) {
+      // Remove optimistic stub and restore user's message on error
+      setActiveTicket((prev) =>
+        prev && prev.id === ticketId
+          ? {
+              ...prev,
+              support_messages: (prev.support_messages || []).filter((m) => m.id !== tempId),
+            }
+          : prev
+      );
+      setReplyText(content);
       Alert.alert('Reply failed', e?.message || 'Please try again.');
     } finally {
       setSendingReply(false);
@@ -259,6 +406,12 @@ export default function SupportScreen() {
         </View>
       </View>
 
+      <SwipeTabContent
+        activeKey={tab}
+        keys={SUPPORT_TABS}
+        onChangeKey={(next) => setTab(next as TabKey)}
+        style={{ flex: 1 }}
+      >
       {tab === 'tickets' ? (
         loading ? (
           <View style={styles.center}>
@@ -468,6 +621,7 @@ export default function SupportScreen() {
           </Card>
         </ScrollView>
       )}
+      </SwipeTabContent>
 
       {/* Ticket Thread Modal */}
       <Modal
@@ -491,112 +645,147 @@ export default function SupportScreen() {
             onBack={() => setActiveTicket(null)}
           />
 
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={[styles.scroll, { paddingBottom: 24 }]}
-          >
-            {activeTicket && (
-              <>
-                <Card style={styles.origDescCard}>
-                  <View style={styles.msgHead}>
-                    <Text style={styles.msgSender}>Your original request</Text>
-                    <Text style={styles.msgTime}>
-                      {new Date(activeTicket.created_at).toLocaleString('en-PH', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      })}
-                    </Text>
-                  </View>
-                  <Text style={styles.msgBody}>{activeTicket.description}</Text>
-                  {activeTicket.attachment_path ? (
-                    <Pressable
-                      onPress={() => handleOpenAttachment(activeTicket.attachment_path!)}
-                      style={styles.attachLink}
-                    >
-                      <Ionicons name="attach" size={15} color={COLORS.primary} />
-                      <Text style={styles.attachLinkText}>
-                        {activeTicket.attachment_name || 'View attachment'}
+          <View style={{ flex: 1, position: 'relative' }}>
+            <ScrollView
+              ref={threadScrollRef}
+              style={{ flex: 1 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              onScroll={handleThreadScroll}
+              scrollEventThrottle={16}
+              contentContainerStyle={[styles.scroll, { paddingBottom: 24 }]}
+            >
+              {activeTicket && (
+                <>
+                  <Card style={styles.origDescCard}>
+                    <View style={styles.msgHead}>
+                      <Text style={styles.msgSender}>Your original request</Text>
+                      <Text style={styles.msgTime}>
+                        {new Date(activeTicket.created_at).toLocaleString('en-PH', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
                       </Text>
-                    </Pressable>
-                  ) : null}
-                </Card>
-
-                {loadingThread ? (
-                  <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
-                ) : (activeTicket.support_messages || []).length === 0 ? (
-                  <Text style={styles.noRepliesText}>
-                    No replies yet. An administrator will respond soon.
-                  </Text>
-                ) : (
-                  (activeTicket.support_messages || []).map((msg) => (
-                    <View
-                      key={msg.id}
-                      style={[
-                        styles.msgBubble,
-                        msg.is_from_admin ? styles.msgAdmin : styles.msgUser,
-                      ]}
-                    >
-                      <View style={styles.msgHead}>
-                        <Text
-                          style={[
-                            styles.msgSender,
-                            msg.is_from_admin && { color: COLORS.info },
-                          ]}
-                        >
-                          {msg.is_from_admin ? 'Administrator' : 'You'}
-                        </Text>
-                        <Text style={styles.msgTime}>
-                          {new Date(msg.created_at).toLocaleString('en-PH', {
-                            dateStyle: 'short',
-                            timeStyle: 'short',
-                          })}
-                        </Text>
-                      </View>
-                      <Text style={styles.msgBody}>{msg.content}</Text>
-                      {msg.attachment_path ? (
-                        <Pressable
-                          onPress={() => handleOpenAttachment(msg.attachment_path!)}
-                          style={styles.attachLink}
-                        >
-                          <Ionicons name="attach" size={14} color={COLORS.primary} />
-                          <Text style={styles.attachLinkText}>
-                            {msg.attachment_name || 'View attachment'}
-                          </Text>
-                        </Pressable>
-                      ) : null}
                     </View>
-                  ))
-                )}
-              </>
-            )}
-          </ScrollView>
+                    <Text style={styles.msgBody}>{activeTicket.description}</Text>
+                    {activeTicket.attachment_path ? (
+                      <Pressable
+                        onPress={() => handleOpenAttachment(activeTicket.attachment_path!)}
+                        style={styles.attachLink}
+                      >
+                        <Ionicons name="attach" size={15} color={COLORS.primary} />
+                        <Text style={styles.attachLinkText}>
+                          {activeTicket.attachment_name || 'View attachment'}
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </Card>
+
+                  {loadingThread ? (
+                    <ChatLoadingSkeleton />
+                  ) : (activeTicket.support_messages || []).length === 0 ? (
+                    <Text style={styles.noRepliesText}>
+                      No replies yet. An administrator will respond soon.
+                    </Text>
+                  ) : (
+                    (activeTicket.support_messages || []).map((msg, idx, arr) => {
+                      const prev = idx > 0 ? arr[idx - 1] : null;
+                      const next = idx < arr.length - 1 ? arr[idx + 1] : null;
+                      const showDate =
+                        !prev || !isSameCalendarDay(prev.created_at, msg.created_at)
+                          ? formatChatDateLabel(msg.created_at)
+                          : null;
+                      const own = !msg.is_from_admin;
+                      const samePrev =
+                        Boolean(prev) && !showDate && prev!.is_from_admin === msg.is_from_admin;
+                      const sameNext =
+                        Boolean(next) &&
+                        isSameCalendarDay(msg.created_at, next!.created_at) &&
+                        next!.is_from_admin === msg.is_from_admin;
+                      const isOptimistic = msg.id.startsWith('temp-');
+
+                      return (
+                        <View key={msg.id}>
+                          {showDate ? <ChatDateSeparator label={showDate} /> : null}
+                          <AnimatedMessageBubble
+                            content={msg.content}
+                            timestamp={msg.created_at}
+                            own={own}
+                            variant="support"
+                            senderLabel={msg.is_from_admin ? 'Administrator' : 'You'}
+                            animateEntrance={
+                              animatedSupportIdsRef.current.has(msg.id) ||
+                              idx >= Math.max(0, arr.length - 4)
+                            }
+                            isFirstInGroup={!samePrev}
+                            isLastInGroup={!sameNext}
+                            status={
+                              own
+                                ? isOptimistic
+                                  ? 'sending'
+                                  : msg.read_at
+                                    ? 'read'
+                                    : 'sent'
+                                : undefined
+                            }
+                            extraFooter={
+                              msg.attachment_path ? (
+                                <Pressable
+                                  onPress={() => handleOpenAttachment(msg.attachment_path!)}
+                                  style={[styles.attachLink, own && styles.attachLinkOwn]}
+                                >
+                                  <Ionicons
+                                    name="attach"
+                                    size={14}
+                                    color={own ? COLORS.white : COLORS.primary}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.attachLinkText,
+                                      own && { color: COLORS.white },
+                                    ]}
+                                  >
+                                    {msg.attachment_name || 'View attachment'}
+                                  </Text>
+                                </Pressable>
+                              ) : null
+                            }
+                          />
+                        </View>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            <ScrollToBottomFab
+              visible={showThreadFab}
+              unreadCount={unreadThreadBelow}
+              bottomOffset={12}
+              onPress={() => scrollThreadToBottom(true)}
+            />
+          </View>
 
           {activeTicket &&
           activeTicket.status !== 'RESOLVED' &&
           activeTicket.status !== 'CLOSED' ? (
             <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
               <TextInput
-                style={styles.replyInput}
+                style={[styles.replyInput, replyFocused && styles.replyInputFocused]}
                 value={replyText}
                 onChangeText={setReplyText}
+                onFocus={() => setReplyFocused(true)}
+                onBlur={() => setReplyFocused(false)}
                 placeholder="Write a reply..."
                 placeholderTextColor={COLORS.muted}
                 multiline
               />
-              <Pressable
+              <AnimatedSendButton
+                enabled={Boolean(replyText.trim())}
+                loading={sendingReply}
                 onPress={handleSendReply}
-                disabled={!replyText.trim() || sendingReply}
-                style={[
-                  styles.sendBtn,
-                  (!replyText.trim() || sendingReply) && { opacity: 0.45 },
-                ]}
-              >
-                {sendingReply ? (
-                  <ActivityIndicator size="small" color={COLORS.white} />
-                ) : (
-                  <Ionicons name="send" size={17} color={COLORS.white} />
-                )}
-              </Pressable>
+              />
             </View>
           ) : (
             <View style={[styles.closedNotice, { paddingBottom: Math.max(insets.bottom, 12) }]}>
@@ -736,7 +925,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: RADIUS.pill,
     backgroundColor: COLORS.primarySoft,
-    marginTop: 4,
+    marginTop: 6,
+  },
+  attachLinkOwn: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   attachLinkText: { fontSize: 12, fontFamily: FONTS.bold, color: COLORS.primary },
   noRepliesText: {
@@ -762,13 +954,17 @@ const styles = StyleSheet.create({
     maxHeight: 110,
     borderRadius: 21,
     backgroundColor: COLORS.bg,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: COLORS.line,
     paddingHorizontal: 14,
     paddingVertical: 9,
     fontSize: 13.5,
     fontFamily: FONTS.medium,
     color: COLORS.ink,
+  },
+  replyInputFocused: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.white,
   },
   sendBtn: {
     width: 42,
