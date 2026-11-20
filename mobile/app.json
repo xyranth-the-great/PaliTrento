@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "PaliTrento",
+    "slug": "palitrento-mobile",
+    "scheme": "palitrento",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#fcf9f2",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#fcf9f2"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.palitrento.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "PaliTrento uses your location to show nearby stores in Trento."
+      }
+    },
+    "android": {
+      "package": "com.palitrento.mobile",
+      "googleServicesFile": "./google-services.json",
+      "backgroundColor": "#fcf9f2",
+      "adaptiveIcon": {
+        "backgroundColor": "#fcf9f2",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "CAMERA"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#fcf9f2",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 130
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "PaliTrento uses your location to show stores near you in Trento."
+        }
+      ],
+      "expo-notifications",
+      "expo-web-browser",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,31 @@
+import { StyleSheet } from 'react-native';
+import { COLORS, FONTS, RADIUS } from '../lib/theme';
+
+export const reviewStyles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: COLORS.bg },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  cover: { width: '100%', height: 180, borderRadius: RADIUS.lg, backgroundColor: COLORS.mutedBg },
+  pillRow: { flexDirection: 'row', gap: 6, marginTop: 12 },
+  adminNote: { marginTop: 10, fontSize: 12, fontFamily: FONTS.medium, color: COLORS.warn, backgroundColor: COLORS.warnBg, padding: 10, borderRadius: RADIUS.sm },
+  desc: { marginTop: 10, fontSize: 13, fontFamily: FONTS.medium, color: COLORS.inkSecondary, lineHeight: 19 },
+  info: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 10 },
+  infoBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.lineSubtle },
+  infoLabel: { fontSize: 12, fontFamily: FONTS.bold, color: COLORS.muted },
+  infoValue: { flex: 1, textAlign: 'right', fontSize: 13, fontFamily: FONTS.semibold, color: COLORS.ink },
+  docRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  docImg: { width: 64, height: 64, borderRadius: RADIUS.sm, backgroundColor: COLORS.mutedBg },
+  docEmpty: { alignItems: 'center', justifyContent: 'center' },
+  docLabel: { fontSize: 13.5, fontFamily: FONTS.bold, color: COLORS.ink },
+  small: { fontSize: 11.5, fontFamily: FONTS.medium, color: COLORS.muted, lineHeight: 16 },
+  btnRow: { flexDirection: 'row', gap: 8 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.line },
+  footerHint: { fontSize: 11.5, fontFamily: FONTS.semibold, color: COLORS.muted, textAlign: 'center', marginBottom: 8 },
+  previewBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center' },
+  previewImg: { width: '100%', height: '80%' },
+  previewClose: { position: 'absolute', right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(10,20,14,0.45)' },
+  sheet: { backgroundColor: COLORS.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 10, gap: 10 },
+  grabber: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: COLORS.line, marginBottom: 6 },
+  sheetTitle: { fontSize: 17, fontFamily: FONTS.extrabold, color: COLORS.ink },
+  sheetInput: { minHeight: 84, borderRadius: RADIUS.sm, backgroundColor: COLORS.bg, borderWidth: 1, borderColor: COLORS.line, padding: 12, fontSize: 14, fontFamily: FONTS.medium, color: COLORS.ink, textAlignVertical: 'top' },
+});
