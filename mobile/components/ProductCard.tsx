@@ -13,7 +13,6 @@ import {
 } from './effects';
 import {
   PREMIUM_GEOMETRY,
-  PremiumCardChip,
   PremiumCardRing,
 } from './premium';
 
@@ -38,11 +37,6 @@ export function ProductCard({ product, store, onPress }: ProductCardProps) {
         ) : (
           <View style={[styles.img, styles.placeholder]}>
             <Ionicons name="bag-handle-outline" size={26} color={COLORS.primary} />
-          </View>
-        )}
-        {isPremium && (
-          <View style={styles.premiumBadgePos}>
-            <PremiumCardChip />
           </View>
         )}
         {srp && (
@@ -160,12 +154,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  premiumBadgePos: {
-    position: 'absolute',
-    top: 7,
-    right: 7,
-    zIndex: 6,
   },
   srpBadge: {
     position: 'absolute',
