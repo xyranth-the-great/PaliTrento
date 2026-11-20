@@ -1,4 +1,5 @@
 import './splash.js';
+import './native.js';
 import '../css/styles.css';
 import logoUrl from '../logo.png';
 import {

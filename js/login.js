@@ -1,5 +1,6 @@
 import { renderChrome, $, esc } from './ui.js';
 import { supabase } from './supabase.js';
+import { startGoogleOAuth } from './native.js';
 import { isSupabaseConfigured, getAuthErrorMessage, getSession, getPostLoginPath, getOAuthRedirectUrl, onAuthStateChange, checkAccountStatusAndRedirect, getCachedProfile, checkAuthErrorParams, getAuthRestrictionStatus } from './auth.js';
 
 const form = $('#login-form');
@@ -112,12 +113,7 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getOAuthRedirectUrl(),
-        },
-      });
+      const { data, error } = await startGoogleOAuth();
 
       if (error) {
         console.error('Google login error:', error);

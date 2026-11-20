@@ -1,0 +1,13 @@
+{
+  "appId": "com.palitrento.app",
+  "appName": "PaliTrento",
+  "webDir": "app-shell",
+  "server": {
+    "url": "https://palitrento.online",
+    "androidScheme": "https",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

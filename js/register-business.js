@@ -1,5 +1,6 @@
 import { renderChrome, $, esc, BARANGAYS } from './ui.js';
 import { supabase } from './supabase.js';
+import { startGoogleOAuth } from './native.js';
 import { isSupabaseConfigured, getAuthErrorMessage, getSession, getCachedProfile, getOAuthRedirectUrl, checkAuthErrorParams } from './auth.js';
 import { sendEmailOTP } from './email-otp.js';
 
@@ -32,12 +33,7 @@ if (googleBtn && supabase) {
     `;
 
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getOAuthRedirectUrl(),
-        },
-      });
+      const { data, error } = await startGoogleOAuth();
 
       if (error) {
         console.error('Google register error:', error);
