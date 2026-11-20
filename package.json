@@ -4,27 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "sideEffects": [
-    "./js/ui.js",
-    "./js/native.js"
+    "./js/ui.js"
   ],
   "scripts": {
     "dev": "vite",
     "build": "vite build && node post-build.js /tmp/palitrento-build",
     "build:ngrok": "vite build --base=./",
-    "preview": "vite preview",
-    "cap:sync": "cap sync android",
-    "android": "cap sync android && cap open android"
+    "preview": "vite preview"
   },
-  "dependencies": {
-    "@capacitor/app": "^8.1.2",
-    "@capacitor/browser": "^8.0.5",
-    "@capacitor/core": "^8.6.2",
-    "@supabase/supabase-js": "^2.45.0",
-    "leaflet": "^1.9.4"
-  },
-  "devDependencies": {
-    "@capacitor/android": "^8.6.2",
-    "@capacitor/cli": "^8.6.2",
-    "vite": "^5.4.0"
-  }
+  "dependencies": { "@supabase/supabase-js": "^2.45.0", "leaflet": "^1.9.4" },
+  "devDependencies": { "vite": "^5.4.0" }
 }
