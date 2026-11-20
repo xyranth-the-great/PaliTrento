@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
@@ -56,12 +57,48 @@ interface AuthContextValue {
   refreshProfile: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null; restricted?: boolean }>;
   signUpWithEmail: (input: SignUpInput) => Promise<{ error: string | null; alreadyExists?: boolean }>;
-  signInWithGoogle: () => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null; restricted?: boolean }>;
+  handleOAuthCallbackUrl: (url: string) => Promise<{ error: string | null; restricted?: boolean }>;
   completeGoogleRole: (role: 'customer' | 'business_owner') => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function getGoogleRedirectUrl(): string {
+  if (Platform.OS === 'web') {
+    return Linking.createURL('auth-callback');
+  }
+  return 'palitrento://auth-callback';
+}
+
+function parseOAuthCallbackParams(rawUrl: string) {
+  let queryStr = '';
+  let hashStr = '';
+  try {
+    const parsed = new URL(rawUrl);
+    queryStr = parsed.search.replace(/^\?/, '');
+    hashStr = parsed.hash.replace(/^#/, '');
+  } catch {
+    const [beforeHash, afterHash = ''] = rawUrl.split('#');
+    const qIdx = beforeHash.indexOf('?');
+    queryStr = qIdx >= 0 ? beforeHash.slice(qIdx + 1) : '';
+    hashStr = afterHash;
+  }
+
+  const query = new URLSearchParams(queryStr);
+  const hash = new URLSearchParams(hashStr);
+  const code = query.get('code') || hash.get('code');
+  const accessToken = hash.get('access_token') || query.get('access_token');
+  const refreshToken = hash.get('refresh_token') || query.get('refresh_token');
+  const errorDescription =
+    query.get('error_description') ||
+    hash.get('error_description') ||
+    query.get('error') ||
+    hash.get('error');
+
+  return { code, accessToken, refreshToken, errorDescription };
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -69,6 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [onboarded, setOnboarded] = useState(false);
   const [needsRoleChoice, setNeedsRoleChoice] = useState(false);
+  const handledOAuthKeyRef = useRef<string | null>(null);
+  const inFlightOAuthRef = useRef<Promise<{ error: string | null; restricted?: boolean }> | null>(
+    null
+  );
 
   const loadProfile = useCallback(async (userId: string) => {
     try {
@@ -192,49 +233,131 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }, []);
 
+  const handleOAuthCallbackUrl = useCallback(
+    async (rawUrl: string): Promise<{ error: string | null; restricted?: boolean }> => {
+      if (!rawUrl) return { error: null };
+      const { code, accessToken, refreshToken, errorDescription } = parseOAuthCallbackParams(rawUrl);
+
+      if (errorDescription) {
+        return {
+          error: errorDescription,
+          restricted: isRestrictedAuthError(errorDescription),
+        };
+      }
+
+      if (!code && !(accessToken && refreshToken)) {
+        return { error: null };
+      }
+
+      const dedupeKey = code || accessToken!.slice(0, 32);
+      if (handledOAuthKeyRef.current === dedupeKey) {
+        return { error: null };
+      }
+      if (inFlightOAuthRef.current) {
+        return await inFlightOAuthRef.current;
+      }
+
+      const work = (async (): Promise<{ error: string | null; restricted?: boolean }> => {
+        try {
+          let user: any = null;
+          if (code) {
+            const { data: ex, error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+            if (exErr) {
+              return { error: exErr.message, restricted: isRestrictedAuthError(exErr.message) };
+            }
+            user = ex.user;
+          } else if (accessToken && refreshToken) {
+            const { data: setRes, error: setErr } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (setErr) {
+              return { error: setErr.message, restricted: isRestrictedAuthError(setErr.message) };
+            }
+            user = setRes.user;
+          }
+
+          handledOAuthKeyRef.current = dedupeKey;
+
+          if (user?.id) {
+            await loadProfile(user.id);
+          }
+
+          if (user && isNewGoogleAccount(user)) {
+            await AsyncStorage.setItem(GOOGLE_ROLE_PENDING_KEY, user.id);
+            setNeedsRoleChoice(true);
+          }
+
+          return { error: null };
+        } catch (e: any) {
+          const msg = e?.message || 'Google sign-in failed.';
+          return { error: msg, restricted: isRestrictedAuthError(msg) };
+        } finally {
+          inFlightOAuthRef.current = null;
+        }
+      })();
+
+      inFlightOAuthRef.current = work;
+      return await work;
+    },
+    [loadProfile]
+  );
+
+  // Catch OAuth redirects delivered via Android deep link intent (even if WebBrowser returns dismiss)
+  useEffect(() => {
+    const onUrl = ({ url }: { url: string }) => {
+      if (url && (url.includes('auth-callback') || url.includes('code=') || url.includes('access_token='))) {
+        void handleOAuthCallbackUrl(url);
+      }
+    };
+
+    const sub = Linking.addEventListener('url', onUrl);
+    Linking.getInitialURL()
+      .then((initialUrl) => {
+        if (initialUrl) onUrl({ url: initialUrl });
+      })
+      .catch(() => {});
+
+    return () => {
+      sub.remove();
+    };
+  }, [handleOAuthCallbackUrl]);
+
   const signInWithGoogle = useCallback(async () => {
     try {
-      const redirectTo = Linking.createURL('auth-callback');
+      const redirectTo = getGoogleRedirectUrl();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo, skipBrowserRedirect: true },
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          queryParams: { prompt: 'select_account' },
+        },
       });
       if (error || !data?.url) return { error: error?.message || 'Could not start Google login.' };
 
-      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-      if (res.type !== 'success' || !res.url) return { error: null };
+      const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo, {
+        showInRecents: true,
+      });
 
-      const parsed = new URL(res.url);
-      const code = parsed.searchParams.get('code');
-      const hash = new URLSearchParams(parsed.hash.replace(/^#/, ''));
-      const errDesc = parsed.searchParams.get('error_description') || hash.get('error_description');
-      if (errDesc) return { error: errDesc };
-
-      let user: any = null;
-      if (code) {
-        const { data: ex, error: exErr } = await supabase.auth.exchangeCodeForSession(code);
-        if (exErr) return { error: exErr.message };
-        user = ex.user;
-      } else if (hash.get('access_token') && hash.get('refresh_token')) {
-        const { data: set, error: setErr } = await supabase.auth.setSession({
-          access_token: hash.get('access_token')!,
-          refresh_token: hash.get('refresh_token')!,
-        });
-        if (setErr) return { error: setErr.message };
-        user = set.user;
-      } else {
-        return { error: 'No session returned from Google sign-in.' };
+      if (res.type === 'success' && res.url) {
+        return await handleOAuthCallbackUrl(res.url);
       }
 
-      if (user && isNewGoogleAccount(user)) {
-        await AsyncStorage.setItem(GOOGLE_ROLE_PENDING_KEY, user.id);
-        setNeedsRoleChoice(true);
+      // On some Android devices/browsers, the redirect arrives via Linking deep link while openAuthSessionAsync returns dismiss
+      if (inFlightOAuthRef.current) {
+        return await inFlightOAuthRef.current;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      if (inFlightOAuthRef.current) {
+        return await inFlightOAuthRef.current;
       }
       return { error: null };
     } catch (e: any) {
-      return { error: e?.message || 'Google sign-in failed.' };
+      const msg = e?.message || 'Google sign-in failed.';
+      return { error: msg, restricted: isRestrictedAuthError(msg) };
     }
-  }, []);
+  }, [handleOAuthCallbackUrl]);
 
   const completeGoogleRole = useCallback(
     async (role: 'customer' | 'business_owner') => {
@@ -274,6 +397,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
+        handleOAuthCallbackUrl,
         completeGoogleRole,
         signOut,
       }}

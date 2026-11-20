@@ -493,7 +493,6 @@ export const productCard = (p, store, isPremiumStore = false) => {
   const c = srp(p);
 
   const productHref = `/product-detail/?id=${encodeURIComponent(p.id)}`;
-  const premiumChip = isPremiumStore ? premiumSellerLabel('premium-card-chip') : '';
 
   // Use first image from image_urls array, fallback to image_url
   const imageUrl = (p.image_urls && Array.isArray(p.image_urls) && p.image_urls.length > 0)
@@ -502,7 +501,7 @@ export const productCard = (p, store, isPremiumStore = false) => {
 
   const media = `<div class="product-card-media">${imageUrl
       ? `<img src="${esc(imageUrl)}" alt="${esc(p.name)}" loading="lazy" decoding="async">`
-      : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}${premiumChip}
+      : '<div class="product-card-placeholder" aria-hidden="true"><span>No photo</span></div>'}
     </div>`;
 
   const soldAt = store

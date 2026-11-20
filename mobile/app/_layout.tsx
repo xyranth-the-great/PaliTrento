@@ -42,16 +42,17 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
     const onTerms = first === 'terms';
     const onStatus = first === 'auth-status';
     const onRoleChoice = first === 'choose-role';
+    const onAuthCallback = first === 'auth-callback';
 
     if (onTerms) return; // readable from anywhere
 
     if (!onboarded) {
-      if (!inOnboarding) router.replace('/onboarding');
+      if (!inOnboarding && !onAuthCallback) router.replace('/onboarding');
       return;
     }
 
     if (!session) {
-      if (!inAuth && !onStatus) router.replace('/(auth)/login');
+      if (!inAuth && !onStatus && !onAuthCallback) router.replace('/(auth)/login');
       return;
     }
 
@@ -71,7 +72,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       return;
     }
 
-    if (inOnboarding || (inAuth && second !== 'verify') || onRoleChoice) {
+    if (inOnboarding || (inAuth && second !== 'verify') || onRoleChoice || onAuthCallback) {
       router.replace('/(tabs)');
     }
   }, [fontsReady, loading, needsRoleChoice, onboarded, restriction, router, segments, session]);
@@ -109,6 +110,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack.Screen name="admin/reports" />
         <Stack.Screen name="admin/verification-docs" />
         <Stack.Screen name="auth-status" options={{ animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="auth-callback" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="choose-role" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="terms" />
         <Stack.Screen name="notifications" />

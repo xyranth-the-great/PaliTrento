@@ -24,3 +24,21 @@ allprojects {
 
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
+
+// Keep Windows CMake/Ninja paths under MAX_PATH (260) for native library subprojects
+if (System.getProperty('os.name', '').toLowerCase().contains('win')) {
+  def shortPathsCmake = new File(rootDir, 'short-paths.cmake').absolutePath.replace('\\', '/')
+  subprojects { sub ->
+    if (sub.name != 'app' && !sub.state.executed) {
+      sub.afterEvaluate {
+        if (sub.plugins.hasPlugin('com.android.library')) {
+          def androidExt = sub.extensions.findByName('android')
+          if (androidExt?.externalNativeBuild?.cmake?.path != null) {
+            androidExt.externalNativeBuild.cmake.buildStagingDirectory = file("C:/pt-cxx/${sub.name}")
+            androidExt.defaultConfig.externalNativeBuild.cmake.arguments("-DCMAKE_PROJECT_INCLUDE=${shortPathsCmake}")
+          }
+        }
+      }
+    }
+  }
+}

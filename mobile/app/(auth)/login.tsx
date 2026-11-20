@@ -52,9 +52,13 @@ export default function LoginScreen() {
   const handleGoogle = async () => {
     setErrorMsg(null);
     setGoogleBusy(true);
-    const { error } = await signInWithGoogle();
+    const { error, restricted } = await signInWithGoogle();
     setGoogleBusy(false);
-    if (error) setErrorMsg(error);
+    if (restricted) {
+      router.push('/auth-status');
+    } else if (error) {
+      setErrorMsg(error);
+    }
   };
 
   return (
