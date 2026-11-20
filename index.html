@@ -86,33 +86,71 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
       <input id="q" name="q" type="search" placeholder="Search rice, botika, saging..."><button class="btn">Search</button></form>
     <div class="chips" id="chips" aria-label="Browse by category"></div>
   </div>
-  <aside class="android-app-promo" aria-labelledby="android-app-title">
-    <div class="android-promo-copy">
-      <span class="android-promo-label"><span class="android-promo-dot" aria-hidden="true"></span> ANDROID APP</span>
-      <h2 id="android-app-title">Your local finds, wherever you go.</h2>
-      <p>Discover nearby Trento shops and check local prices right from your phone.</p>
-      <div class="android-promo-features">
-        <span>Nearby stores</span>
-        <span>Today’s prices</span>
-      </div>
-      <span class="android-promo-status" role="status">Android app coming soon</span>
-    </div>
-    <div class="android-promo-art" aria-hidden="true">
-      <div class="android-promo-orbit"></div>
-      <div class="android-promo-phone">
-        <div class="android-phone-speaker"></div>
-        <div class="android-phone-screen">
-          <div class="android-phone-brand">Pali<span>☂</span>rento</div>
-          <div class="android-phone-search"></div>
-          <div class="android-phone-section"></div>
-          <div class="android-phone-card"><i></i><b></b><b></b></div>
-          <div class="android-phone-card"><i></i><b></b><b></b></div>
+  <div class="pt-dl-wrap">
+    <article class="pt-dl" aria-labelledby="pt-dl-title">
+      <div class="pt-dl-body">
+        <div class="pt-dl-copy">
+          <span class="pt-dl-pill"><i></i>Android app</span>
+          <h2 class="pt-dl-title" id="pt-dl-title">Your local finds, wherever you go.</h2>
+          <p class="pt-dl-text">Discover nearby Trento shops and check local prices right from your phone.</p>
+          <div class="pt-dl-chips">
+            <span class="pt-dl-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+              Nearby stores
+            </span>
+            <span class="pt-dl-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>
+              Today’s prices
+            </span>
+          </div>
+          <div class="pt-dl-cta">
+            <a class="pt-dl-btn android-promo-status" href="/downloads/palitrento-android.apk" download="PaliTrento-Android.apk">
+              Download for Android
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>
+            </a>
+            <p class="pt-dl-meta android-promo-size">Android APK · 60 MB</p>
+            <details class="pt-dl-help">
+              <summary>How to install</summary>
+              <ol>
+                <li>Tap Download for Android.</li>
+                <li>Open the file when it finishes. If your phone asks, allow installs from this browser.</li>
+                <li>Tap Install, then open PaliTrento.</li>
+              </ol>
+            </details>
+          </div>
+        </div>
+        <div class="pt-dl-art" aria-hidden="true">
+          <div class="pt-dl-phone">
+            <div class="pt-dl-screen">
+              <div class="pt-dl-ph-head">
+                <svg viewBox="35 15 465 515" focusable="false">
+                  <ellipse cx="267.5" cy="490" rx="82" ry="22" fill="#1f4c47"/>
+                  <path d="M225 150H310V440L267.5 474L225 440Z" fill="#70401a"/>
+                  <path d="M55 46Q55 32 69 32H140V150A42.5 42.5 0 0 1 55 150Z" fill="#1e4b46"/>
+                  <path d="M140 32H225V150A42.5 42.5 0 0 1 140 150Z" fill="#fdc147"/>
+                  <path d="M225 32H310V150A42.5 42.5 0 0 1 225 150Z" fill="#1e4b46"/>
+                  <path d="M310 32H395V150A42.5 42.5 0 0 1 310 150Z" fill="#fdc147"/>
+                  <path d="M395 32H466Q480 32 480 46V150A42.5 42.5 0 0 1 395 150Z" fill="#1e4b46"/>
+                </svg>
+                PaliTrento
+              </div>
+              <div class="pt-dl-ph-search"></div>
+              <div class="pt-dl-ph-label">Nearby stores</div>
+              <div class="pt-dl-ph-card"><i class="pt-dl-ph-photo"></i><div><b></b><s></s></div></div>
+              <div class="pt-dl-ph-card"><i class="pt-dl-ph-photo"></i><div><b></b><s></s></div></div>
+              <div class="pt-dl-ph-tag">₱ Today’s prices</div>
+            </div>
+          </div>
+          <span class="pt-dl-badge pt-dl-badge-a">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          </span>
+          <span class="pt-dl-badge pt-dl-badge-b">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 2l2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2z"/></svg>
+          </span>
         </div>
       </div>
-      <span class="android-promo-pin">⌖</span>
-      <span class="android-promo-spark">✦</span>
-    </div>
-  </aside>
+    </article>
+  </div>
 </div></div>
 <section id="featured-stores-section" class="featured-stores-section" aria-labelledby="featured-stores-title" style="display:none">
   <!-- Content will be dynamically generated by home.js -->
