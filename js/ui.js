@@ -1777,6 +1777,7 @@ async function initNotificationBell(userId, isBusinessOwner) {
     dropdown.hidden = isOpen;
     if (!isOpen) {
       positionDropdown(bell, dropdown);
+      list.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Loading...</div>';
       await loadNotifications(list, isBusinessOwner);
     }
   });
@@ -1863,8 +1864,8 @@ async function orderNotificationsEnabled(userId) {
   return preferences.orders !== false;
 }
 
-export async function getReservationNotifications(supabase, userId, limit = null) {
-  if (!await orderNotificationsEnabled(userId)) return [];
+export async function getReservationNotifications(supabase, userId, limit = null, notificationsEnabled = null) {
+  if (!(notificationsEnabled ?? await orderNotificationsEnabled(userId))) return [];
 
   const storeIds = await getOwnedStoreIds(supabase, userId);
   if (storeIds === null) return null;
@@ -1884,15 +1885,15 @@ export async function getReservationNotifications(supabase, userId, limit = null
   }
 
   const orderIds = [...new Set((notifications || []).map(notification => notification.order_id))];
-  const buyerNames = new Map();
-  for (const orderId of orderIds) {
+  const buyerNameResults = await Promise.all(orderIds.map(async orderId => {
     const { data: name, error: nameError } = await supabase.rpc(
       'get_order_customer_name',
       { p_order_id: orderId }
     );
     if (nameError) console.error('Load reservation customer name error:', nameError);
-    buyerNames.set(orderId, name || 'Customer');
-  }
+    return [orderId, name || 'Customer'];
+  }));
+  const buyerNames = new Map(buyerNameResults);
 
   return (notifications || []).map(notification => ({
     ...notification,
@@ -1909,8 +1910,8 @@ export async function markReservationNotificationRead(supabase, notificationId, 
     .is('read_at', null);
 }
 
-export async function getOrderStatusNotifications(supabase, userId, limit = null) {
-  const notificationsEnabled = await orderNotificationsEnabled(userId);
+export async function getOrderStatusNotifications(supabase, userId, limit = null, notificationsEnabled = null) {
+  if (notificationsEnabled === null) notificationsEnabled = await orderNotificationsEnabled(userId);
 
   let query = supabase
     .from('order_status_notifications')
@@ -1993,8 +1994,13 @@ export async function getNotificationDismissals(supabase, userId, notifications)
   }
 
   const dismissedKeys = new Set();
-  for (const [type, ids] of idsByType) {
-    const dismissedIds = await getNotificationDismissedIds(supabase, userId, type, ids);
+  const dismissalResults = await Promise.all(
+    [...idsByType].map(async ([type, ids]) => [
+      type,
+      await getNotificationDismissedIds(supabase, userId, type, ids)
+    ])
+  );
+  for (const [type, dismissedIds] of dismissalResults) {
     if (dismissedIds === null) return null;
     dismissedIds.forEach(id => dismissedKeys.add(`${type}:${id}`));
   }
@@ -2132,7 +2138,66 @@ async function startReservationNotificationListener(userId, isBusinessOwner) {
     });
 }
 
+async function loadMessageNotificationItems(supabase, userId) {
+  if (!await messageNotificationsEnabled(userId)) return [];
+
+  const orders = await getMessageNotificationOrders(supabase, userId);
+  if (orders === null) {
+    console.error('Message notifications could not be loaded because the user orders query failed.');
+    return [];
+  }
+  if (!orders.length) return [];
+
+  const orderMap = new Map(orders.map(order => [order.id, order]));
+  const { data: messages, error: messagesError } = await supabase
+    .from('messages')
+    .select('id, order_id, sender_id, content, created_at, read_at')
+    .in('order_id', orders.map(order => order.id))
+    .neq('sender_id', userId)
+    .order('created_at', { ascending: false });
+  if (messagesError) {
+    console.error('Load unread message notifications error:', messagesError);
+    return [];
+  }
+
+  const orderIds = [...new Set((messages || [])
+    .filter(message => orderMap.get(message.order_id)?.buyer_id !== userId)
+    .map(message => message.order_id))];
+  const senderNameResults = await Promise.all(orderIds.map(async orderId => {
+    const { data, error: nameError } = await supabase.rpc('get_order_customer_name', { p_order_id: orderId });
+    if (nameError) console.error('Load message sender name error:', nameError);
+    return [orderId, data || 'Customer'];
+  }));
+  const senderNames = new Map(senderNameResults);
+
+  return (messages || []).map(message => {
+    const order = orderMap.get(message.order_id);
+    const isRead = !!message.read_at;
+    const senderName = order?.buyer_id === userId
+      ? order?.stores?.business_name || 'Business owner'
+      : senderNames.get(message.order_id) || 'Customer';
+    const orderLabel = message.order_id.slice(0, 8);
+    return {
+      id: message.id,
+      type: 'message',
+      createdAt: message.created_at,
+      html: `
+        <button class="notification-item chat-notification ${isRead ? 'read' : 'unread'}" data-chat-order-id="${esc(message.order_id)}" data-chat-message-id="${esc(message.id)}" role="option" tabindex="0">
+          <span class="notification-cat pill info">Message</span>
+          <div class="notification-content">
+            <strong>New message from ${esc(senderName)}</strong>
+            <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(message.content)}</p>
+            <span class="muted" style="font-size:.7rem">${new Date(message.created_at).toLocaleString('en-PH')} • Order ${esc(orderLabel)}</span>
+          </div>
+          ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
+        </button>
+      `
+    };
+  });
+}
+
 async function loadNotifications(listEl, isBusinessOwner = false) {
+  listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Loading...</div>';
   const { supabase } = await import('./supabase.js');
   const { getSession } = await import('./auth.js');
   const session = await getSession();
@@ -2143,15 +2208,23 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
   const userId = session.user.id;
   const now = new Date().toISOString();
 
-  listEl.innerHTML = '<div class="muted" style="padding:16px;text-align:center">Loading...</div>';
   try {
-    const { data: advisories, error } = await supabase
-      .from('advisories')
-      .select('id, title, body, category, priority, published_at, barangay, recipient_id, action_url, action_label')
-      .lte('published_at', now)
-      .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${userId},expires_at.is.null),and(recipient_id.eq.${userId},expires_at.gt.${now})`)
-      .order('published_at', { ascending: false })
-      .limit(10);
+    const orderNotificationsEnabledPromise = orderNotificationsEnabled(userId);
+    const [advisoryResult, reservations, orderStatusNotifications, messageItems] = await Promise.all([
+      supabase
+        .from('advisories')
+        .select('id, title, body, category, priority, published_at, barangay, recipient_id, action_url, action_label')
+        .lte('published_at', now)
+        .or(`and(recipient_id.is.null,expires_at.is.null),and(recipient_id.is.null,expires_at.gt.${now}),and(recipient_id.eq.${userId},expires_at.is.null),and(recipient_id.eq.${userId},expires_at.gt.${now})`)
+        .order('published_at', { ascending: false })
+        .limit(10),
+      isBusinessOwner
+        ? orderNotificationsEnabledPromise.then(enabled => getReservationNotifications(supabase, userId, 10, enabled))
+        : Promise.resolve([]),
+      orderNotificationsEnabledPromise.then(enabled => getOrderStatusNotifications(supabase, userId, 10, enabled)),
+      loadMessageNotificationItems(supabase, userId)
+    ]);
+    const { data: advisories, error } = advisoryResult;
 
     if (error) console.error('Load advisory notifications error:', error);
 
@@ -2193,9 +2266,6 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
     });
 
     let reservationItems = [];
-    const reservations = isBusinessOwner
-      ? await getReservationNotifications(supabase, userId, 10)
-      : [];
     if (reservations === null) {
       console.error('Reservation notification list could not be loaded.');
     } else {
@@ -2231,7 +2301,6 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
     }
 
     let orderStatusItems = [];
-    const orderStatusNotifications = await getOrderStatusNotifications(supabase, userId, 10);
     if (orderStatusNotifications === null) {
       console.error('Order status notifications could not be loaded.');
     } else {
@@ -2266,60 +2335,6 @@ async function loadNotifications(listEl, isBusinessOwner = false) {
           `
         };
       });
-    }
-
-    let messageItems = [];
-    if (await messageNotificationsEnabled(userId)) {
-      const orders = await getMessageNotificationOrders(supabase, userId);
-      if (orders === null) {
-        console.error('Message notifications could not be loaded because the user orders query failed.');
-      } else if (orders.length) {
-        const orderMap = new Map(orders.map(order => [order.id, order]));
-        const { data: messages, error: messagesError } = await supabase
-          .from('messages')
-          .select('id, order_id, sender_id, content, created_at, read_at')
-          .in('order_id', orders.map(order => order.id))
-          .neq('sender_id', userId)
-          .order('created_at', { ascending: false });
-        if (messagesError) {
-          console.error('Load unread message notifications error:', messagesError);
-        } else {
-          const senderNames = new Map();
-          for (const orderId of new Set((messages || []).map(message => message.order_id))) {
-            const order = orderMap.get(orderId);
-            if (order?.buyer_id !== userId) {
-              const { data, error: nameError } = await supabase.rpc('get_order_customer_name', { p_order_id: orderId });
-              if (nameError) console.error('Load message sender name error:', nameError);
-              senderNames.set(orderId, data || 'Customer');
-            }
-          }
-
-          messageItems = (messages || []).map(message => {
-            const order = orderMap.get(message.order_id);
-            const isRead = !!message.read_at;
-            const senderName = order?.buyer_id === userId
-              ? order?.stores?.business_name || 'Business owner'
-              : senderNames.get(message.order_id) || 'Customer';
-            const orderLabel = message.order_id.slice(0, 8);
-            return {
-              id: message.id,
-              type: 'message',
-              createdAt: message.created_at,
-              html: `
-                <button class="notification-item chat-notification ${isRead ? 'read' : 'unread'}" data-chat-order-id="${esc(message.order_id)}" data-chat-message-id="${esc(message.id)}" role="option" tabindex="0">
-                  <span class="notification-cat pill info">Message</span>
-                  <div class="notification-content">
-                    <strong>New message from ${esc(senderName)}</strong>
-                    <p class="muted" style="margin:2px 0 0;font-size:.85rem">${esc(message.content)}</p>
-                    <span class="muted" style="font-size:.7rem">${new Date(message.created_at).toLocaleString('en-PH')} • Order ${esc(orderLabel)}</span>
-                  </div>
-                  ${!isRead ? '<span class="notification-dot" aria-hidden="true"></span>' : ''}
-                </button>
-              `
-            };
-          });
-        }
-      }
     }
 
     let items = [...advisoryItems, ...reservationItems, ...orderStatusItems, ...messageItems]
