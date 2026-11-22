@@ -37,6 +37,12 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
   .pickup-countdown.is-warning .pickup-countdown-value { color:var(--warn); }
   .pickup-countdown.is-expired { border-color:#efb6b6; background:var(--bad-bg); }
   .pickup-countdown.is-expired .pickup-countdown-value { color:var(--bad); }
+  .orders-filters { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 10px; margin-bottom:12px; scrollbar-width:thin; }
+  .orders-filter { flex:0 0 auto; display:inline-flex; align-items:center; gap:7px; min-height:40px; padding:8px 12px; border:1px solid var(--line); border-radius:999px; background:var(--card); color:var(--ink); font:600 .82rem var(--font); cursor:pointer; }
+  .orders-filter:hover { border-color:var(--primary); }
+  .orders-filter[aria-pressed="true"] { border-color:var(--primary); background:var(--primary); color:#fff; }
+  .orders-filter-count { min-width:20px; padding:1px 6px; border-radius:999px; background:var(--muted-bg); color:var(--muted); font-size:.72rem; text-align:center; font-variant-numeric:tabular-nums; }
+  .orders-filter[aria-pressed="true"] .orders-filter-count { background:rgba(255,255,255,.18); color:#fff; }
   @media(max-width:480px) { .pickup-countdown { padding:9px 10px; } }
 </style>
 </head>
@@ -73,6 +79,7 @@ html.pt-splash-active .pt-splash{opacity:1;visibility:visible}
   </div>
 
   <div id="orders-content" style="display:none">
+    <div id="orders-filters" class="orders-filters" role="group" aria-label="Filter orders by status"></div>
     <div id="orders-history"></div>
   </div>
 

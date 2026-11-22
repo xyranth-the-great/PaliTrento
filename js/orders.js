@@ -4,12 +4,23 @@ import { supabase } from './supabase.js';
 import { isSupabaseConfigured, getLoginUnavailableMessage } from './auth.js';
 
 const container = $('#orders-history');
+const filtersContainer = $('#orders-filters');
 const msgEl = $('#orders-message');
 
 let currentSession = null;
 let currentOrders = [];
+let currentFilter = 'ALL';
 let orderChangesChannel = null;
 let pickupCountdownInterval = null;
+
+const orderFilters = [
+  { id: 'ALL', label: 'All', matches: () => true },
+  { id: 'PENDING', label: 'Pending', matches: order => order.status === 'PENDING' },
+  { id: 'CONFIRMED', label: 'Confirmed', matches: order => order.status === 'CONFIRMED' },
+  { id: 'READY_FOR_PICKUP', label: 'Ready for Pickup', matches: order => order.status === 'READY_FOR_PICKUP' },
+  { id: 'COMPLETED', label: 'Completed', matches: order => order.status === 'COMPLETED' },
+  { id: 'CANCELLED_EXPIRED', label: 'Cancelled / Expired', matches: order => ['CANCELLED', 'EXPIRED'].includes(order.status) }
+];
 
 async function loadOrders() {
   if (!isSupabaseConfigured()) {
@@ -93,9 +104,15 @@ function startOrderRefreshListener(userId) {
 function renderOrders() {
   if (!container) return;
 
-  if (currentOrders.length === 0) {
+  renderOrderFilters();
+  const filter = orderFilters.find(item => item.id === currentFilter);
+  const visibleOrders = currentOrders.filter(filter.matches);
+
+  if (visibleOrders.length === 0) {
     clearInterval(pickupCountdownInterval);
-    container.innerHTML = '<p class="muted" style="text-align:center;padding:24px">No orders yet. <a href="/products/">Start shopping</a></p>';
+    container.innerHTML = currentOrders.length === 0
+      ? '<p class="muted" style="text-align:center;padding:24px">No orders yet. <a href="/products/">Start shopping</a></p>'
+      : `<p class="muted" style="text-align:center;padding:24px">No ${filter.label.toLowerCase()} orders.</p>`;
     return;
   }
 
@@ -116,7 +133,7 @@ function renderOrders() {
     EXPIRED: 'Expired - not picked up'
   };
 
-  container.innerHTML = currentOrders.map(o => {
+  container.innerHTML = visibleOrders.map(o => {
     const product = o.products;
     const store = o.stores;
     const color = statusColors[o.status] || 'warn';
@@ -165,6 +182,24 @@ function renderOrders() {
   if (container.querySelector('[data-pickup-countdown]')) {
     pickupCountdownInterval = setInterval(updatePickupCountdowns, 60 * 1000);
   }
+}
+
+function renderOrderFilters() {
+  if (!filtersContainer) return;
+
+  filtersContainer.innerHTML = orderFilters.map(filter => {
+    const count = currentOrders.filter(filter.matches).length;
+    return `<button type="button" class="orders-filter" data-order-filter="${filter.id}" aria-pressed="${currentFilter === filter.id}">
+      ${filter.label}<span class="orders-filter-count">${count}</span>
+    </button>`;
+  }).join('');
+
+  filtersContainer.querySelectorAll('[data-order-filter]').forEach(button => {
+    button.addEventListener('click', () => {
+      currentFilter = button.dataset.orderFilter;
+      renderOrders();
+    });
+  });
 }
 
 function updatePickupCountdowns() {
