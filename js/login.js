@@ -81,10 +81,22 @@ async function init() {
 
 let redirectStarted = false;
 
+function getSafeRedirectUrl() {
+  const raw = new URLSearchParams(window.location.search).get('redirect');
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw, window.location.origin);
+    if (parsed.origin === window.location.origin && !parsed.pathname.startsWith('/login')) {
+      return parsed.href;
+    }
+  } catch {}
+  return null;
+}
+
 function redirectAfterLogin(role) {
   if (redirectStarted) return;
   redirectStarted = true;
-  window.location.replace(getPostLoginPath(role));
+  window.location.replace(getSafeRedirectUrl() || getPostLoginPath(role));
 }
 
 onAuthStateChange(async (event, session) => {
