@@ -648,7 +648,7 @@ reserveForm.addEventListener('submit', async (e) => {
 
   if (!currentSession) {
     showMsg('Please log in to reserve', 'bad');
-    setTimeout(() => window.location.href = `login.html?redirect=${encodeURIComponent(window.location.href)}`, 1500);
+    setTimeout(() => window.location.href = `/login/?redirect=${encodeURIComponent(window.location.href)}`, 1500);
     return;
   }
 
