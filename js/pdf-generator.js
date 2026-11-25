@@ -133,53 +133,77 @@ class PDFGenerator {
 
   // Add rectangle
   addRect(x, y, width, height, options = {}) {
-    const { color = '#f6f3ec', fill = true } = options;
-    this.doc.setFillColor(color);
-    this.doc.rect(x, y, width, height, fill ? 'F' : 'S');
+    const { color = '#f6f3ec', fill = true, strokeColor = null, lineWidth = 0.35 } = options;
+    if (fill) {
+      this.doc.setFillColor(color);
+    }
+    if (strokeColor) {
+      this.doc.setDrawColor(strokeColor);
+      this.doc.setLineWidth(lineWidth);
+    }
+    const mode = fill && strokeColor ? 'FD' : fill ? 'F' : 'S';
+    this.doc.rect(x, y, width, height, mode);
   }
 
-  // Add badge/pill - with fallback for older jsPDF versions
+  // Add rounded rectangle
+  addRoundedRect(x, y, width, height, radius = 3, options = {}) {
+    const { fillColor = null, strokeColor = null, lineWidth = 0.35 } = options;
+    if (fillColor) this.doc.setFillColor(fillColor);
+    if (strokeColor) {
+      this.doc.setDrawColor(strokeColor);
+      this.doc.setLineWidth(lineWidth);
+    }
+    const mode = fillColor && strokeColor ? 'FD' : fillColor ? 'F' : 'S';
+    if (typeof this.doc.roundedRect === 'function') {
+      this.doc.roundedRect(x, y, width, height, radius, radius, mode);
+    } else {
+      this.doc.rect(x, y, width, height, mode);
+    }
+  }
+
+  // Measure badge width without drawing (in mm)
+  measureBadgeWidth(text, options = {}) {
+    const { fontSize = 7, paddingX = 3.2 } = options;
+    if (!text) return 0;
+    this.doc.setFontSize(fontSize);
+    this.doc.setFont('helvetica', 'bold');
+    return this.doc.getTextWidth(text) + 2 * paddingX;
+  }
+
+  // Add badge/pill with accurate pt-to-mm height & centering
   addBadge(text, x, y, options = {}) {
     const {
-      fontSize = 8,
-      paddingX = 6,
-      paddingY = 2,
+      fontSize = 7,
+      paddingX = 3.2,
+      paddingY = 1.4,
       backgroundColor = '#dcfce7',
       textColor = '#14532d',
-      borderRadius = 3
+      borderColor = null,
+      borderRadius = 2.2
     } = options;
 
-    if (!text) return 0;
+    if (!text) return { width: 0, height: 0 };
 
     this.doc.setFontSize(fontSize);
     this.doc.setFont('helvetica', 'bold');
     const textWidth = this.doc.getTextWidth(text);
+    const fontHeightMm = fontSize * 25.4 / 72;
     const badgeWidth = textWidth + 2 * paddingX;
-    const badgeHeight = fontSize * 1.2 + 2 * paddingY;
+    const badgeHeight = fontHeightMm * 1.15 + 2 * paddingY;
 
-    // Draw rounded rectangle background (with fallback)
-    this.doc.setFillColor(backgroundColor);
-    try {
-      // Try roundedRect (available in jsPDF 2.0+)
-      if (typeof this.doc.roundedRect === 'function') {
-        this.doc.roundedRect(x, y, badgeWidth, badgeHeight, 2, 2, 'F');
-      } else {
-        // Fallback: regular rectangle
-        this.doc.rect(x, y, badgeWidth, badgeHeight, 'F');
-      }
-    } catch (err) {
-      console.warn('roundedRect failed, using fallback:', err);
-      this.doc.rect(x, y, badgeWidth, badgeHeight, 'F');
-    }
+    this.addRoundedRect(x, y, badgeWidth, badgeHeight, borderRadius, {
+      fillColor: backgroundColor,
+      strokeColor: borderColor,
+      lineWidth: 0.25,
+    });
 
-    // Add text - vertically centered
     this.doc.setTextColor(textColor);
     this.doc.setFontSize(fontSize);
     this.doc.setFont('helvetica', 'bold');
-    const textY = y + (badgeHeight / 2) + (fontSize * 0.35);
+    const textY = y + badgeHeight / 2 + fontHeightMm * 0.34;
     this.doc.text(text, x + paddingX, textY);
 
-    return badgeHeight;
+    return { width: badgeWidth, height: badgeHeight };
   }
 
   // Save PDF

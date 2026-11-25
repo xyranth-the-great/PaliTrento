@@ -481,24 +481,105 @@ async function generatePDF(options) {
   const pdf = pdfGenerator.doc;
   const pageWidth = pdfGenerator.pageWidth;
   const pageHeight = pdfGenerator.pageHeight;
-  // Detect A5 in either orientation (A5 landscape is 210mm wide).
+  const isLandscape = pageWidth > pageHeight;
   const isA5 = Math.min(pageWidth, pageHeight) <= 160;
-  const margin = isA5 ? 8 : 10;
+  const scale = isA5 ? 0.78 : 1.0;
+
+  const margin = isA5 ? 8 : 11;
   const contentWidth = pageWidth - 2 * margin;
 
-  // Footer area: line + 2 lines of text + bottom margin = ~14mm (A5) / 16mm (A4)
-  const FOOTER_HEIGHT = isA5 ? 14 : 16;
-  const footerY = pageHeight - FOOTER_HEIGHT;
-  // Max Y where content can go (leave 4mm gap before footer line)
-  const maxContentY = footerY - 4;
+  // Color palette (PaliTrento Forest Green + Warm Amber Gold + Ivory Cream)
+  const C = {
+    cream: '#FAF7F0',
+    card: '#FFFFFF',
+    forest: '#1B4329',
+    forestDark: '#122D1C',
+    forestSoft: '#EAF3ED',
+    amber: '#F0A030',
+    amberSoft: '#FFF5E5',
+    ink: '#141D17',
+    muted: '#5B675F',
+    line: '#E2DDD2',
+    white: '#FFFFFF',
+  };
 
-  let currentY = margin;
+  // Helper: draw decorative QR corner brackets
+  function drawCornerBrackets(x, y, size, arm, lineWidth, color) {
+    pdf.setDrawColor(color);
+    pdf.setLineWidth(lineWidth);
+    // Top-left
+    pdf.line(x, y + arm, x, y);
+    pdf.line(x, y, x + arm, y);
+    // Top-right
+    pdf.line(x + size - arm, y, x + size, y);
+    pdf.line(x + size, y, x + size, y + arm);
+    // Bottom-left
+    pdf.line(x, y + size - arm, x, y + size);
+    pdf.line(x, y + size, x + arm, y + size);
+    // Bottom-right
+    pdf.line(x + size - arm, y + size, x + size, y + size);
+    pdf.line(x + size, y + size, x + size, y + size - arm);
+  }
 
-  // ===== HEADER BAR =====
-  const headerH = isA5 ? 26 : 32;
-  pdfGenerator.addRect(0, 0, pageWidth, headerH, { color: '#1f4d2e' });
+  // Helper: clean address string without duplicate "Trento"
+  function buildAddressText() {
+    const rawParts = [
+      s.landmark_reference,
+      s.purok ? `Purok ${s.purok}` : null,
+      s.barangay,
+      'Trento, Agusan del Sur',
+    ]
+      .map(v => (v ? String(v).trim() : ''))
+      .filter(Boolean);
+    const deduped = [];
+    for (const part of rawParts) {
+      const low = part.toLowerCase();
+      const covered = deduped.some(ex => {
+        const exLow = ex.toLowerCase();
+        return exLow.includes(low) || (low.includes('trento') && exLow.includes('trento'));
+      });
+      if (!covered) deduped.push(part);
+    }
+    return deduped.join(', ') || 'Trento, Agusan del Sur';
+  }
 
-  // Load logo image (replaces the "T" in PaliTrento)
+  // Helper: build detail rows based on user checkboxes
+  const detailRows = [{ label: 'ADDRESS', value: buildAddressText() }];
+  if (includeHours) {
+    detailRows.push({ label: 'HOURS', value: `${hours(s)} (Daily)` });
+  }
+  if (includePayments) {
+    const payments = (s.accepted_payments || [])
+      .filter(p => Object.prototype.hasOwnProperty.call(PAY, p))
+      .map(p => PAY[p])
+      .join('  •  ');
+    detailRows.push({ label: 'PAYMENTS', value: payments || 'Cash' });
+  }
+  if (s.contact_number) {
+    detailRows.push({ label: 'CONTACT', value: String(s.contact_number).trim() });
+  }
+
+  // Badges list (WinAnsi-safe text for jsPDF Helvetica)
+  const storeBadges = [];
+  if (includeBadges) {
+    if (s.verification_status === 'VERIFIED' || s.approval_status === 'APPROVED') {
+      storeBadges.push({ text: 'VERIFIED STORE', bg: '#DCFCE7', textColor: '#14532D', border: '#A7E8BE' });
+    }
+    if (s.dti_registered) {
+      storeBadges.push({ text: 'DTI REGISTERED', bg: '#E0F2FE', textColor: '#0369A1', border: '#BAE6FD' });
+    }
+    if (s.bmbe_registered) {
+      storeBadges.push({ text: 'BMBE', bg: '#E0F2FE', textColor: '#0369A1', border: '#BAE6FD' });
+    }
+    if (s.srp_compliant) {
+      storeBadges.push({ text: 'SRP COMPLIANT', bg: '#FEF3C7', textColor: '#92400E', border: '#FDE68A' });
+    }
+  }
+
+  const businessUrl = `${window.location.origin}/business/?trn=${encodeURIComponent(s.trn_code)}`;
+  const shortDisplayUrl = businessUrl.replace(/^https?:\/\//, '');
+
+  // Load brand logo once
   let logoDataUrl = '';
   try {
     const logoResponse = await fetch('/logo.png');
@@ -512,251 +593,446 @@ async function generatePDF(options) {
     console.warn('Could not load logo for PDF:', e);
   }
 
-  // Draw "Pali" text
-  pdf.setFontSize(isA5 ? 14 : 16);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor('#fef3e2');
-  pdf.text('Pali', margin, isA5 ? 14 : 16);
+  // ===== 1. WARM IVORY PAGE BACKGROUND + SUBTLE FRAME =====
+  pdfGenerator.addRect(0, 0, pageWidth, pageHeight, { color: C.cream });
 
-  // Logo replaces the "T" - position it where "T" would be
-  const paliWidth = pdf.getTextWidth('Pali');
-  const tWidth = pdf.getTextWidth('T');
-  const logoX = margin + paliWidth; // exactly where "T" would start
-  const logoSize = Math.max(tWidth, isA5 ? 5 : 6); // at least as wide as "T"
-  const logoY = isA5 ? 10.5 : 11.5; // vertically centered in header
+  // ===== 2. BRANDED FOREST-GREEN HEADER + GOLD ACCENT STRIPE =====
+  const headerH = isLandscape ? (isA5 ? 21 : 26) : (isA5 ? 25 : 31);
+  pdfGenerator.addRect(0, 0, pageWidth, headerH, { color: C.forest });
+  // Subtle darker right accent block for depth
+  pdfGenerator.addRect(pageWidth * 0.68, 0, pageWidth * 0.32, headerH, { color: C.forestDark });
+  // Warm amber-gold bar under header
+  const goldBarH = isA5 ? 1.8 : 2.4;
+  pdfGenerator.addRect(0, headerH, pageWidth, goldBarH, { color: C.amber });
+
+  // White rounded logo tile on left
+  const logoTileSize = headerH * 0.64;
+  const logoTileY = (headerH - logoTileSize) / 2;
+  pdfGenerator.addRoundedRect(margin, logoTileY, logoTileSize, logoTileSize, 2.5, {
+    fillColor: C.cream,
+  });
   if (logoDataUrl) {
     try {
-      pdf.addImage(logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize);
+      const pad = logoTileSize * 0.14;
+      pdf.addImage(
+        logoDataUrl,
+        'PNG',
+        margin + pad,
+        logoTileY + pad,
+        logoTileSize - pad * 2,
+        logoTileSize - pad * 2
+      );
     } catch (e) {
       console.warn('Could not add logo to PDF:', e);
     }
   }
 
-  // Draw "rento" text after where "T" would end (logo replaces T)
-  const rentoX = logoX + Math.max(tWidth, logoSize);
-  pdf.text('rento', rentoX, isA5 ? 14 : 16);
+  // Brand wordmark ("Pali" cream + "Trento" gold)
+  const brandX = margin + logoTileSize + (isA5 ? 3.5 : 4.5);
+  const brandFontSize = isLandscape ? (isA5 ? 14 : 17) : (isA5 ? 15.5 : 19);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(brandFontSize);
+  pdf.setTextColor('#FEF3E2');
+  const brandY = headerH * 0.48;
+  pdf.text('Pali', brandX, brandY);
+  const paliW = pdf.getTextWidth('Pali');
+  pdf.setTextColor('#FBC14E');
+  pdf.text('Trento', brandX + paliW, brandY);
 
-  pdf.setFontSize(isA5 ? 7 : 8);
   pdf.setFont('helvetica', 'normal');
-  pdf.setTextColor('#fef3e2');
-  pdf.text('Tara, Palit Ta sa Trento!', margin, isA5 ? 21 : 23);
+  pdf.setFontSize(isA5 ? 6.8 : 8);
+  pdf.setTextColor('#D8E8DD');
+  pdf.text('Tara, Palit Ta sa Trento!', brandX, headerH * 0.74);
 
-  pdf.setFontSize(isA5 ? 6.5 : 7.5);
-  pdf.setTextColor('#fef3e2');
-  pdf.text(`TRN: ${s.trn_code}`, pageWidth - margin, isA5 ? 14 : 16, { align: 'right' });
-
-  currentY = headerH + 5;
-
-  // ===== STORE NAME =====
-  currentY = pdfGenerator.addText(s.business_name, margin, currentY, {
-    fontSize: isA5 ? 16 : 19,
-    fontStyle: 'bold',
-    color: '#1f4d2e',
-    maxWidth: contentWidth,
-    lineHeight: 1.2
+  // Right side TRN pill badge
+  const trnLabel = `TRN: ${s.trn_code}`;
+  const trnFontSize = isA5 ? 7 : 8.5;
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(trnFontSize);
+  const trnW = pdf.getTextWidth(trnLabel) + (isA5 ? 7 : 9);
+  const trnH = isA5 ? 6.5 : 8;
+  const trnX = pageWidth - margin - trnW;
+  const trnY = headerH * 0.22;
+  pdfGenerator.addRoundedRect(trnX, trnY, trnW, trnH, 2.5, {
+    fillColor: C.forest,
+    strokeColor: '#FBC14E',
+    lineWidth: 0.35,
   });
+  pdf.setTextColor('#FBC14E');
+  pdf.text(trnLabel, trnX + trnW / 2, trnY + trnH * 0.68, { align: 'center' });
 
-  // Category + Barangay
-  currentY = pdfGenerator.addText(`${CATS[s.trade_category] || s.trade_category}  •  ${s.barangay}${s.purok ? ', Purok ' + s.purok : ''}`, margin, currentY, {
-    fontSize: isA5 ? 8 : 9.5,
-    color: '#5b675f',
-    maxWidth: contentWidth
-  });
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(isA5 ? 5.6 : 6.6);
+  pdf.setTextColor('#CFE0D5');
+  pdf.text('OFFICIAL LOCAL MERCHANT', pageWidth - margin, headerH * 0.80, { align: 'right' });
 
-  currentY += isA5 ? 1.5 : 2;
+  // ===== 3. SOLID BRANDED FOOTER BAR =====
+  const footerH = isLandscape ? (isA5 ? 11 : 13) : (isA5 ? 13 : 16);
+  const footerTopY = pageHeight - footerH;
+  pdfGenerator.addRect(0, footerTopY - 1, pageWidth, 1, { color: C.amber });
+  pdfGenerator.addRect(0, footerTopY, pageWidth, footerH, { color: C.forest });
 
-  // ===== BADGES =====
-  if (includeBadges) {
-    const storeBadges = [];
-    if (s.verification_status === 'VERIFIED') storeBadges.push({ text: 'Verified', bg: '#dcfce7', textColor: '#14532d' });
-    if (s.dti_registered) storeBadges.push({ text: 'DTI', bg: '#e0f2fe', textColor: '#0369a1' });
-    if (s.bmbe_registered) storeBadges.push({ text: 'BMBE', bg: '#e0f2fe', textColor: '#0369a1' });
-    if (s.srp_compliant) storeBadges.push({ text: 'Price Cap ✓', bg: '#dcfce7', textColor: '#14532d' });
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(isA5 ? 7 : 8.5);
+  pdf.setTextColor('#FEF3E2');
+  pdf.text(
+    'PaliTrento  •  Municipality of Trento, Agusan del Sur',
+    margin,
+    footerTopY + footerH * 0.62
+  );
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(isA5 ? 6.5 : 7.8);
+  pdf.setTextColor('#FBC14E');
+  pdf.text('palitrento.online', pageWidth - margin, footerTopY + footerH * 0.62, { align: 'right' });
 
-    if (storeBadges.length > 0) {
-      let badgeX = margin;
-      storeBadges.forEach(badge => {
-        pdfGenerator.addBadge(badge.text, badgeX, currentY, {
-          fontSize: isA5 ? 5 : 5.5,
-          paddingX: isA5 ? 3 : 4,
-          paddingY: isA5 ? 1 : 1.5,
-          backgroundColor: badge.bg,
-          textColor: badge.textColor
-        });
-        badgeX += pdf.getTextWidth(badge.text) + (isA5 ? 9 : 12);
+  // Inner workspace area between header and footer
+  const workTop = headerH + goldBarH + (isA5 ? 4.5 : 6);
+  const workBottom = footerTopY - (isA5 ? 4.5 : 6);
+  const workH = workBottom - workTop;
+
+  // Helper: render centered badges row inside a box
+  function drawCenteredBadges(cx, y, maxW, fontSize) {
+    if (storeBadges.length === 0) return y;
+    const padX = isA5 ? 2.6 : 3.2;
+    const padY = isA5 ? 1.0 : 1.3;
+    const gap = isA5 ? 2 : 2.6;
+    const widths = storeBadges.map(b => pdfGenerator.measureBadgeWidth(b.text, { fontSize, paddingX: padX }));
+    const totalW = widths.reduce((a, b) => a + b, 0) + gap * (storeBadges.length - 1);
+    let bx = Math.max(cx - maxW / 2, cx - totalW / 2);
+    let maxH = 0;
+    storeBadges.forEach((b, idx) => {
+      if (bx + widths[idx] > cx + maxW / 2) return;
+      const res = pdfGenerator.addBadge(b.text, bx, y, {
+        fontSize,
+        paddingX: padX,
+        paddingY: padY,
+        backgroundColor: b.bg,
+        textColor: b.textColor,
+        borderColor: b.border,
+        borderRadius: 2,
       });
-      currentY += isA5 ? 7 : 9;
-    }
-  }
-
-  // Thin divider
-  pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.4 });
-  currentY += isA5 ? 3.5 : 4;
-
-  // ===== DETAIL SECTIONS =====
-  // Keep each label and value on the same row. The row height is based on
-  // whichever side wraps to more lines, so later sections never collide.
-  const labelW = isA5 ? 19 : 23;
-  const valX = margin + labelW;
-  const valW = contentWidth - labelW;
-  const rowGap = isA5 ? 2.2 : 2.8;
-
-  function addDetailRow(label, value) {
-    const fontSize = isA5 ? 8 : 8.5;
-    const lineHeight = 1.3;
-    const labelY = currentY;
-    const labelEnd = pdfGenerator.addText(label, margin, labelY, {
-      fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e',
-      maxWidth: labelW - 2, lineHeight
+      bx += res.width + gap;
+      maxH = Math.max(maxH, res.height);
     });
-    const valueEnd = pdfGenerator.addText(value || '—', valX, labelY, {
-      fontSize, maxWidth: valW, lineHeight, color: '#1c2a20'
+    return y + maxH;
+  }
+
+  // Helper: render map box cleanly inside (x, y, w, h)
+  function drawMapCard(x, y, w, h) {
+    pdfGenerator.addRoundedRect(x, y, w, h, 3, {
+      fillColor: C.card,
+      strokeColor: C.line,
+      lineWidth: 0.35,
     });
-    currentY = Math.max(labelEnd, valueEnd) + rowGap;
-  }
+    const capH = isA5 ? 5.5 : 6.8;
+    pdfGenerator.addRoundedRect(x, y, w, capH, 2.5, { fillColor: C.forestSoft });
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(isA5 ? 6.2 : 7.2);
+    pdf.setTextColor(C.forest);
+    pdf.text('STORE LOCATION', x + 3, y + capH * 0.68);
 
-  // --- Address ---
-  let addressText = s.landmark_reference || '';
-  if (!addressText && s.barangay) {
-    const parts = [];
-    if (s.barangay) parts.push(s.barangay);
-    if (s.purok) parts.push(`Purok ${s.purok}`);
-    parts.push('Trento, Agusan del Sur');
-    addressText = parts.join(', ');
-  } else if (addressText && !addressText.toLowerCase().includes('trento')) {
-    addressText += ', Trento, Agusan del Sur';
-  }
-  addDetailRow('Address', addressText);
+    const imgX = x + 2;
+    const imgY = y + capH + 1.5;
+    const imgW = w - 4;
+    const imgH = Math.max(8, h - capH - 3.5);
 
-  // --- Hours ---
-  if (includeHours) {
-    addDetailRow('Hours', hours(s) + (isOpen(s) ? ' • Open' : ' • Closed'));
-  }
-
-  // --- Payments ---
-  if (includePayments) {
-    const payments = (s.accepted_payments || [])
-      .filter(p => Object.prototype.hasOwnProperty.call(PAY, p))
-      .map(p => PAY[p]).join(', ') || '—';
-    addDetailRow('Pay', payments);
-  }
-
-  // --- Location / Map ---
-  if (includeMap) {
-    // Label
-    currentY = pdfGenerator.addText('Location', margin, currentY, { fontSize: 7.5, fontStyle: 'bold', color: '#1f4d2e' });
-    currentY += 1.5;
-
-    // Taller box for better map visibility
-    const mapH = isA5 ? 28 : 34; // taller box for more detail
-    const mapX = margin;
-    const mapW = contentWidth;
-
-    // Use captured map from Leaflet (mapDataUrl is set by initMapCapture)
     if (mapDataUrl && mapDataUrl.startsWith('data:image/')) {
-      // Draw the captured map image STRETCHED to fill the entire box
       try {
-        pdf.addImage(mapDataUrl, 'PNG', mapX, currentY, mapW, mapH);
-
-        // Border around the box
-        pdf.setDrawColor('#dcdad3');
-        pdf.setLineWidth(0.4);
-        pdf.rect(mapX, currentY, mapW, mapH, 'S');
-        console.log('[Standee] Captured map drawn to PDF (stretched to fill box)');
+        pdf.addImage(mapDataUrl, 'PNG', imgX, imgY, imgW, imgH);
+        pdf.setDrawColor(C.line);
+        pdf.setLineWidth(0.25);
+        pdf.rect(imgX, imgY, imgW, imgH, 'S');
+        return;
       } catch (imgErr) {
         console.warn('[Standee] Failed to add captured map to PDF:', imgErr);
-        mapDataUrl = ''; // force fallback
       }
     }
-    if (!mapDataUrl) {
-      // Fallback: placeholder box with coordinates
-      pdfGenerator.addRect(mapX, currentY, mapW, mapH, { color: '#f6f3ec' });
-      pdf.setDrawColor('#dcdad3');
-      pdf.setLineWidth(0.4);
-      pdf.rect(mapX, currentY, mapW, mapH, 'S');
 
-      // Add a map pin icon + coordinates
-      const coordY = currentY + mapH / 2 + (isA5 ? 1 : 1.5);
-      pdfGenerator.addText(`📍 Lat: ${s.lat?.toFixed(5) || '—'}, Lng: ${s.lng?.toFixed(5) || '—'}`, pageWidth / 2, coordY, {
-        fontSize: isA5 ? 7 : 8,
-        color: '#1f4d2e',
-        align: 'center'
-      });
-
-      // Add note about map
-      pdfGenerator.addText('(Map capture unavailable — showing coordinates)', pageWidth / 2, coordY + (isA5 ? 3.5 : 4), {
-        fontSize: isA5 ? 5.5 : 6,
-        color: '#999',
-        align: 'center'
-      });
-      console.log('[Standee] Using fallback coordinate display');
+    // Clean vector pin fallback (no garbled emoji!)
+    pdfGenerator.addRect(imgX, imgY, imgW, imgH, { color: '#F3EFE6', strokeColor: C.line, lineWidth: 0.25 });
+    const pinCx = imgX + imgW / 2;
+    const pinCy = imgY + imgH * 0.38;
+    pdf.setFillColor(C.forest);
+    pdf.circle(pinCx, pinCy, isA5 ? 2.6 : 3.2, 'F');
+    pdf.setFillColor(C.amber);
+    pdf.circle(pinCx, pinCy, isA5 ? 1.1 : 1.4, 'F');
+    pdfGenerator.addText(
+      `${s.barangay || 'Trento'}, Agusan del Sur`,
+      pinCx,
+      imgY + imgH * 0.68,
+      { fontSize: isA5 ? 6.8 : 8, fontStyle: 'bold', color: C.forest, align: 'center', maxWidth: imgW - 4 }
+    );
+    if (s.lat && s.lng) {
+      pdfGenerator.addText(
+        `${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}`,
+        pinCx,
+        imgY + imgH * 0.84,
+        { fontSize: isA5 ? 5.6 : 6.6, color: C.muted, align: 'center', maxWidth: imgW - 4 }
+      );
     }
-
-    // Advance Y to after the map box
-    currentY += mapH + (isA5 ? 3 : 4);
   }
 
-  // ===== QR SECTION =====
-  // Horizontal divider before QR
-  pdfGenerator.addLine(margin, currentY, pageWidth - margin, currentY, { color: '#dcdad3', width: 0.4 });
-  currentY += isA5 ? 3 : 4;
+  // Helper: render details card cleanly inside (x, y, w, h)
+  function drawDetailsCard(x, y, w, h, twoCol = false) {
+    pdfGenerator.addRoundedRect(x, y, w, h, 3, {
+      fillColor: C.card,
+      strokeColor: C.line,
+      lineWidth: 0.35,
+    });
+    const capH = isA5 ? 5.5 : 6.8;
+    pdfGenerator.addRoundedRect(x, y, w, capH, 2.5, { fillColor: C.forestSoft });
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(isA5 ? 6.2 : 7.2);
+    pdf.setTextColor(C.forest);
+    pdf.text('STORE INFORMATION', x + 3.5, y + capH * 0.68);
 
-  // QR Label
-  currentY = pdfGenerator.addText('Scan to view store on PaliTrento', pageWidth / 2, currentY, {
-    fontSize: isA5 ? 9 : 10,
-    fontStyle: 'bold',
-    color: '#1f4d2e',
-    align: 'center'
-  });
-  currentY += isA5 ? 2.5 : 3;
+    const padX = isA5 ? 3.5 : 4.5;
+    const innerTop = y + capH + (isA5 ? 4 : 5);
+    const labelSize = isA5 ? 6 : 7;
+    const valSize = isA5 ? 7.6 : 9;
 
-  // QR Code - sized to fit available space
-  if (qrDataUrl) {
-    const urlAndTaglineReserve = isA5 ? 9 : 10;
-    const availableH = Math.max(0, maxContentY - currentY - urlAndTaglineReserve);
-    const qrSize = Math.min(isA5 ? 45 : 58, contentWidth * 0.75, availableH);
-    if (qrSize >= 20) {
-      const qrX = (pageWidth - qrSize) / 2;
-      pdfGenerator.addQRCode(qrDataUrl, qrX, currentY, qrSize);
-      currentY += qrSize + (isA5 ? 2 : 2.5);
+    if (twoCol && detailRows.length >= 2) {
+      const colW = (w - padX * 3) / 2;
+      const leftRows = detailRows.filter((_, i) => i % 2 === 0);
+      const rightRows = detailRows.filter((_, i) => i % 2 === 1);
+      [
+        { rows: leftRows, colX: x + padX },
+        { rows: rightRows, colX: x + padX * 2 + colW },
+      ].forEach(({ rows, colX }) => {
+        let ry = innerTop;
+        rows.forEach((row, idx) => {
+          if (ry > y + h - 4) return;
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(labelSize);
+          pdf.setTextColor(C.forest);
+          pdf.text(row.label, colX, ry);
+          ry += isA5 ? 3.2 : 4;
+          ry = pdfGenerator.addText(row.value, colX, ry, {
+            fontSize: valSize,
+            color: C.ink,
+            maxWidth: colW,
+            lineHeight: 1.25,
+          });
+          if (idx < rows.length - 1) ry += isA5 ? 2 : 3;
+        });
+      });
     } else {
-      throw new Error('There is not enough space for the QR code. Try A4 portrait or disable the map/hours/payment sections.');
+      let ry = innerTop;
+      const availW = w - padX * 2;
+      detailRows.forEach((row, idx) => {
+        if (ry > y + h - 4) return;
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(labelSize);
+        pdf.setTextColor(C.forest);
+        pdf.text(row.label, x + padX, ry);
+        ry += isA5 ? 3.1 : 3.8;
+        ry = pdfGenerator.addText(row.value, x + padX, ry, {
+          fontSize: valSize,
+          color: C.ink,
+          maxWidth: availW,
+          lineHeight: 1.22,
+        });
+        if (idx < detailRows.length - 1 && ry < y + h - 5) {
+          ry += isA5 ? 1.2 : 1.8;
+          pdfGenerator.addLine(x + padX, ry, x + w - padX, ry, { color: '#EFECE5', width: 0.25 });
+          ry += isA5 ? 3.2 : 4;
+        }
+      });
     }
   }
 
-  // URL
-  currentY = pdfGenerator.addText(`${window.location.origin}/business/?trn=${encodeURIComponent(s.trn_code)}`, pageWidth / 2, currentY, {
-    fontSize: isA5 ? 6.5 : 7,
-    color: '#5b675f',
-    align: 'center'
-  });
+  // Helper: render full QR Showcase Card inside (x, y, w, h)
+  function drawQrShowcaseCard(x, y, w, h) {
+    pdfGenerator.addRoundedRect(x, y, w, h, 4, {
+      fillColor: C.card,
+      strokeColor: C.forest,
+      lineWidth: 0.55,
+    });
 
-  currentY += 1.5;
+    // Top green callout banner inside QR card
+    const bannerH = isA5 ? 9 : 11.5;
+    pdfGenerator.addRoundedRect(x, y, w, bannerH, 3.5, { fillColor: C.forest });
+    // Square off bottom corners of the banner
+    pdfGenerator.addRect(x, y + bannerH - 3, w, 3, { color: C.forest });
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(isA5 ? 8.5 : 10.5);
+    pdf.setTextColor('#FEF3E2');
+    pdf.text('SCAN TO BROWSE PRICES & RESERVE', x + w / 2, y + bannerH * 0.65, { align: 'center' });
 
-  // Tagline
-  currentY = pdfGenerator.addText('Find us on PaliTrento', pageWidth / 2, currentY, {
-    fontSize: isA5 ? 7.5 : 8.5,
-    fontStyle: 'bold',
-    color: '#1f4d2e',
-    align: 'center'
-  });
+    // Bottom section reserved for 3-step guide + URL pill
+    const stepsH = isA5 ? 12 : 15;
+    const innerTop = y + bannerH + (isA5 ? 4 : 5.5);
+    const innerBottom = y + h - stepsH - (isA5 ? 3 : 4);
+    const availH = Math.max(20, innerBottom - innerTop);
+    const availW = w - (isA5 ? 12 : 16);
+    const qrSize = Math.min(availH, availW, isA5 ? 68 : 96);
 
-  // ===== FOOTER (always at bottom) =====
-  // Divider line
-  pdfGenerator.addLine(margin, footerY - 3, pageWidth - margin, footerY - 3, { color: '#dcdad3', width: 0.4 });
+    if (qrSize < 18) {
+      throw new Error('There is not enough space for the QR code. Try A4 or uncheck an optional section.');
+    }
 
-  // Footer text lines
-  pdfGenerator.addText('PaliTrento  •  Tara, Palit Ta sa Trento!', pageWidth / 2, footerY, {
-    fontSize: isA5 ? 6 : 6.5,
-    color: '#5b675f',
-    align: 'center'
-  });
+    const qrX = x + (w - qrSize) / 2;
+    const qrY = innerTop + (availH - qrSize) / 2;
+    const framePad = isA5 ? 2.4 : 3.2;
 
-  pdfGenerator.addText('Municipality of Trento, Agusan del Sur', pageWidth / 2, footerY + (isA5 ? 3 : 3.5), {
-    fontSize: isA5 ? 5 : 5.5,
-    color: '#999',
-    align: 'center'
-  });
+    // Subtle soft frame behind QR + decorative corner brackets
+    pdfGenerator.addRoundedRect(
+      qrX - framePad,
+      qrY - framePad,
+      qrSize + framePad * 2,
+      qrSize + framePad * 2,
+      3,
+      { fillColor: C.white, strokeColor: C.line, lineWidth: 0.25 }
+    );
+    drawCornerBrackets(
+      qrX - framePad,
+      qrY - framePad,
+      qrSize + framePad * 2,
+      Math.min(8, qrSize * 0.16),
+      isA5 ? 0.9 : 1.15,
+      C.forest
+    );
+
+    if (qrDataUrl) {
+      pdfGenerator.addQRCode(qrDataUrl, qrX, qrY, qrSize);
+    }
+
+    // 3-step quick guide
+    const stepY = y + h - stepsH + (isA5 ? 2.5 : 3.5);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(isA5 ? 6.4 : 7.8);
+    pdf.setTextColor(C.forest);
+    pdf.text(
+      '1. Open Camera   •   2. Scan QR   •   3. View Live Prices',
+      x + w / 2,
+      stepY,
+      { align: 'center' }
+    );
+
+    // URL pill
+    const urlY = stepY + (isA5 ? 2.4 : 3.2);
+    const urlFont = isA5 ? 6 : 7.2;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(urlFont);
+    const pillW = Math.min(w - 8, pdf.getTextWidth(shortDisplayUrl) + 8);
+    const pillH = isA5 ? 5 : 6.2;
+    pdfGenerator.addRoundedRect(x + (w - pillW) / 2, urlY, pillW, pillH, 2.2, {
+      fillColor: C.forestSoft,
+    });
+    pdf.setTextColor(C.forestDark);
+    pdf.text(shortDisplayUrl, x + w / 2, urlY + pillH * 0.68, { align: 'center' });
+  }
+
+  // ===== 4. ADAPTIVE LAYOUT: LANDSCAPE (2-COLUMN) vs PORTRAIT (STACKED CARDS) =====
+  if (isLandscape) {
+    const gap = isA5 ? 5 : 6.5;
+    const leftW = contentWidth * 0.54;
+    const rightW = contentWidth - leftW - gap;
+    const rightX = margin + leftW + gap;
+
+    // Right column: full-height QR Showcase Card
+    drawQrShowcaseCard(rightX, workTop, rightW, workH);
+
+    // Left column top: Store Identity Card
+    const hasBadges = storeBadges.length > 0;
+    const idCardH = (hasBadges ? 34 : 26) * scale;
+    pdfGenerator.addRoundedRect(margin, workTop, leftW, idCardH, 3.5, {
+      fillColor: C.card,
+      strokeColor: C.line,
+      lineWidth: 0.35,
+    });
+    // Left amber vertical accent bar
+    pdfGenerator.addRoundedRect(margin, workTop, 2.2, idCardH, 1, { fillColor: C.amber });
+
+    let ly = workTop + (isA5 ? 6.5 : 8);
+    ly = pdfGenerator.addText(s.business_name, margin + 5.5, ly, {
+      fontSize: isA5 ? 14 : 18,
+      fontStyle: 'bold',
+      color: C.forest,
+      maxWidth: leftW - 9,
+      lineHeight: 1.15,
+    });
+    ly = pdfGenerator.addText(
+      `${CATS[s.trade_category] || s.trade_category}  •  ${s.barangay}${s.purok ? `, Purok ${s.purok}` : ''}`,
+      margin + 5.5,
+      ly + 0.5,
+      { fontSize: isA5 ? 7.5 : 9, color: C.muted, maxWidth: leftW - 9 }
+    );
+    if (hasBadges) {
+      drawCenteredBadges(margin + leftW / 2 + 1, ly + 1, leftW - 10, isA5 ? 5.6 : 6.5);
+    }
+
+    // Left column bottom: Details + optional Map filling ALL remaining vertical height
+    const remTop = workTop + idCardH + (isA5 ? 3.5 : 4.5);
+    const remH = Math.max(24, workBottom - remTop);
+    if (includeMap) {
+      const infoH = remH * 0.52;
+      const mapH = remH - infoH - (isA5 ? 3 : 4);
+      drawDetailsCard(margin, remTop, leftW, infoH, false);
+      drawMapCard(margin, remTop + infoH + (isA5 ? 3 : 4), leftW, mapH);
+    } else {
+      drawDetailsCard(margin, remTop, leftW, remH, false);
+    }
+  } else {
+    // ===== PORTRAIT LAYOUT (ZERO DEAD SPACE ON A5 & A4!) =====
+    const sectionGap = isA5 ? 4 : 5.5;
+
+    // A. Hero Store Identity Card (centered typography + badges)
+    const nameFontSize = s.business_name.length > 26 ? (isA5 ? 15 : 19) : (isA5 ? 17.5 : 22);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(nameFontSize);
+    const nameLines = pdf.splitTextToSize(s.business_name, contentWidth - 12);
+    const nameBlockH = nameLines.length * (nameFontSize * 25.4 / 72) * 1.18;
+    const hasBadges = storeBadges.length > 0;
+    const idCardH = nameBlockH + (isA5 ? 14 : 18) + (hasBadges ? (isA5 ? 8 : 10) : 0);
+
+    pdfGenerator.addRoundedRect(margin, workTop, contentWidth, idCardH, 3.5, {
+      fillColor: C.card,
+      strokeColor: C.line,
+      lineWidth: 0.35,
+    });
+
+    let cy = workTop + (isA5 ? 7.5 : 9.5);
+    cy = pdfGenerator.addText(s.business_name, pageWidth / 2, cy, {
+      fontSize: nameFontSize,
+      fontStyle: 'bold',
+      color: C.forest,
+      align: 'center',
+      maxWidth: contentWidth - 12,
+      lineHeight: 1.18,
+    });
+    cy = pdfGenerator.addText(
+      `${CATS[s.trade_category] || s.trade_category}  •  ${s.barangay}${s.purok ? `, Purok ${s.purok}` : ''}`,
+      pageWidth / 2,
+      cy + 0.5,
+      { fontSize: isA5 ? 8.2 : 10, color: C.muted, align: 'center', maxWidth: contentWidth - 12 }
+    );
+    if (hasBadges) {
+      drawCenteredBadges(pageWidth / 2, cy + 1.5, contentWidth - 10, isA5 ? 6 : 7);
+    }
+
+    // B. Bottom Info (+ Map) Band — fixed proportional height anchored at workBottom
+    const bottomBandH = includeMap
+      ? Math.max(isA5 ? 44 : 62, workH * 0.29)
+      : Math.max(isA5 ? 32 : 44, Math.min(isA5 ? 42 : 56, workH * 0.22));
+    const bottomBandY = workBottom - bottomBandH;
+
+    // C. Centerpiece QR Showcase Card — fills the ENTIRE space between Identity Card & Bottom Band!
+    const qrCardTop = workTop + idCardH + sectionGap;
+    const qrCardH = bottomBandY - sectionGap - qrCardTop;
+    drawQrShowcaseCard(margin, qrCardTop, contentWidth, qrCardH);
+
+    // D. Render Bottom Info + Map Row
+    if (includeMap) {
+      const colGap = isA5 ? 3.5 : 4.5;
+      const infoW = contentWidth * 0.54;
+      const mapW = contentWidth - infoW - colGap;
+      drawDetailsCard(margin, bottomBandY, infoW, bottomBandH, false);
+      drawMapCard(margin + infoW + colGap, bottomBandY, mapW, bottomBandH);
+    } else {
+      drawDetailsCard(margin, bottomBandY, contentWidth, bottomBandH, true);
+    }
+  }
 
   return pdfGenerator.getBlob();
 }
