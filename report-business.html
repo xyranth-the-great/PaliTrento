@@ -124,6 +124,7 @@ const backLink = $('#back-link');
 
 let storeId = null;
 let storeData = null;
+let currentUserId = null;
 
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -151,6 +152,7 @@ async function init() {
     return;
   }
 
+  currentUserId = session.user.id;
   renderChrome('/report-business/', session, profile);
 
   // Load business info
@@ -163,23 +165,30 @@ async function loadBusiness() {
   try {
     const { data: store, error } = await supabase
       .from('stores')
-      .select('business_name, trn_code, barangay, verification_status')
+      .select('business_name, trn_code, barangay, verification_status, user_id')
       .eq('id', storeId)
       .maybeSingle();
 
     if (error || !store) {
       showError('Business not found');
+      form.style.display = 'none';
       return;
     }
 
     storeData = store;
+    backLink.href = `/business/?trn=${encodeURIComponent(store.trn_code)}`;
+    backLink.textContent = `← Back to ${esc(store.business_name)}`;
+
+    if (currentUserId && store.user_id === currentUserId) {
+      form.style.display = 'none';
+      showError('You cannot report your own business.');
+      return;
+    }
+
     businessInfo.innerHTML = `
       <h3>${esc(store.business_name)}</h3>
       <p>TRN: ${esc(store.trn_code)} · ${esc(store.barangay)} · ${store.verification_status}</p>
     `;
-
-    backLink.href = `/business/?trn=${encodeURIComponent(store.trn_code)}`;
-    backLink.textContent = `← Back to ${esc(store.business_name)}`;
   } catch (err) {
     console.error('Load business error:', err);
     showError('Failed to load business');

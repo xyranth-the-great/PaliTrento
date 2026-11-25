@@ -136,6 +136,10 @@ begin
     raise exception 'Cannot report unverified store';
   end if;
 
+  if v_store.user_id = v_reporter_id then
+    raise exception 'You cannot report your own business';
+  end if;
+
   -- Check for duplicate report (same reporter, same store, same reason within 24h)
   select exists (
     select 1 from public.business_reports
@@ -209,6 +213,10 @@ begin
   select * into v_store from public.stores where id = v_product.store_id;
   if not found or v_store.verification_status <> 'VERIFIED' then
     raise exception 'Cannot report product from unverified store';
+  end if;
+
+  if v_store.user_id = v_reporter_id then
+    raise exception 'You cannot report your own product';
   end if;
 
   -- Check for duplicate report

@@ -129,6 +129,7 @@ const backLink = $('#back-link');
 
 let productId = null;
 let productData = null;
+let currentUserId = null;
 
 async function init() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -156,6 +157,7 @@ async function init() {
     return;
   }
 
+  currentUserId = session.user.id;
   renderChrome('/report-product/', session, profile);
 
   // Load product info
@@ -168,17 +170,27 @@ async function loadProduct() {
   try {
     const { data: product, error } = await supabase
       .from('products')
-      .select('name, current_price, unit, image_url, store_id, stores(business_name, trn_code)')
+      .select('name, current_price, unit, image_url, store_id, stores(business_name, trn_code, user_id)')
       .eq('id', productId)
       .maybeSingle();
 
     if (error || !product) {
       showError('Product not found');
+      form.style.display = 'none';
       return;
     }
 
     productData = product;
     const store = product.stores;
+
+    backLink.href = `/product-detail/?id=${encodeURIComponent(productId)}`;
+    backLink.textContent = `← Back to ${esc(product.name)}`;
+
+    if (currentUserId && store?.user_id === currentUserId) {
+      form.style.display = 'none';
+      showError('You cannot report your own product.');
+      return;
+    }
 
     productInfo.innerHTML = `
       ${product.image_url ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}">` : `<div style="width:60px;height:60px;border-radius:var(--r-md);background:var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">No image</div>`}
@@ -187,9 +199,6 @@ async function loadProduct() {
         <p>${esc(product.current_price)} / ${product.unit} · ${esc(store?.business_name || 'Unknown Store')}</p>
       </div>
     `;
-
-    backLink.href = `/product-detail/?id=${encodeURIComponent(productId)}`;
-    backLink.textContent = `← Back to ${esc(product.name)}`;
   } catch (err) {
     console.error('Load product error:', err);
     showError('Failed to load product');

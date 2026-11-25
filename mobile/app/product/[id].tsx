@@ -127,6 +127,7 @@ export default function ProductDetailScreen() {
   const outOfStock = !product.in_stock || (product.quantity != null && Number(product.quantity) <= 0);
   const canReport =
     Boolean(session) &&
+    !isOwnProduct &&
     (store.verification_status === 'VERIFIED' || store.approval_status === 'APPROVED');
   const total = Number(product.current_price) * qty;
   const showcase = getProductShowcaseTheme(product);

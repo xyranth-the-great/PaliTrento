@@ -88,8 +88,10 @@ export default function StoreDetailScreen() {
     .map((p) => PAY[p])
     .filter(Boolean)
     .join(', ');
+  const isOwnStore = Boolean(session && session.user.id === store.user_id);
   const canReport =
     Boolean(session) &&
+    !isOwnStore &&
     (store.verification_status === 'VERIFIED' || store.approval_status === 'APPROVED');
   const purokLabel = formatPurok(store.purok);
 
