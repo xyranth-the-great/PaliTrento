@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, EmptyState, Field, ScreenHeader } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { peso, UNITS } from '../lib/constants';
 import { PRODUCT_REPORT_REASONS, submitProductReport } from '../lib/support';
@@ -28,13 +29,14 @@ interface ProductPreview {
   unit: string;
   image_url?: string | null;
   image_urls?: string[] | null;
-  stores?: { business_name: string; trn_code: string } | null;
+  stores?: { business_name: string; trn_code: string; user_id?: string | null } | null;
 }
 
 export default function ReportProductScreen() {
   const { productId } = useLocalSearchParams<{ productId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
 
   const [product, setProduct] = useState<ProductPreview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export default function ReportProductScreen() {
       }
       const { data } = await supabase
         .from('products')
-        .select('id, name, current_price, unit, image_url, image_urls, stores(business_name, trn_code)')
+        .select('id, name, current_price, unit, image_url, image_urls, stores(business_name, trn_code, user_id)')
         .eq('id', String(productId))
         .maybeSingle();
       if (active) {
@@ -64,6 +66,8 @@ export default function ReportProductScreen() {
       active = false;
     };
   }, [productId]);
+
+  const isOwnProduct = Boolean(session?.user?.id && product?.stores?.user_id === session.user.id);
 
   const handleSubmit = async () => {
     if (!product) return;
@@ -110,6 +114,15 @@ export default function ReportProductScreen() {
             icon="basket-outline"
             title="Product not found"
             text="We couldn't find that product to report."
+            action={<Button title="Go back" onPress={() => router.back()} small />}
+          />
+        </View>
+      ) : isOwnProduct ? (
+        <View style={styles.pad}>
+          <EmptyState
+            icon="shield-checkmark-outline"
+            title="This is your own product"
+            text="Business owners cannot report their own product listings."
             action={<Button title="Go back" onPress={() => router.back()} small />}
           />
         </View>

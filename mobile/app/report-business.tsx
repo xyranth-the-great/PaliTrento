@@ -15,12 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Card, EmptyState, Field, ScreenHeader, StatusPill } from '../components/ui';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { BUSINESS_REPORT_REASONS, submitBusinessReport } from '../lib/support';
 import { COLORS, FONTS, RADIUS } from '../lib/theme';
 
 interface StorePreview {
   id: string;
+  user_id?: string | null;
   business_name: string;
   trn_code: string;
   barangay: string;
@@ -31,6 +33,7 @@ export default function ReportBusinessScreen() {
   const { storeId } = useLocalSearchParams<{ storeId: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
 
   const [store, setStore] = useState<StorePreview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,7 +51,7 @@ export default function ReportBusinessScreen() {
       }
       const { data } = await supabase
         .from('stores')
-        .select('id, business_name, trn_code, barangay, verification_status')
+        .select('id, user_id, business_name, trn_code, barangay, verification_status')
         .eq('id', String(storeId))
         .maybeSingle();
       if (active) {
@@ -60,6 +63,8 @@ export default function ReportBusinessScreen() {
       active = false;
     };
   }, [storeId]);
+
+  const isOwnStore = Boolean(session?.user?.id && store?.user_id === session.user.id);
 
   const handleSubmit = async () => {
     if (!store) return;
@@ -103,6 +108,15 @@ export default function ReportBusinessScreen() {
             icon="storefront-outline"
             title="Business not found"
             text="We couldn't find that business to report."
+            action={<Button title="Go back" onPress={() => router.back()} small />}
+          />
+        </View>
+      ) : isOwnStore ? (
+        <View style={styles.pad}>
+          <EmptyState
+            icon="shield-checkmark-outline"
+            title="This is your own business"
+            text="Business owners cannot report their own store."
             action={<Button title="Go back" onPress={() => router.back()} small />}
           />
         </View>

@@ -85,7 +85,7 @@ if (!s) {
         <div>${openPill(s)}${badges(s)}</div>
         <p style="margin-top:16px"><a class="btn" href="tel:${esc(tel)}">Call ${esc(tel)}</a>
         <a class="btn alt" href="https://www.openstreetmap.org/directions?to=${s.lat}%2C${s.lng}" target="_blank" rel="noopener">Get directions</a>
-        ${session && (s.certificate_status === 'APPROVED' || s.approval_status === 'APPROVED') ? `<a class="btn alt" href="/report-business/?storeId=${encodeURIComponent(s.id)}">Report Business</a>` : ''}</p>
+        ${session && session.user.id !== s.user_id && (s.certificate_status === 'APPROVED' || s.approval_status === 'APPROVED') ? `<a class="btn alt" href="/report-business/?storeId=${encodeURIComponent(s.id)}">Report Business</a>` : ''}</p>
       </div>
       ${s.storefront_image_url ? `<img class="business-storefront" src="${esc(s.storefront_image_url)}" alt="${esc(s.business_name)} storefront" loading="eager" decoding="async">` : ''}
     </div>
