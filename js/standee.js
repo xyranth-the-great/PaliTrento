@@ -224,7 +224,7 @@ async function initMapCapture() {
     // Create map
     const map = L.map(mapContainer, {
       center: [s.lat, s.lng],
-      zoom: 18, // Higher zoom = more detail, closer view
+      zoom: 17, // Clear street + landmark context for printed standee
       zoomControl: false,
       attributionControl: false,
       dragging: false,
@@ -235,9 +235,9 @@ async function initMapCapture() {
       tap: false,
     });
 
-    // Use MapTiler tiles with API key (CORS enabled)
-    L.tileLayer('https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=SDGX4tTeBecuKwo7Vs1s', {
-      maxZoom: 20,
+    // Use keyless OpenStreetMap tiles (CORS enabled: Access-Control-Allow-Origin: *)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
       crossOrigin: 'anonymous',
     }).addTo(map);
 
@@ -276,6 +276,7 @@ async function initMapCapture() {
     console.log('[Standee] Map size:', mapSize.x, 'x', mapSize.y);
 
     // Draw tile layer
+    let drawnTiles = 0;
     const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
     if (tilePane) {
       const tiles = tilePane.querySelectorAll('img');
@@ -291,8 +292,16 @@ async function initMapCapture() {
             rect.width,
             rect.height
           );
+          drawnTiles++;
         }
       }
+    }
+
+    if (drawnTiles === 0) {
+      console.warn('[Standee] No map tiles loaded; using clean vector pin fallback');
+      mapDataUrl = null;
+      map.remove();
+      return;
     }
 
     // Draw marker at calculated position
